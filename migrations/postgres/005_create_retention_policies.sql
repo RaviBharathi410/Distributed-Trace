@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS retention_policies (
+    id UUID PRIMARY KEY,
+    org_id UUID NOT NULL UNIQUE,
+    retention_days INTEGER NOT NULL DEFAULT 30,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
