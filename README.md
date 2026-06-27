@@ -1,75 +1,87 @@
-# React + TypeScript + Vite
+# DistributedTrace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+DistributedTrace is a production-grade, multi-region observability platform designed for modern cloud-native infrastructure. It ingests OpenTelemetry spans, correlates traces using probabilistic causal inference, and surfaces anomalies in under 500ms.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Real-time Trace Streaming:** View a live feed of traces across your microservices architecture.
+- **Service Dependency Graph:** Automatically visualize the topology of your services, highlighting latency and error bottlenecks.
+- **Causal Anomaly Detection:** Instantly identify the root cause of latency spikes or error storms with our intelligent correlation engine.
+- **Multi-Region Support:** Built for global scale, capable of ingesting data from `us-east-1`, `eu-west-1`, and beyond seamlessly.
+- **Extremely High Throughput:** Powered by Kafka and ClickHouse, capable of handling 50K+ spans/sec ingest and petabytes of compressed trace storage.
+- **RBAC & Security:** Robust role-based access control, secure API keys, and comprehensive audit logging.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend
+- **Framework:** React 18 with TypeScript
+- **Build Tool:** Vite
+- **Styling:** Tailwind CSS + custom CSS animations
+- **Icons:** Lucide React
 
-## Expanding the ESLint configuration
+### Backend (Under Construction)
+- **Language:** Go (Golang) 1.22
+- **Router:** Chi Router
+- **WebSockets:** Gorilla WebSocket for live streaming
+- **Telemetry:** OpenTelemetry (OTLP)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Infrastructure & Data stores
+- **Relational DB:** PostgreSQL (Users, Organizations, API Keys, Configuration)
+- **Columnar DB:** ClickHouse (High-volume Spans, Metrics, Anomalies)
+- **Message Broker:** Apache Kafka (Ingestion pipeline buffering)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Getting Started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Prerequisites
+- Node.js (v18+)
+- Go (v1.22+)
+- Docker & Docker Compose (for local infrastructure)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Running the Frontend Locally
 
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the Vite development server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser and navigate to `http://localhost:5173`
+
+### Backend Setup
+
+*Note: The backend is currently in active development.*
+
+The backend relies on PostgreSQL and ClickHouse. Migrations for both databases are located in the `/migrations/` directory.
+
+To run the backend (once fully implemented):
+```bash
+go run cmd/server/main.go
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Project Structure
 
 ```
+├── cmd/
+│   └── server/          # Go application entrypoint
+├── internal/
+│   ├── auth/            # JWT & Hashing
+│   ├── config/          # Environment configuration
+│   ├── domain/          # Core models (Span, User, Anomaly, etc.)
+│   ├── observability/   # OpenTelemetry & Zap Logging setup
+│   └── repository/      # ClickHouse & PostgreSQL data access
+├── migrations/
+│   ├── clickhouse/      # Schema for analytical data
+│   └── postgres/        # Schema for relational data
+├── public/              # Static assets (images, fonts)
+└── src/
+    ├── components/      # React components (Dashboard, Modals, etc.)
+    ├── pages/           # React views
+    └── SecurifyApp.tsx  # Main React entrypoint
+```
+
+## License
+
+MIT License. See `LICENSE` for more information.

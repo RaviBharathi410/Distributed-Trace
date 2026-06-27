@@ -22,3 +22,34 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Go
+bin/
+obj/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Environment variables
+.env
+.env.test
+.env.production
+.env.local
+
+# Build output
+/build
+/bin
+
+# Test coverage
+coverage.out
+coverage/
+
+# Misc
+tmp/
+*.sqlite
+*.sqlite3
