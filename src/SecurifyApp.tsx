@@ -113,14 +113,14 @@ const LandingPage: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) =
         style={{ '--mx': heroMouse.x, '--my': heroMouse.y } as React.CSSProperties}>
         <div className="absolute inset-0 w-full h-full hero-video-wrapper overflow-hidden flex items-center justify-center"
           style={{
-            transform: 'translate(calc(var(--mx) * 8px), calc(var(--my) * 5px))',
+            transform: 'translate(calc(var(--mx) * 5px), calc(var(--my) * 3px))',
             transition: 'transform 0.1s linear',
           }}>
           <img
             src="/bg.png"
             alt=""
             className="w-full h-full object-contain scale-[0.90]"
-            style={{ transform: "translateX(60px) translateY(50px)" }}
+            style={{ transform: "translateX(120px) translateY(30px)" }}
           />
         </div>
 
@@ -154,67 +154,46 @@ const LandingPage: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) =
 
         {/* HERO CONTENT */}
         <div className="relative h-full w-full z-10 pointer-events-none">
-
-          {/* "trace" */}
-          <h1 aria-label="trace every request">
-            <span
-              aria-hidden="true"
-              className="hero-word absolute text-white font-bold leading-none select-none"
-              style={{
-                fontSize: 'clamp(80px, 9vw, 180px)',
-                left: '10vw',
-                top: '13vh',
-                letterSpacing: '-0.04em',
-                textShadow: '0 4px 40px rgba(0,0,0,0.8)',
-                animation: 'fadeSlideLeft 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
-              }}
-            >trace</span>
-
-            {/* "every" */}
-            <span
-              aria-hidden="true"
-              className="hero-word absolute text-white font-bold leading-none select-none"
-              style={{
-                fontSize: 'clamp(80px, 9vw, 180px)',
-                left: '18vw',
-                top: '43vh',
-                letterSpacing: '-0.04em',
-                textShadow: '0 4px 40px rgba(0,0,0,0.8)',
-                animation: 'fadeSlideRight 700ms cubic-bezier(0.16, 1, 0.3, 1) 200ms forwards',
-                opacity: 0,
-              }}
-            >every</span>
-
-            {/* "request" */}
-            <span
-              aria-hidden="true"
-              className="hero-word absolute text-white font-bold leading-none select-none"
-              style={{
-                fontSize: 'clamp(80px, 7vw, 180px)',
-                right: '2vw',
-                bottom: '8vh',
-                letterSpacing: '-0.04em',
-                textShadow: '0 4px 40px rgba(0,0,0,0.8)',
-                animation: 'fadeSlideLeft 700ms cubic-bezier(0.16, 1, 0.3, 1) 400ms forwards',
-                opacity: 0,
-              }}
-            >request</span>
-          </h1>
-
-          {/* Description */}
-          <p
-            className="absolute text-white/70 leading-relaxed pointer-events-none select-none"
+          <div
+            className="absolute left-[4vw] top-[45vh] -translate-y-1/2 flex flex-col select-none"
             style={{
-              fontSize: '11px',
-              left: '6vw',
-              top: '35vh',
-              maxWidth: '220px',
-              textShadow: '0 2px 8px rgba(0,0,0,1)',
-              animation: 'fadeIn 800ms ease 600ms both',
+              textShadow: '0 4px 40px rgba(0,0,0,0.8)',
+               transform: 'translate(calc(var(--mx) * 5px), calc(var(--my) * 3px))',
+            transition: 'transform 0.1s linear',
             }}
           >
-            production-grade observability platform that ingests OpenTelemetry spans across 3+ geographic regions, correlates traces using probabilistic causal inference, and surfaces anomalies in under 500ms.
-          </p>
+            <h1 aria-label="trace every request" className="flex flex-col gap-[20px] leading-[0.86] tracking-[-0.06em]">
+              <span
+                aria-hidden="true"
+                className="hero-word block text-white/80 font-bold"
+                style={{
+                  fontSize: 'clamp(90px, 10vw, 110px)',
+                  animation: 'fadeSlideLeft 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                  opacity: 0,
+                }}
+              >trace</span>
+
+              <span
+                aria-hidden="true"
+                className="hero-word block text-white/80 font-bold"
+                style={{
+                  fontSize: 'clamp(90px, 10vw, 110px)',
+                  animation: 'fadeSlideRight 700ms cubic-bezier(0.16, 1, 0.3, 1) 160ms forwards',
+                  opacity: 0,
+                }}
+              >every</span>
+
+              <span
+                aria-hidden="true"
+                className="hero-word block font-bold text-white/80"
+                style={{
+                  fontSize: 'clamp(90px, 10vw, 110px)',
+                  animation: 'fadeSlideLeft 700ms cubic-bezier(0.16, 1, 0.3, 1) 320ms forwards',
+                  opacity: 0,
+                }}
+              >request</span>
+            </h1>
+          </div>
 
           {/* 50K stat — top right */}
           <div
@@ -224,6 +203,8 @@ const LandingPage: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) =
               top: '12vh',
               textShadow: '0 2px 20px rgba(0,0,0,1)',
               animation: 'fadeIn 800ms ease 400ms both',
+              transform: 'translate(calc(var(--mx) * 5px), calc(var(--my) * 3px))',
+            transition: 'transform 0.1s linear',
             }}
           >
             <div className="h-[1px] w-16 bg-white/30 rotate-[-15deg] mt-6" />
@@ -246,6 +227,8 @@ const LandingPage: React.FC<{ onGetStarted: () => void }> = ({ onGetStarted }) =
               bottom: '12vh',
               textShadow: '0 2px 20px rgba(0,0,0,1)',
               animation: 'fadeIn 800ms ease 700ms both',
+              transform: 'translate(calc(var(--mx) * 5px), calc(var(--my) * 3px))',
+            transition: 'transform 0.1s linear',
             }}
           >
             <div className="flex flex-col">
