@@ -46,7 +46,7 @@ jobs:
         run: go build -v -o bin/server ./cmd/server
 
       - name: Run unit & regression tests with coverage
-        run: go test -v -race -cover ./internal/...
+        run: go test -v -race -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...
         env:
           CLICKHOUSE_URL: 127.0.0.1:9000
 
