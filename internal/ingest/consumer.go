@@ -148,6 +148,33 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 	var spansBuffer []domain.Span
 	var msgsBuffer []kafka.Message
 
+	var consecutiveErrors int
+	const (
+		initialBackoff = 200 * time.Millisecond
+		maxBackoff     = 10 * time.Second
+	)
+
+	applyBackoff := func() {
+		consecutiveErrors++
+		shift := consecutiveErrors - 1
+		if shift > 6 {
+			shift = 6
+		}
+		backoff := initialBackoff * time.Duration(1<<uint(shift))
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+		observability.Log.Warn("Applying exponential backoff after downstream persistence failure",
+			zap.Int("consecutive_errors", consecutiveErrors),
+			zap.Duration("backoff", backoff),
+		)
+		select {
+		case <-time.After(backoff):
+		case <-ctx.Done():
+		case <-c.stopCh:
+		}
+	}
+
 	flush := func() error {
 		if len(spansBuffer) == 0 {
 			return nil
@@ -168,6 +195,7 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to commit messages to Kafka: %w", err)
 		}
 
+		consecutiveErrors = 0
 		observability.KafkaMessagesConsumed.WithLabelValues(c.cfg.Topic, "ok").Add(float64(len(spansBuffer)))
 		spansBuffer = spansBuffer[:0]
 		msgsBuffer = msgsBuffer[:0]
@@ -225,7 +253,7 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 			if len(spansBuffer) >= c.cfg.BatchSize {
 				if err := flush(); err != nil {
 					observability.Log.Error("Consumer batch flush failed", zap.Error(err))
-					time.Sleep(200 * time.Millisecond)
+					applyBackoff()
 				}
 			}
 
@@ -233,6 +261,7 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 			if len(spansBuffer) > 0 {
 				if err := flush(); err != nil {
 					observability.Log.Error("Consumer interval flush failed", zap.Error(err))
+					applyBackoff()
 				}
 			}
 		}

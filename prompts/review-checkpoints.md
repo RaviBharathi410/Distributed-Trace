@@ -135,31 +135,42 @@
      - Poison pill handling: commits malformed payloads without halting partition consumption.
      - Graceful shutdown: flushes remaining buffer to ClickHouse and commits offsets upon context cancellation.
      - Added unit tests in [`internal/ingest/consumer_test.go`](file:///d:/Projects/DistributedTrace/internal/ingest/consumer_test.go) verifying batch size flush, ticker flush, offset safety on ClickHouse failure, and malformed payload commit.
-  3. **End-to-End Pipeline & Multi-Tenant Routing Test:**
+  3. **Live Redpanda Integration Test & Offset Safety Verification:**
+     - Created [`internal/ingest/redpanda_integration_test.go`](file:///d:/Projects/DistributedTrace/internal/ingest/redpanda_integration_test.go) (`TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart`).
+     - Produces real spans to a live Redpanda topic via `SpanProducer`.
+     - Simulates mid-batch downstream database failure on Consumer 1, proving offsets are not committed.
+     - Restarts Consumer 2 on the same consumer group, proving in-flight spans are re-delivered and persisted without loss.
+     - Starts Consumer 3 on the same consumer group, proving zero spans are re-processed once offsets are committed.
+     - Configured Redpanda service startup step in [`.github/workflows/ci.yml`](file:///d:/Projects/DistributedTrace/.github/workflows/ci.yml) to execute in remote CI alongside ClickHouse.
+  4. **Exponential Backoff on Downstream Failures (Decision #21):**
+     - Implemented exponential backoff with capped jitter (200ms up to 10s) in [`internal/ingest/consumer.go`](file:///d:/Projects/DistributedTrace/internal/ingest/consumer.go) on consecutive ClickHouse persistence failures, preventing CPU spinning and log spam during extended outages.
+  5. **End-to-End Pipeline & Multi-Tenant Routing Test:**
      - Created [`internal/ingest/pipeline_test.go`](file:///d:/Projects/DistributedTrace/internal/ingest/pipeline_test.go) (`TestEndToEndIngestionPipeline_TenantIsolationAndBatchCommit`).
      - Simulates multi-tenant span batches from Org A and Org B, passes through Kafka message transport, exercises consumer batching and ClickHouse persistence, and verifies offset commitment and tenant isolation in persisted batch rows.
-  4. **Live Settings Tab API Key Management (`src/components/dashboard/SettingsTab.tsx`):**
+  6. **Live Settings Tab API Key Management (`src/components/dashboard/SettingsTab.tsx`):**
      - Replaced hardcoded mockup generator and placeholder rows in [`src/components/dashboard/SettingsTab.tsx`](file:///d:/Projects/DistributedTrace/src/components/dashboard/SettingsTab.tsx) with `@tanstack/react-query` hooks.
      - Connected to backend endpoints: `GET /api/v1/auth/api-keys`, `POST /api/v1/auth/api-keys`, and `DELETE /api/v1/auth/api-keys/{id}`.
      - Modal form allows naming keys and choosing between Production (`dt_live_...`) and Test (`dt_test_...`) scopes.
      - One-time secret reveal dialog with copy button and cURL invocation example.
      - Interactive revocation with confirmation dialog, loading spinners, and active/revoked badges.
-  5. **Server Lifecycle & Observability Integration:**
+  7. **Async Ingestion UX Polling & Pipeline Drain Feedback:**
+     - Updated [`src/components/dashboard/TracesTab.tsx`](file:///d:/Projects/DistributedTrace/src/components/dashboard/TracesTab.tsx) with `pipelineFlushing` state and staggered query invalidation (immediate, +1.2s, +2.5s) to smoothly handle the Kafka buffer flush window, preventing empty flash when sending sample spans.
+  8. **Server Lifecycle & Observability Integration:**
      - Wired `SpanProducer` and `SpanConsumer` into [`cmd/server/main.go`](file:///d:/Projects/DistributedTrace/cmd/server/main.go) under `cfg.KafkaBrokers`.
      - Integrated consumer buffer draining and producer close into graceful server shutdown.
      - Added `KafkaMessagesConsumed` counter and `KafkaConsumerBatchDuration` histogram to [`internal/observability/metrics.go`](file:///d:/Projects/DistributedTrace/internal/observability/metrics.go).
      - Initialized global `Log` to `zap.NewNop()` in [`internal/observability/logger.go`](file:///d:/Projects/DistributedTrace/internal/observability/logger.go) to safeguard against uninitialized logging in tests.
 - **Verification Evidence (Commands Run):**
-  - `go test -v -count=1 -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...` -> Exited 0 (**All tests passing, 0 failures, 0 skips**).
+  - `go test -v -count=1 -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...` -> Exited 0 (**All tests passing, 0 failures**).
   - **Statement Coverage on Touched Systems (Target >= 50%):**
-    - `internal/ingest`: **67.5%** (up from 66.1%)
+    - `internal/ingest`: **69.0%** (up from 66.1%)
     - `internal/api`: **62.1%** (up from 60.9%)
     - `internal/auth`: **56.3%**
     - `internal/repository/clickhouse`: **51.7%**
   - `go build ./...` -> Exited 0.
   - `go build -o bin/server.exe ./cmd/server` -> Exited 0.
   - `npx eslint . --ext ts,tsx` -> Exited 0 (0 errors, 0 warnings).
-  - `npm run build` -> Exited 0 (`dist/` built cleanly in 698ms).
+  - `npm run build` -> Exited 0 (`dist/` built cleanly in 3.88s).
 - **Next Checkpoint's Exit Criteria (Phase 3 — Causal Analysis & Anomaly Detection Pipeline):**
   1. Statistical baseline calculation for service latency (mean, standard deviation, z-score detection).
   2. Causal graph traversal identifying root cause service when downstream latency anomalies occur.

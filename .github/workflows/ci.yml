@@ -45,10 +45,23 @@ jobs:
       - name: Build standalone server binary
         run: go build -v -o bin/server ./cmd/server
 
+      - name: Start Redpanda test broker
+        run: |
+          docker compose up -d redpanda
+          for i in $(seq 1 30); do
+            if nc -z localhost 9092 2>/dev/null; then
+              echo "Redpanda broker ready on port 9092"
+              break
+            fi
+            echo "Waiting for Redpanda..."
+            sleep 1
+          done
+
       - name: Run unit & regression tests with coverage
         run: go test -v -race -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...
         env:
           CLICKHOUSE_URL: 127.0.0.1:9000
+          KAFKA_BROKERS: 127.0.0.1:9092
 
   frontend:
     name: Frontend (Node 20 / Vite)

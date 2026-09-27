@@ -135,6 +135,8 @@ export const TracesTab: React.FC = () => {
     enabled: !!expandedTraceId,
   });
 
+  const [pipelineFlushing, setPipelineFlushing] = useState(false);
+
   // Ingest sample telemetry mutation
   const ingestMutation = useMutation({
     mutationFn: async () => {
@@ -170,8 +172,21 @@ export const TracesTab: React.FC = () => {
       return spansApi.ingest(sampleBatch);
     },
     onSuccess: () => {
+      setPipelineFlushing(true);
       queryClient.invalidateQueries({ queryKey: ['traces'] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
+
+      // Staggered invalidations to smoothly catch Kafka batch consumer flush window (~1s)
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['traces'] });
+        queryClient.invalidateQueries({ queryKey: ['services'] });
+        setPipelineFlushing(false);
+      }, 1200);
+
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['traces'] });
+        queryClient.invalidateQueries({ queryKey: ['services'] });
+      }, 2500);
     },
   });
 
@@ -248,12 +263,21 @@ export const TracesTab: React.FC = () => {
 
         <button
           onClick={() => ingestMutation.mutate()}
-          disabled={ingestMutation.isPending}
-          className="flex items-center gap-2 text-xs font-medium text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 rounded px-3 py-2 h-[34px] transition-colors"
+          disabled={ingestMutation.isPending || pipelineFlushing}
+          className="flex items-center gap-2 text-xs font-medium text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 rounded px-3 py-2 h-[34px] transition-colors disabled:opacity-60"
           title="Send real test telemetry batch to POST /api/v1/spans"
         >
-          {ingestMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-          <span>Send Sample Span</span>
+          {ingestMutation.isPending || pipelineFlushing ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>{ingestMutation.isPending ? 'Sending...' : 'Queued (Flushing...)'}</span>
+            </>
+          ) : (
+            <>
+              <Send className="w-3.5 h-3.5" />
+              <span>Send Sample Span</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -386,9 +410,17 @@ export const TracesTab: React.FC = () => {
             <p className="text-sm">No traces found for the current query.</p>
             <button
               onClick={() => ingestMutation.mutate()}
-              className="mt-2 text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded border border-emerald-500/30 transition-colors"
+              disabled={ingestMutation.isPending || pipelineFlushing}
+              className="mt-2 text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded border border-emerald-500/30 transition-colors disabled:opacity-60 inline-flex items-center gap-1.5"
             >
-              Send Sample Telemetry Span to Database
+              {ingestMutation.isPending || pipelineFlushing ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>{ingestMutation.isPending ? 'Sending Telemetry...' : 'Queued (Flushing to ClickHouse...)'}</span>
+                </>
+              ) : (
+                'Send Sample Telemetry Span to Database'
+              )}
             </button>
           </div>
         )}
