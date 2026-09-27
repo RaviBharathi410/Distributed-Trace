@@ -228,6 +228,26 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 	}()
 
 	for {
+		// Strict Upstream Backpressure:
+		// If spansBuffer has reached or exceeded batch capacity, do NOT pull any more messages from msgCh.
+		// Attempt flush; if flush fails due to downstream outage, applyBackoff() and loop without ingesting more.
+		// Because msgCh (capacity batchSize) remains full, the fetch goroutine blocks on msgCh <- msg,
+		// pausing reader.FetchMessage and pushing backpressure directly to the Kafka partition.
+		if len(spansBuffer) >= c.cfg.BatchSize {
+			if err := flush(); err != nil {
+				observability.Log.Error("Consumer batch flush failed under backpressure", zap.Error(err))
+				applyBackoff()
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-c.stopCh:
+					return nil
+				default:
+				}
+			}
+			continue
+		}
+
 		select {
 		case <-ctx.Done():
 			return nil

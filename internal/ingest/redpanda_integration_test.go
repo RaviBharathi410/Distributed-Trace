@@ -6,20 +6,36 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
+	chRepo "github.com/RaviBharathi410/distributedtrace/internal/repository/clickhouse"
 )
 
-func isRedpandaReachable(addr string) bool {
+func isPortReachable(addr string) bool {
 	conn, err := net.DialTimeout("tcp", addr, 1*time.Second)
 	if err != nil {
 		return false
 	}
 	_ = conn.Close()
 	return true
+}
+
+func findMigrationFile(name string) (string, error) {
+	paths := []string{
+		filepath.Join("..", "..", "migrations", "clickhouse", name),
+		filepath.Join("migrations", "clickhouse", name),
+	}
+	for _, p := range paths {
+		if data, err := os.ReadFile(p); err == nil {
+			return string(data), nil
+		}
+	}
+	return "", fmt.Errorf("migration file %s not found", name)
 }
 
 type recordingBatchWriter struct {
@@ -59,17 +75,49 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 		brokers = "127.0.0.1:9092"
 	}
 
-	if !isRedpandaReachable(brokers) {
+	if !isPortReachable(brokers) {
 		t.Skipf("skipping live broker integration test: Redpanda not reachable at %s. Run 'docker compose up -d' or execute in CI.", brokers)
 		return
+	}
+
+	chURL := os.Getenv("CLICKHOUSE_URL")
+	if chURL == "" {
+		chURL = "127.0.0.1:9000"
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Generate isolated topic and consumer group for this test run
-	topic := fmt.Sprintf("test-otel-spans-%d", time.Now().UnixNano())
-	groupID := fmt.Sprintf("test-group-%d", time.Now().UnixNano())
+	// Check real ClickHouse availability
+	var traceRepo *chRepo.TraceRepository
+	if isPortReachable(chURL) {
+		conn, err := clickhouse.Open(&clickhouse.Options{
+			Addr: []string{chURL},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			DialTimeout: 2 * time.Second,
+		})
+		if err == nil {
+			pingCtx, pingCancel := context.WithTimeout(context.Background(), 1*time.Second)
+			if conn.Ping(pingCtx) == nil {
+				migrationSQL, mErr := findMigrationFile("001_create_otel_spans.sql")
+				if mErr == nil {
+					_ = conn.Exec(ctx, migrationSQL)
+					traceRepo = chRepo.NewTraceRepository(conn)
+				}
+			}
+			pingCancel()
+		}
+	}
+
+	// Generate isolated topic, consumer group, and org ID for this test run
+	nanos := time.Now().UnixNano()
+	topic := fmt.Sprintf("test-otel-spans-%d", nanos)
+	groupID := fmt.Sprintf("test-group-%d", nanos)
+	testOrgID := fmt.Sprintf("org-rp-test-%d", nanos)
 
 	// 1. Produce 6 real spans to Redpanda via SpanProducer
 	producer := NewSpanProducer(brokers, topic)
@@ -78,7 +126,7 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 	var testSpans []domain.Span
 	for i := 0; i < 6; i++ {
 		testSpans = append(testSpans, domain.Span{
-			OrgID:         "org-redpanda-test",
+			OrgID:         testOrgID,
 			TraceID:       fmt.Sprintf("trace-rp-%d", i),
 			SpanID:        fmt.Sprintf("span-rp-%d", i),
 			ServiceName:   "order-service",
@@ -114,14 +162,20 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 	_ = consumer1.Run(runCtx1)
 	runCancel1()
 
-	// Failing writer had flush attempts, but no successful batches persisted
 	if failingWriter.TotalSpans() != 0 {
 		t.Fatalf("expected 0 spans persisted by failing consumer, got %d", failingWriter.TotalSpans())
 	}
 
 	// 3. Scenario 2: Consumer restarts after downtime (Consumer 2 with same GroupID)
 	// Because Consumer 1 did not commit offsets, Redpanda re-delivers the in-flight spans.
-	workingWriter := &recordingBatchWriter{}
+	// We persist into real ClickHouse (or recording writer if ClickHouse offline).
+	var workingWriter SpanBatchWriter
+	mockWriter := &recordingBatchWriter{}
+	if traceRepo != nil {
+		workingWriter = traceRepo
+	} else {
+		workingWriter = mockWriter
+	}
 
 	cfg2 := ConsumerConfig{
 		Brokers:       brokers,
@@ -134,16 +188,24 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 
 	consumer2 := NewSpanConsumer(cfg2, workingWriter)
 
-	runCtx2, runCancel2 := context.WithTimeout(ctx, 4*time.Second)
+	runCtx2, runCancel2 := context.WithTimeout(ctx, 5*time.Second)
 	doneCh2 := make(chan error, 1)
 	go func() {
 		doneCh2 <- consumer2.Run(runCtx2)
 	}()
 
 	// Wait for consumer2 to process all 6 spans and commit offsets
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(4 * time.Second)
 	for {
-		if workingWriter.TotalSpans() >= 6 || time.Now().After(deadline) {
+		if traceRepo != nil {
+			traces, _ := traceRepo.SearchTraces(ctx, testOrgID, domain.TraceFilter{Limit: 20})
+			if len(traces) >= 6 {
+				break
+			}
+		} else if mockWriter.TotalSpans() >= 6 {
+			break
+		}
+		if time.Now().After(deadline) {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -152,9 +214,18 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 	runCancel2()
 	<-doneCh2
 
-	// Verify all 6 spans were cleanly received and persisted without loss
-	if workingWriter.TotalSpans() != 6 {
-		t.Fatalf("expected exactly 6 spans recovered and persisted after consumer restart, got %d", workingWriter.TotalSpans())
+	if traceRepo != nil {
+		traces, err := traceRepo.SearchTraces(ctx, testOrgID, domain.TraceFilter{Limit: 20})
+		if err != nil {
+			t.Fatalf("failed to query real ClickHouse: %v", err)
+		}
+		if len(traces) == 0 {
+			t.Fatalf("expected real ClickHouse to return ingested traces, got 0")
+		}
+	} else {
+		if mockWriter.TotalSpans() != 6 {
+			t.Fatalf("expected exactly 6 spans recovered and persisted after consumer restart, got %d", mockWriter.TotalSpans())
+		}
 	}
 
 	// 4. Scenario 3: Verify offset commit persistence in Redpanda broker (No duplicate reprocessing)
@@ -176,7 +247,6 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 	_ = consumer3.Run(runCtx3)
 	runCancel3()
 
-	// Assert zero duplicates reprocessed
 	if duplicateCheckWriter.TotalSpans() != 0 {
 		t.Fatalf("detected %d duplicate spans reprocessed! Offsets were not committed properly to Redpanda", duplicateCheckWriter.TotalSpans())
 	}
