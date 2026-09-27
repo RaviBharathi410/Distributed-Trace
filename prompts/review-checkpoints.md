@@ -160,17 +160,24 @@
      - Integrated consumer buffer draining and producer close into graceful server shutdown.
      - Added `KafkaMessagesConsumed` counter and `KafkaConsumerBatchDuration` histogram to [`internal/observability/metrics.go`](file:///d:/Projects/DistributedTrace/internal/observability/metrics.go).
      - Initialized global `Log` to `zap.NewNop()` in [`internal/observability/logger.go`](file:///d:/Projects/DistributedTrace/internal/observability/logger.go) to safeguard against uninitialized logging in tests.
-- **Verification Evidence (Commands Run):**
-  - `go test -v -count=1 -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...` -> Exited 0 (**All tests passing, 0 failures**).
-  - **Statement Coverage on Touched Systems (Target >= 50%):**
-    - `internal/ingest`: **69.0%** (up from 66.1%)
-    - `internal/api`: **62.1%** (up from 60.9%)
-    - `internal/auth`: **56.3%**
-    - `internal/repository/clickhouse`: **51.7%**
-  - `go build ./...` -> Exited 0.
-  - `go build -o bin/server.exe ./cmd/server` -> Exited 0.
-  - `npx eslint . --ext ts,tsx` -> Exited 0 (0 errors, 0 warnings).
-  - `npm run build` -> Exited 0 (`dist/` built cleanly in 3.88s).
+- **Verification Evidence (Commands Run & CI Runs):**
+  - **Remote CI Run #7 (Head SHA `5c0e44e`):** **SUCCESS (All Green)**
+    - Run URL: [https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36334541422](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36334541422)
+    - Frontend Job: `Frontend (Node 20 / Vite)` -> **Success** (ESLint + TypeScript typecheck + Vite build in 22s).
+    - Backend Job: `Backend (Go 1.22)` -> **Success** (Go build + Standalone server + Redpanda cluster ready + Live unit, regression, and dual-engine ClickHouse + Redpanda integration tests with race detector and coverage in 1m 27s).
+  - **Diagnostic & Fix Summary for Remote CI Failure (Run #6 -> Run #7):**
+    1. **ClickHouse Strict Column Scan Coercion (`internal/repository/clickhouse/traces.go`):** In `SearchTraces`, `count()` and `sum(status_code = 2)` return `UInt64` in ClickHouse. `clickhouse-go/v2` rejected scanning `UInt64` directly into signed Go `*int` pointers (`&tr.SpanCount`, `&tr.ErrorCount`). Added intermediate `uint64` buffer variables and cast cleanly into `TraceRow`.
+    2. **Kafka Dynamic Topic Auto-Creation (`internal/ingest/producer.go`):** `kafka.Writer` defaults `AllowAutoTopicCreation` to `false`. Added `AllowAutoTopicCreation: true` to enable dynamic test topic registration against Redpanda.
+    3. **Consumer Latency (`internal/ingest/consumer.go`):** Set `MinBytes: 1` (was `10e3`) so low-volume span batches consume immediately without idling for `MaxWait`.
+    4. **Redpanda Cluster Healthiness in CI (`.github/workflows/ci.yml`):** Replaced port-only `nc -z` probe with `docker compose exec -T redpanda rpk cluster health | grep -q 'HEALTHY'`, guaranteeing internal Raft leader election before test execution.
+    5. **Test Retries & Timing (`internal/ingest/redpanda_integration_test.go`):** Added a 5-attempt retry loop on initial `producer.PublishSpans` to account for partition leader metadata discovery, and extended consumer restart wait deadlines.
+  - **Local Verification:**
+    - `go test -v -count=1 -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...` -> Exited 0 (**All tests passing, 0 failures**).
+    - Statement coverage: `internal/ingest`: **69.0%**, `internal/api`: **62.1%**, `internal/auth`: **56.3%**, `internal/repository/clickhouse`: **51.7%**.
+    - `go build ./...` -> Exited 0.
+    - `go build -o bin/server.exe ./cmd/server` -> Exited 0.
+    - `npx eslint . --ext ts,tsx` -> Exited 0 (0 errors, 0 warnings).
+    - `npm run build` -> Exited 0 (`dist/` built cleanly in 3.88s).
 - **Next Checkpoint's Exit Criteria (Phase 3 — Causal Analysis & Anomaly Detection Pipeline):**
   1. Statistical baseline calculation for service latency (mean, standard deviation, z-score detection).
   2. Causal graph traversal identifying root cause service when downstream latency anomalies occur.
