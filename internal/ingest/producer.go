@@ -9,6 +9,7 @@ import (
 
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
 	"github.com/RaviBharathi410/distributedtrace/internal/observability"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -33,10 +34,8 @@ func NewSpanProducer(brokers string, topic string) *SpanProducer {
 }
 
 func (p *SpanProducer) PublishSpans(ctx context.Context, spans []domain.Span) error {
-	timer := prometheusTimer()
-	if timer != nil {
-		defer timer.ObserveDuration()
-	}
+	timer := prometheus.NewTimer(observability.KafkaProducerLatency)
+	defer timer.ObserveDuration()
 
 	messages := make([]kafka.Message, len(spans))
 	for i, s := range spans {
@@ -64,25 +63,4 @@ func (p *SpanProducer) PublishSpans(ctx context.Context, spans []domain.Span) er
 
 func (p *SpanProducer) Close() error {
 	return p.writer.Close()
-}
-
-func prometheusTimer() *observability.TimerObserver {
-	// Utility wrapper to resolve prometheus observers safely
-	t := observability.KafkaProducerLatency
-	if t == nil {
-		return nil
-	}
-	return &observability.TimerObserver{Observer: t}
-}
-
-// Helper utility to make prometheus timing simple
-type TimerObserver struct {
-	Observer prometheus.Observer
-	start    time.Time
-}
-
-func (to *TimerObserver) ObserveDuration() {
-	if to != nil && to.Observer != nil {
-		to.Observer.Observe(time.Since(to.start).Seconds())
-	}
 }

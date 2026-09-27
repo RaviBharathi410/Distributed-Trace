@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 )
 
 func GenerateAPIKey(isProd bool) (string, string, error) {

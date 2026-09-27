@@ -8,4 +8,5 @@ CREATE TABLE IF NOT EXISTS service_metrics_hourly (
     error_rate Float64,
     request_count UInt64
 ) Engine = SummingMergeTree()
-ORDER BY (org_id, service_name, hour);
+ORDER BY (org_id, service_name, hour)
+TTL hour + INTERVAL 180 DAY;

@@ -2,7 +2,6 @@ package observability
 
 import (
 	"context"
-	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

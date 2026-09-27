@@ -16,6 +16,13 @@ func (e *ValidationError) Error() string {
 }
 
 func ValidateSpans(spans []domain.Span) error {
+	if len(spans) == 0 {
+		return &ValidationError{Errors: []string{"empty span batch"}}
+	}
+	if len(spans) > 1000 {
+		return &ValidationError{Errors: []string{"batch size exceeds maximum limit of 1000 spans"}}
+	}
+
 	var errs []string
 
 	for i, s := range spans {

@@ -41,3 +41,8 @@ func DummyVerifyPassword() {
 	dummyHash := "$2a$12$LvyW85g7p19mP6D0p/T.IeX3m6Z/6mNl6d.k8d5.g7a2zP5iTz8qW"
 	_ = bcrypt.CompareHashAndPassword([]byte(dummyHash), []byte("dummypassword123"))
 }
+
+// CheckPasswordHash compares a plaintext password with a bcrypt hash.
+func CheckPasswordHash(password, hash string) bool {
+	return VerifyPassword(password, hash) == nil
+}

@@ -18,7 +18,7 @@ func NewServiceRepository(conn clickhouse.Conn) *ServiceRepository {
 	return &ServiceRepository{conn: conn}
 }
 
-func (r *ServiceRepository) ListServices(ctx context.Context) ([]string, error) {
+func (r *ServiceRepository) ListServices(ctx context.Context, orgID string) ([]string, error) {
 	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "ListServices")
 	defer timer.ObserveDuration()
 
@@ -28,9 +28,9 @@ func (r *ServiceRepository) ListServices(ctx context.Context) ([]string, error) 
 		comment = "/* request_id=" + reqID + " */"
 	}
 
-	sql := fmt.Sprintf(`SELECT DISTINCT service_name FROM otel_spans %s`, comment)
+	sql := fmt.Sprintf(`SELECT DISTINCT service_name FROM otel_spans WHERE org_id = ? %s`, comment)
 
-	rows, err := r.conn.Query(ctx, sql)
+	rows, err := r.conn.Query(ctx, sql, orgID)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "ListServices").Inc()
 		return nil, fmt.Errorf("failed to query service names: %w", err)
@@ -48,7 +48,7 @@ func (r *ServiceRepository) ListServices(ctx context.Context) ([]string, error) 
 	return services, nil
 }
 
-func (r *ServiceRepository) GetServiceStats(ctx context.Context, serviceName string, from, to time.Time) (*domain.ServiceStats, error) {
+func (r *ServiceRepository) GetServiceStats(ctx context.Context, orgID string, serviceName string, from, to time.Time) (*domain.ServiceStats, error) {
 	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "GetServiceStats")
 	defer timer.ObserveDuration()
 
@@ -66,7 +66,7 @@ func (r *ServiceRepository) GetServiceStats(ctx context.Context, serviceName str
 			sum(status_code = 2) * 100.0 / count() as error_rate,
 			count() / (toUnixTimestamp(?) - toUnixTimestamp(?)) as request_rate
 		FROM otel_spans
-		WHERE service_name = ? AND start_time >= ? AND start_time <= ?
+		WHERE org_id = ? AND service_name = ? AND start_time >= ? AND start_time <= ?
 		%s`, comment)
 
 	var stats domain.ServiceStats
@@ -74,7 +74,7 @@ func (r *ServiceRepository) GetServiceStats(ctx context.Context, serviceName str
 	stats.TimeRangeFrom = from
 	stats.TimeRangeTo = to
 
-	err := r.conn.QueryRow(ctx, sql, to, from, serviceName, from, to).Scan(
+	err := r.conn.QueryRow(ctx, sql, to, from, orgID, serviceName, from, to).Scan(
 		&stats.P50Ms,
 		&stats.P95Ms,
 		&stats.P99Ms,
@@ -89,7 +89,7 @@ func (r *ServiceRepository) GetServiceStats(ctx context.Context, serviceName str
 	return &stats, nil
 }
 
-func (r *ServiceRepository) GetServiceGraph(ctx context.Context, from, to time.Time) (*domain.ServiceGraph, error) {
+func (r *ServiceRepository) GetServiceGraph(ctx context.Context, orgID string, from, to time.Time) (*domain.ServiceGraph, error) {
 	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "GetServiceGraph")
 	defer timer.ObserveDuration()
 
@@ -99,7 +99,7 @@ func (r *ServiceRepository) GetServiceGraph(ctx context.Context, from, to time.T
 		comment = "/* request_id=" + reqID + " */"
 	}
 
-	// 1. Build edges by matching parent_span_id with span_id of other services
+	// 1. Build edges by matching parent_span_id with span_id of other services within the same org
 	edgesSQL := fmt.Sprintf(`
 		SELECT 
 			p.service_name as source,
@@ -107,12 +107,12 @@ func (r *ServiceRepository) GetServiceGraph(ctx context.Context, from, to time.T
 			count() / (toUnixTimestamp(?) - toUnixTimestamp(?)) as rps,
 			sum(c.status_code = 2) * 100.0 / count() as error_rate
 		FROM otel_spans c
-		JOIN otel_spans p ON c.parent_span_id = p.span_id AND c.trace_id = p.trace_id
-		WHERE c.start_time >= ? AND c.start_time <= ? AND c.service_name != p.service_name
+		JOIN otel_spans p ON c.parent_span_id = p.span_id AND c.trace_id = p.trace_id AND c.org_id = p.org_id
+		WHERE c.org_id = ? AND c.start_time >= ? AND c.start_time <= ? AND c.service_name != p.service_name
 		GROUP BY source, target
 		%s`, comment)
 
-	rows, err := r.conn.Query(ctx, edgesSQL, to, from, from, to)
+	rows, err := r.conn.Query(ctx, edgesSQL, to, from, orgID, from, to)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "GetServiceGraphEdges").Inc()
 		return nil, fmt.Errorf("failed to query service graph edges: %w", err)
@@ -128,18 +128,18 @@ func (r *ServiceRepository) GetServiceGraph(ctx context.Context, from, to time.T
 		edges = append(edges, e)
 	}
 
-	// 2. Fetch service nodes with p99 and status info
+	// 2. Fetch service nodes with p99 and status info within the same org
 	nodesSQL := fmt.Sprintf(`
 		SELECT 
 			service_name,
 			quantile(0.99)(duration_ms) as p99,
 			sum(status_code = 2) * 100.0 / count() as error_rate
 		FROM otel_spans
-		WHERE start_time >= ? AND start_time <= ?
+		WHERE org_id = ? AND start_time >= ? AND start_time <= ?
 		GROUP BY service_name
 		%s`, comment)
 
-	nRows, err := r.conn.Query(ctx, nodesSQL, from, to)
+	nRows, err := r.conn.Query(ctx, nodesSQL, orgID, from, to)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "GetServiceGraphNodes").Inc()
 		return nil, fmt.Errorf("failed to query service graph nodes: %w", err)

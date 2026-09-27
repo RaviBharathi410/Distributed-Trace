@@ -20,6 +20,9 @@ func EnrichSpans(spans []domain.Span, orgID string) []domain.Span {
 		s.OrgID = orgID
 		s.ReceivedAt = now
 		s.ServiceName = NormalizeServiceName(s.ServiceName)
+		if s.Tags == nil {
+			s.Tags = make(map[string]string)
+		}
 		enriched[i] = s
 	}
 
@@ -27,10 +30,12 @@ func EnrichSpans(spans []domain.Span, orgID string) []domain.Span {
 }
 
 func NormalizeServiceName(name string) string {
+	name = strings.TrimSpace(name)
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, "_", "-")
 	name = strings.ReplaceAll(name, " ", "-")
 	// Strip anything that isn't alpha-numeric or hyphen
 	name = nonAlphaNumHyphen.ReplaceAllString(name, "")
+	name = strings.Trim(name, "-")
 	return name
 }

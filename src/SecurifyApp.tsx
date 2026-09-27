@@ -547,7 +547,7 @@ const OverviewTab: React.FC = () => {
     { name: 'eu-west-1', p99: 67, health: 'degraded' as const },
   ];
 
-  const traces = Array.from({ length: 8 }).map((_) => ({
+  const traces = Array.from({ length: 8 }).map(() => ({
     id: Math.random().toString(16).substring(2, 18),
     service: services[Math.floor(Math.random() * services.length)],
     duration: Math.floor(Math.random() * 800) + 20,

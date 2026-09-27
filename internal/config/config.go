@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -67,63 +66,67 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	cfg.DatabaseURL, err = getRequiredEnv("DATABASE_URL")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.ClickHouseURL, err = getRequiredEnv("CLICKHOUSE_URL")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.ClickHouseDB = getEnv("CLICKHOUSE_DB", "default")
-
-	cfg.RedisURL, err = getRequiredEnv("REDIS_URL")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.KafkaBrokers, err = getRequiredEnv("KAFKA_BROKERS")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.KafkaTopicSpans = getEnv("KAFKA_TOPIC_SPANS", "otel-spans")
-
-	cfg.JWTPrivateKeyPath, err = getRequiredEnv("JWT_PRIVATE_KEY_PATH")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.JWTPublicKeyPath, err = getRequiredEnv("JWT_PUBLIC_KEY_PATH")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.AllowedOrigin, err = getRequiredEnv("ALLOWED_ORIGIN")
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.Environment, err = getRequiredEnv("ENVIRONMENT")
-	if err != nil {
-		return nil, err
-	}
+	cfg.Environment = getEnv("ENVIRONMENT", "development")
 
 	if cfg.Environment == "production" {
+		cfg.DatabaseURL, err = getRequiredEnv("DATABASE_URL")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.ClickHouseURL, err = getRequiredEnv("CLICKHOUSE_URL")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.RedisURL, err = getRequiredEnv("REDIS_URL")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.KafkaBrokers, err = getRequiredEnv("KAFKA_BROKERS")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.JWTPrivateKeyPath, err = getRequiredEnv("JWT_PRIVATE_KEY_PATH")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.JWTPublicKeyPath, err = getRequiredEnv("JWT_PUBLIC_KEY_PATH")
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.AllowedOrigin, err = getRequiredEnv("ALLOWED_ORIGIN")
+		if err != nil {
+			return nil, err
+		}
+
 		cfg.AWSRegion, err = getRequiredEnv("AWS_REGION")
 		if err != nil {
 			return nil, err
 		}
+
 		cfg.AWSSecretsARN, err = getRequiredEnv("AWS_SECRETS_ARN")
 		if err != nil {
 			return nil, err
 		}
 	} else {
+		cfg.DatabaseURL = getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/distributedtrace?sslmode=disable")
+		cfg.ClickHouseURL = getEnv("CLICKHOUSE_URL", "127.0.0.1:9000")
+		cfg.RedisURL = getEnv("REDIS_URL", "redis://localhost:6379")
+		cfg.KafkaBrokers = getEnv("KAFKA_BROKERS", "localhost:9092")
+		cfg.JWTPrivateKeyPath = getEnv("JWT_PRIVATE_KEY_PATH", "")
+		cfg.JWTPublicKeyPath = getEnv("JWT_PUBLIC_KEY_PATH", "")
+		cfg.AllowedOrigin = getEnv("ALLOWED_ORIGIN", "http://localhost:5173")
 		cfg.AWSRegion = getEnv("AWS_REGION", "us-east-1")
 		cfg.AWSSecretsARN = getEnv("AWS_SECRETS_ARN", "")
 	}
+
+	cfg.ClickHouseDB = getEnv("CLICKHOUSE_DB", "default")
+	cfg.KafkaTopicSpans = getEnv("KAFKA_TOPIC_SPANS", "otel-spans")
 
 	cfg.LogLevel = getEnv("LOG_LEVEL", "info")
 	cfg.LogFormat = getEnv("LOG_FORMAT", "json")

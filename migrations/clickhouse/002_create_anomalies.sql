@@ -14,4 +14,5 @@ CREATE TABLE IF NOT EXISTS anomalies (
     resolved_at Nullable(DateTime64(3, 'UTC')),
     root_cause_path Array(String)
 ) Engine = MergeTree()
-ORDER BY (org_id, detected_at);
+ORDER BY (org_id, detected_at)
+TTL toDateTime(detected_at) + INTERVAL 90 DAY;

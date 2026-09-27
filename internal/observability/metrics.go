@@ -5,6 +5,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+type QueryDurationTracker struct {
+	vec *prometheus.HistogramVec
+}
+
+func (t *QueryDurationTracker) WithLabelValues(lvs ...string) *prometheus.Timer {
+	return prometheus.NewTimer(t.vec.WithLabelValues(lvs...))
+}
+
 var (
 	// HTTP Layer
 	HttpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -24,11 +32,13 @@ var (
 	})
 
 	// Database Layer
-	DbQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	dbQueryDurationVec = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "db_query_duration_seconds",
 		Help:    "Database query latencies in seconds",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"database", "query_name"})
+
+	DbQueryDuration = &QueryDurationTracker{vec: dbQueryDurationVec}
 
 	DbConnectionsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "db_connections_open",

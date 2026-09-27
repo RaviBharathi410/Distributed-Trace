@@ -31,6 +31,7 @@ func (r *TraceRepository) InsertSpansBatch(ctx context.Context, spans []domain.S
 
 	for _, s := range spans {
 		err = batch.Append(
+			s.OrgID,
 			s.TraceID,
 			s.SpanID,
 			s.ParentSpanID,
@@ -70,8 +71,9 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 		comment = "/* request_id=" + reqID + " */"
 	}
 
-	// Filter by Org ID if spans have tags or org mapping (assuming stored or mapped in tags map)
-	queryParts = append(queryParts, "1=1")
+	// Filter by Org ID for strict tenant isolation
+	queryParts = append(queryParts, "org_id = ?")
+	args = append(args, orgID)
 
 	if filters.Service != "" && filters.Service != "all" {
 		queryParts = append(queryParts, "service_name = ?")
@@ -179,9 +181,9 @@ func (r *TraceRepository) GetTraceWithSpans(ctx context.Context, orgID string, t
 			tags,
 			start_time
 		FROM otel_spans
-		WHERE trace_id = ? %s`, comment)
+		WHERE org_id = ? AND trace_id = ? %s`, comment)
 
-	rows, err := r.conn.Query(ctx, sql, traceID)
+	rows, err := r.conn.Query(ctx, sql, orgID, traceID)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "GetTraceWithSpans").Inc()
 		return nil, fmt.Errorf("failed to get trace with spans: %w", err)

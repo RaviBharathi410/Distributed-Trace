@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -20,15 +23,54 @@ type TokenClaims struct {
 }
 
 type TokenService struct {
-	secretKey []byte
-	issuer    string
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
+	issuer     string
 }
 
-func NewTokenService(secret, issuer string) *TokenService {
+func NewTokenService(privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey, issuer string) *TokenService {
 	return &TokenService{
-		secretKey: []byte(secret),
-		issuer:    issuer,
+		privateKey: privateKey,
+		publicKey:  publicKey,
+		issuer:     issuer,
 	}
+}
+
+// NewTokenServiceFromPaths loads RSA keys from files, or generates ephemeral dev keys only if env is development or test.
+func NewTokenServiceFromPaths(privatePath, publicPath, issuer, env string) (*TokenService, error) {
+	if privatePath != "" && publicPath != "" {
+		privBytes, err := os.ReadFile(privatePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read private key: %w", err)
+		}
+		pubBytes, err := os.ReadFile(publicPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read public key: %w", err)
+		}
+
+		privKey, err := jwt.ParseRSAPrivateKeyFromPEM(privBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse RSA private key: %w", err)
+		}
+		pubKey, err := jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse RSA public key: %w", err)
+		}
+
+		return NewTokenService(privKey, pubKey, issuer), nil
+	}
+
+	// Hard-gate ephemeral fallback behind explicit development or test environment
+	if env != "development" && env != "test" {
+		return nil, fmt.Errorf("RSA key paths (JWT_PRIVATE_KEY_PATH, JWT_PUBLIC_KEY_PATH) are strictly required in environment: %q", env)
+	}
+
+	// Ephemeral development key pair
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate ephemeral RSA key: %w", err)
+	}
+	return NewTokenService(privKey, &privKey.PublicKey, issuer), nil
 }
 
 func (s *TokenService) GenerateToken(userID, orgID, role string, ttl time.Duration) (string, error) {
@@ -46,16 +88,16 @@ func (s *TokenService) GenerateToken(userID, orgID, role string, ttl time.Durati
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.secretKey)
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(s.privateKey)
 }
 
 func (s *TokenService) ValidateToken(tokenString string) (*TokenClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return s.secretKey, nil
+		return s.publicKey, nil
 	})
 
 	if err != nil {
