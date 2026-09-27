@@ -87,20 +87,22 @@
      - Mounted [`RequireRole(domain.RoleAdmin)`](file:///d:/Projects/DistributedTrace/internal/auth/middleware.go#L138) on sensitive API key creation and revocation endpoints in [`cmd/server/main.go`](file:///d:/Projects/DistributedTrace/cmd/server/main.go).
      - Mounted [`RequireRole(domain.RoleMember, domain.RoleAdmin)`](file:///d:/Projects/DistributedTrace/internal/auth/middleware.go#L138) on anomaly status update endpoint.
      - Hardened CORS middleware with an explicit allowlist checking against configured `AllowedOrigin` and local development origins, rejecting wildcard `*` with credentials.
-   10. **Automated CI Workflow with ClickHouse Service Container:**
+   10. **Automated CI Workflow with Native ClickHouse Service Container (Verified Green):**
       - Added [`.github/workflows/ci.yml`](file:///d:/Projects/DistributedTrace/.github/workflows/ci.yml) protecting `main` on push and PR.
-      - Includes a native ClickHouse service container (`clickhouse/clickhouse-server:24.3-alpine`) exposing ports 9000 & 8123 with healthcheck so the live integration test executes on every single PR rather than skipping.
-      - Enforces `go build ./...`, `go build -o bin/server ./cmd/server`, `go test -v -race -cover ./...`, `npm ci`, `npm run lint` (ESLint 0 errors/warnings), and `npm run build` (tsc & Vite production bundle).
-   11. **Live ClickHouse Join-Path Integration Test (Fully Verified & Green):**
+      - Includes a native ClickHouse service container (`clickhouse/clickhouse-server:24.3-alpine`) with explicit environment credentials (`CLICKHOUSE_USER: default`, `CLICKHOUSE_PASSWORD: ""`, `CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1`), and IPv4 healthcheck (`http://127.0.0.1:8123/ping`).
+      - Verified green on GitHub Actions: **Run ID [36327125337](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36327125337)** completed with status **`success`**, with `TestGetServiceGraph_RealClickHouse_Integration` executing and passing in **0.02s** on the live CI service container.
+   11. **Live ClickHouse Join-Path Integration Test (Canonical Migration DDL, Zero Drift):**
       - Implemented [`internal/repository/clickhouse/integration_test.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/integration_test.go) (`TestGetServiceGraph_RealClickHouse_Integration`).
-      - Connected to live ClickHouse container (`dt-clickhouse`), created MergeTree table `otel_spans`, inserted cross-tenant parent-child spans for Org A and Org B, and executed the real ClickHouse `JOIN` query in `GetServiceGraph`.
+      - Replaced inline DDL with dynamic loading and execution of [`migrations/clickhouse/001_create_otel_spans.sql`](file:///d:/Projects/DistributedTrace/migrations/clickhouse/001_create_otel_spans.sql) as the single source of truth.
+      - Connected to live ClickHouse container (`dt-clickhouse`), created MergeTree table with partitioning, bloom filter indexes, and multi-tiered TTL, inserted cross-tenant parent-child spans for Org A and Org B, and executed the real ClickHouse `JOIN` query in `GetServiceGraph`.
       - Proved on live ClickHouse MergeTree engine that zero Org B nodes/edges appear in Org A's graph, and Org A's edge is cleanly assembled.
       - Fixed ClickHouse 24.3 TTL engine syntax: `DateTime64` requires `toDateTime(start_time)` in TTL clauses (resolved DB Exception 450).
    12. **RoleOwner Superuser Bypass Explicitly Documented:**
       - Confirmed and documented in [`prompts/decision-log.md`](file:///d:/Projects/DistributedTrace/prompts/decision-log.md) (Decision #15). `RequireRole` intentionally permits `RoleOwner` so organization creators are never locked out of administrative or operational actions.
 - **Verification Evidence (Commands Run):**
-  - `go test -v -count=1 ./internal/repository/clickhouse/... -run RealClickHouse` -> Exited 0 (**PASS: 0.05s, 0 skips, live ClickHouse execution**).
-  - `go test -v -count=1 -cover ./...` -> Exited 0 (**83 passing test/subtest assertions, 0 skips, 0 failures**).
+  - **GitHub Actions Remote CI Run:** [Run 36327125337](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36327125337) -> **COMPLETED SUCCESS** (Both `Backend` and `Frontend` jobs green, live ClickHouse integration test passed in 0.02s).
+  - `go test -v -count=1 ./internal/repository/clickhouse/... -run RealClickHouse` -> Exited 0 (**PASS: 0.31s, 0 skips, live ClickHouse execution using canonical migration file**).
+  - `go test -v -count=1 -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...` -> Exited 0 (**83 passing test/subtest assertions, 0 skips, 0 failures**).
   - **Statement Coverage on Touched Systems (Target >= 50%):**
     - `internal/ingest`: **66.1%**
     - `internal/api`: **60.9%**
