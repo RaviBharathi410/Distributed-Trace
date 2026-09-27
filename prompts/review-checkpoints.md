@@ -117,3 +117,53 @@
   2. Integration tests for trace ingestion, batch ClickHouse commits, and tenant isolation validation.
   3. Settings tab API key creation & revocation wired to PostgreSQL backend.
 
+---
+
+## Checkpoint: 2026-09-27 — Phase 2 Complete: Ingestion & Pipeline Robustness
+- **Status:** ✅ **Phase 2 Complete — All Exit Criteria Satisfied**.
+- **Project Completion:** ~82% (Full end-to-end telemetry ingestion pipeline, Kafka batch consumer, atomic offset commits, and connected Settings tab).
+- **What Changed Since Last Checkpoint:**
+  1. **Decoupled Ingestion Pipeline (Decision #19):**
+     - Updated [`internal/api/spans.go`](file:///d:/Projects/DistributedTrace/internal/api/spans.go) to use `SpanPublisher` interface.
+     - When `producer != nil`, `POST /api/v1/spans` publishes exclusively to Kafka, eliminating the $2\times$ duplicate write bug.
+     - Direct ClickHouse insert preserved as a clean fallback when `producer == nil` (enabling zero-dependency local dev).
+     - Added comprehensive unit tests in [`internal/api/spans_test.go`](file:///d:/Projects/DistributedTrace/internal/api/spans_test.go) verifying producer active, producer error (500), ClickHouse fallback, and schema validation.
+  2. **Kafka/Redpanda Batch Consumer (`internal/ingest/consumer.go`):**
+     - Created [`internal/ingest/consumer.go`](file:///d:/Projects/DistributedTrace/internal/ingest/consumer.go) providing `SpanConsumer` with configurable `BatchSize` (500 spans) and `FlushInterval` (1s).
+     - Decoupled `MessageReader` and `SpanBatchWriter` interfaces for testability and clean architecture.
+     - Implemented atomic offset commits strictly after successful ClickHouse `InsertSpansBatch` (preventing silent data loss on database connection drops).
+     - Poison pill handling: commits malformed payloads without halting partition consumption.
+     - Graceful shutdown: flushes remaining buffer to ClickHouse and commits offsets upon context cancellation.
+     - Added unit tests in [`internal/ingest/consumer_test.go`](file:///d:/Projects/DistributedTrace/internal/ingest/consumer_test.go) verifying batch size flush, ticker flush, offset safety on ClickHouse failure, and malformed payload commit.
+  3. **End-to-End Pipeline & Multi-Tenant Routing Test:**
+     - Created [`internal/ingest/pipeline_test.go`](file:///d:/Projects/DistributedTrace/internal/ingest/pipeline_test.go) (`TestEndToEndIngestionPipeline_TenantIsolationAndBatchCommit`).
+     - Simulates multi-tenant span batches from Org A and Org B, passes through Kafka message transport, exercises consumer batching and ClickHouse persistence, and verifies offset commitment and tenant isolation in persisted batch rows.
+  4. **Live Settings Tab API Key Management (`src/components/dashboard/SettingsTab.tsx`):**
+     - Replaced hardcoded mockup generator and placeholder rows in [`src/components/dashboard/SettingsTab.tsx`](file:///d:/Projects/DistributedTrace/src/components/dashboard/SettingsTab.tsx) with `@tanstack/react-query` hooks.
+     - Connected to backend endpoints: `GET /api/v1/auth/api-keys`, `POST /api/v1/auth/api-keys`, and `DELETE /api/v1/auth/api-keys/{id}`.
+     - Modal form allows naming keys and choosing between Production (`dt_live_...`) and Test (`dt_test_...`) scopes.
+     - One-time secret reveal dialog with copy button and cURL invocation example.
+     - Interactive revocation with confirmation dialog, loading spinners, and active/revoked badges.
+  5. **Server Lifecycle & Observability Integration:**
+     - Wired `SpanProducer` and `SpanConsumer` into [`cmd/server/main.go`](file:///d:/Projects/DistributedTrace/cmd/server/main.go) under `cfg.KafkaBrokers`.
+     - Integrated consumer buffer draining and producer close into graceful server shutdown.
+     - Added `KafkaMessagesConsumed` counter and `KafkaConsumerBatchDuration` histogram to [`internal/observability/metrics.go`](file:///d:/Projects/DistributedTrace/internal/observability/metrics.go).
+     - Initialized global `Log` to `zap.NewNop()` in [`internal/observability/logger.go`](file:///d:/Projects/DistributedTrace/internal/observability/logger.go) to safeguard against uninitialized logging in tests.
+- **Verification Evidence (Commands Run):**
+  - `go test -v -count=1 -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...` -> Exited 0 (**All tests passing, 0 failures, 0 skips**).
+  - **Statement Coverage on Touched Systems (Target >= 50%):**
+    - `internal/ingest`: **67.5%** (up from 66.1%)
+    - `internal/api`: **62.1%** (up from 60.9%)
+    - `internal/auth`: **56.3%**
+    - `internal/repository/clickhouse`: **51.7%**
+  - `go build ./...` -> Exited 0.
+  - `go build -o bin/server.exe ./cmd/server` -> Exited 0.
+  - `npx eslint . --ext ts,tsx` -> Exited 0 (0 errors, 0 warnings).
+  - `npm run build` -> Exited 0 (`dist/` built cleanly in 698ms).
+- **Next Checkpoint's Exit Criteria (Phase 3 — Causal Analysis & Anomaly Detection Pipeline):**
+  1. Statistical baseline calculation for service latency (mean, standard deviation, z-score detection).
+  2. Causal graph traversal identifying root cause service when downstream latency anomalies occur.
+  3. Anomaly persistence in ClickHouse `anomalies` table with multi-tenant partitioning.
+  4. End-to-end integration test verifying anomaly detection from ingested span latency spikes.
+
+

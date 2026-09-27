@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var Log *zap.Logger
+var Log = zap.NewNop()
 
 // InitLogger initializes the global structured logger.
 func InitLogger(env string) {

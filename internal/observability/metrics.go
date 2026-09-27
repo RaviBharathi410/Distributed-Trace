@@ -62,6 +62,18 @@ var (
 		Buckets: prometheus.DefBuckets,
 	})
 
+	// Kafka Consumer
+	KafkaMessagesConsumed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "kafka_messages_consumed_total",
+		Help: "Total spans read and processed from Kafka bus",
+	}, []string{"topic", "status"})
+
+	KafkaConsumerBatchDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "kafka_consumer_batch_duration_seconds",
+		Help:    "Duration of batch processing and persistence to ClickHouse",
+		Buckets: prometheus.DefBuckets,
+	})
+
 	// WebSockets
 	WsConnectionsActive = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "ws_connections_active",

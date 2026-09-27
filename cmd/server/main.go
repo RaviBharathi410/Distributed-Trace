@@ -15,6 +15,7 @@ import (
 	"github.com/RaviBharathi410/distributedtrace/internal/auth"
 	"github.com/RaviBharathi410/distributedtrace/internal/config"
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
+	"github.com/RaviBharathi410/distributedtrace/internal/ingest"
 	"github.com/RaviBharathi410/distributedtrace/internal/observability"
 	chRepo "github.com/RaviBharathi410/distributedtrace/internal/repository/clickhouse"
 	pgRepo "github.com/RaviBharathi410/distributedtrace/internal/repository/postgres"
@@ -124,12 +125,40 @@ func main() {
 	serviceRepo := chRepo.NewServiceRepository(chConn)
 	anomalyRepo := chRepo.NewAnomalyRepository(chConn)
 
-	// 7. Initialize API Handlers
+	// 7. Initialize Kafka Producer & Consumer Pipeline
+	var spanProducer *ingest.SpanProducer
+	var spanConsumer *ingest.SpanConsumer
+	var consumerCancel context.CancelFunc
+
+	if cfg.KafkaBrokers != "" {
+		spanProducer = ingest.NewSpanProducer(cfg.KafkaBrokers, cfg.KafkaTopicSpans)
+		observability.Log.Info("Kafka span producer initialized", zap.String("brokers", cfg.KafkaBrokers), zap.String("topic", cfg.KafkaTopicSpans))
+
+		consumerCfg := ingest.ConsumerConfig{
+			Brokers:       cfg.KafkaBrokers,
+			Topic:         cfg.KafkaTopicSpans,
+			GroupID:       "distributedtrace-ingest-consumer",
+			BatchSize:     500,
+			FlushInterval: 1 * time.Second,
+		}
+		spanConsumer = ingest.NewSpanConsumer(consumerCfg, traceRepo)
+
+		var consumerCtx context.Context
+		consumerCtx, consumerCancel = context.WithCancel(context.Background())
+		go func() {
+			observability.Log.Info("Kafka span consumer worker started", zap.String("topic", cfg.KafkaTopicSpans))
+			if err := spanConsumer.Run(consumerCtx); err != nil {
+				observability.Log.Error("Kafka span consumer stopped with error", zap.Error(err))
+			}
+		}()
+	}
+
+	// 8. Initialize API Handlers
 	authHandler := api.NewAuthHandler(userRepo, orgRepo, apiKeyRepo, tokenService)
 	traceHandler := api.NewTraceHandler(traceRepo)
 	serviceHandler := api.NewServiceHandler(serviceRepo)
 	anomalyHandler := api.NewAnomalyHandler(anomalyRepo)
-	spanHandler := api.NewSpanHandler(traceRepo, nil)
+	spanHandler := api.NewSpanHandler(traceRepo, spanProducer)
 
 	// 8. Setup Chi Router & Middleware
 	r := chi.NewRouter()
@@ -285,6 +314,24 @@ func main() {
 			observability.Log.Error("Graceful shutdown failed, forcing close", zap.Error(err))
 			_ = srv.Close()
 		}
+
+		if consumerCancel != nil && spanConsumer != nil {
+			observability.Log.Info("Draining and stopping Kafka span consumer")
+			consumerCancel()
+			select {
+			case <-spanConsumer.Done():
+				observability.Log.Info("Kafka span consumer stopped cleanly")
+			case <-time.After(5 * time.Second):
+				observability.Log.Warn("Kafka span consumer shutdown timed out")
+			}
+		}
+
+		if spanProducer != nil {
+			if err := spanProducer.Close(); err != nil {
+				observability.Log.Warn("Failed to close Kafka producer", zap.Error(err))
+			}
+		}
+
 		observability.Log.Info("Server stopped cleanly")
 	}
 }
