@@ -137,8 +137,16 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 		})
 	}
 
-	if err := producer.PublishSpans(ctx, testSpans); err != nil {
-		t.Fatalf("failed to publish spans to real Redpanda: %v", err)
+	var publishErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		publishErr = producer.PublishSpans(ctx, testSpans)
+		if publishErr == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if publishErr != nil {
+		t.Fatalf("failed to publish spans to real Redpanda after retries: %v", publishErr)
 	}
 
 	// 2. Scenario 1: Consumer 1 encounters downstream database failure on ClickHouse insert.
@@ -158,7 +166,7 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 
 	consumer1 := NewSpanConsumer(cfg1, failingWriter)
 
-	runCtx1, runCancel1 := context.WithTimeout(ctx, 1500*time.Millisecond)
+	runCtx1, runCancel1 := context.WithTimeout(ctx, 2*time.Second)
 	_ = consumer1.Run(runCtx1)
 	runCancel1()
 
@@ -188,14 +196,14 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 
 	consumer2 := NewSpanConsumer(cfg2, workingWriter)
 
-	runCtx2, runCancel2 := context.WithTimeout(ctx, 5*time.Second)
+	runCtx2, runCancel2 := context.WithTimeout(ctx, 10*time.Second)
 	doneCh2 := make(chan error, 1)
 	go func() {
 		doneCh2 <- consumer2.Run(runCtx2)
 	}()
 
 	// Wait for consumer2 to process all 6 spans and commit offsets
-	deadline := time.Now().Add(4 * time.Second)
+	deadline := time.Now().Add(8 * time.Second)
 	for {
 		if traceRepo != nil {
 			traces, _ := traceRepo.SearchTraces(ctx, testOrgID, domain.TraceFilter{Limit: 20})

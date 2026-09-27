@@ -61,7 +61,7 @@ func NewSpanConsumer(cfg ConsumerConfig, writer SpanBatchWriter) *SpanConsumer {
 		Brokers:        brokerList,
 		Topic:          cfg.Topic,
 		GroupID:        cfg.GroupID,
-		MinBytes:       10e3,
+		MinBytes:       1,
 		MaxBytes:       10e6,
 		MaxWait:        cfg.MaxWait,
 		CommitInterval: 0,

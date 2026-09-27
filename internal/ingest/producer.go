@@ -20,14 +20,15 @@ type SpanProducer struct {
 func NewSpanProducer(brokers string, topic string) *SpanProducer {
 	brokerList := strings.Split(brokers, ",")
 	
-	// Create Kafka writer
+	// Create Kafka writer with auto topic creation enabled
 	w := &kafka.Writer{
-		Addr:         kafka.TCP(brokerList...),
-		Topic:        topic,
-		Balancer:     &kafka.Hash{}, // partition by key (trace_id)
-		RequiredAcks: kafka.RequireAll,
-		Async:        false,
-		WriteTimeout: 5 * time.Second,
+		Addr:                   kafka.TCP(brokerList...),
+		Topic:                  topic,
+		Balancer:               &kafka.Hash{}, // partition by key (trace_id)
+		RequiredAcks:           kafka.RequireAll,
+		Async:                  false,
+		WriteTimeout:           5 * time.Second,
+		AllowAutoTopicCreation: true,
 	}
 
 	return &SpanProducer{writer: w}

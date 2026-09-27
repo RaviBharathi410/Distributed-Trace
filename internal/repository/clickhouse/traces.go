@@ -140,17 +140,21 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 	for rows.Next() {
 		var tr domain.TraceRow
 		var startTime time.Time
+		var spanCount uint64
+		var errorCount uint64
 		if err := rows.Scan(
 			&tr.TraceID,
 			&tr.RootService,
 			&tr.RootOperation,
 			&tr.DurationMs,
-			&tr.SpanCount,
-			&tr.ErrorCount,
+			&spanCount,
+			&errorCount,
 			&startTime,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan trace row: %w", err)
 		}
+		tr.SpanCount = int(spanCount)
+		tr.ErrorCount = int(errorCount)
 		tr.StartTime = startTime.UnixNano() / int64(time.Millisecond)
 		traces = append(traces, tr)
 	}

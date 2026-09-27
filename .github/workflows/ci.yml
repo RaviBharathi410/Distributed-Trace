@@ -49,16 +49,25 @@ jobs:
         run: |
           docker compose up -d redpanda
           for i in $(seq 1 30); do
-            if nc -z localhost 9092 2>/dev/null; then
-              echo "Redpanda broker ready on port 9092"
+            if docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'HEALTHY'; then
+              echo "Redpanda broker cluster is HEALTHY on port 9092"
               break
             fi
-            echo "Waiting for Redpanda..."
+            echo "Waiting for Redpanda cluster..."
             sleep 1
           done
 
       - name: Run unit & regression tests with coverage
-        run: go test -v -race -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/...
+        run: |
+          set -o pipefail
+          go test -v -race -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/... 2>&1 | tee test_output.log || {
+            status=$?
+            echo "### ❌ Go Test Failure Log" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            tail -n 60 test_output.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $status
+          }
         env:
           CLICKHOUSE_URL: 127.0.0.1:9000
           KAFKA_BROKERS: 127.0.0.1:9092
