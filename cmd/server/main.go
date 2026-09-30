@@ -131,14 +131,23 @@ func main() {
 	var consumerCancel context.CancelFunc
 
 	if cfg.KafkaBrokers != "" {
-		spanProducer = ingest.NewSpanProducer(cfg.KafkaBrokers, cfg.KafkaTopicSpans)
-		observability.Log.Info("Kafka span producer initialized", zap.String("brokers", cfg.KafkaBrokers), zap.String("topic", cfg.KafkaTopicSpans))
+		spanProducer = ingest.NewSpanProducerWithConfig(ingest.ProducerConfig{
+			Brokers:                cfg.KafkaBrokers,
+			Topic:                  cfg.KafkaTopicSpans,
+			AllowAutoTopicCreation: cfg.KafkaAllowAutoTopicCreation,
+		})
+		observability.Log.Info("Kafka span producer initialized",
+			zap.String("brokers", cfg.KafkaBrokers),
+			zap.String("topic", cfg.KafkaTopicSpans),
+			zap.Bool("allow_auto_topic_creation", cfg.KafkaAllowAutoTopicCreation),
+		)
 
 		consumerCfg := ingest.ConsumerConfig{
 			Brokers:       cfg.KafkaBrokers,
 			Topic:         cfg.KafkaTopicSpans,
 			GroupID:       "distributedtrace-ingest-consumer",
 			BatchSize:     500,
+			MinBytes:      cfg.KafkaMinBytes,
 			FlushInterval: 1 * time.Second,
 		}
 		spanConsumer = ingest.NewSpanConsumer(consumerCfg, traceRepo)

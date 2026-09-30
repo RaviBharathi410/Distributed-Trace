@@ -30,6 +30,7 @@ type ConsumerConfig struct {
 	Topic         string
 	GroupID       string
 	BatchSize     int
+	MinBytes      int
 	FlushInterval time.Duration
 	MaxWait       time.Duration
 }
@@ -56,12 +57,16 @@ func NewSpanConsumer(cfg ConsumerConfig, writer SpanBatchWriter) *SpanConsumer {
 	if cfg.GroupID == "" {
 		cfg.GroupID = "distributedtrace-ingest-consumer"
 	}
+	minBytes := cfg.MinBytes
+	if minBytes <= 0 {
+		minBytes = 10e3 // 10KB default for production network batching efficiency (§6 cost discipline)
+	}
 	brokerList := strings.Split(cfg.Brokers, ",")
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokerList,
 		Topic:          cfg.Topic,
 		GroupID:        cfg.GroupID,
-		MinBytes:       1,
+		MinBytes:       minBytes,
 		MaxBytes:       10e6,
 		MaxWait:        cfg.MaxWait,
 		CommitInterval: 0,

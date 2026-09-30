@@ -17,21 +17,36 @@ type SpanProducer struct {
 	writer *kafka.Writer
 }
 
-func NewSpanProducer(brokers string, topic string) *SpanProducer {
-	brokerList := strings.Split(brokers, ",")
-	
-	// Create Kafka writer with auto topic creation enabled
+type ProducerConfig struct {
+	Brokers                string
+	Topic                  string
+	AllowAutoTopicCreation bool
+}
+
+func NewSpanProducerWithConfig(cfg ProducerConfig) *SpanProducer {
+	brokerList := strings.Split(cfg.Brokers, ",")
+
 	w := &kafka.Writer{
 		Addr:                   kafka.TCP(brokerList...),
-		Topic:                  topic,
+		Topic:                  cfg.Topic,
 		Balancer:               &kafka.Hash{}, // partition by key (trace_id)
 		RequiredAcks:           kafka.RequireAll,
 		Async:                  false,
 		WriteTimeout:           5 * time.Second,
-		AllowAutoTopicCreation: true,
+		AllowAutoTopicCreation: cfg.AllowAutoTopicCreation,
 	}
 
 	return &SpanProducer{writer: w}
+}
+
+// NewSpanProducer maintains backwards compatibility with default AllowAutoTopicCreation: false
+// to prevent accidental or malicious dynamic topic generation in production.
+func NewSpanProducer(brokers string, topic string) *SpanProducer {
+	return NewSpanProducerWithConfig(ProducerConfig{
+		Brokers:                brokers,
+		Topic:                  topic,
+		AllowAutoTopicCreation: false,
+	})
 }
 
 func (p *SpanProducer) PublishSpans(ctx context.Context, spans []domain.Span) error {

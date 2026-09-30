@@ -119,8 +119,12 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 	groupID := fmt.Sprintf("test-group-%d", nanos)
 	testOrgID := fmt.Sprintf("org-rp-test-%d", nanos)
 
-	// 1. Produce 6 real spans to Redpanda via SpanProducer
-	producer := NewSpanProducer(brokers, topic)
+	// 1. Produce 6 real spans to Redpanda via SpanProducer (test-scoped auto topic creation)
+	producer := NewSpanProducerWithConfig(ProducerConfig{
+		Brokers:                brokers,
+		Topic:                  topic,
+		AllowAutoTopicCreation: true,
+	})
 	defer producer.Close()
 
 	var testSpans []domain.Span
@@ -160,6 +164,7 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 		Topic:         topic,
 		GroupID:       groupID,
 		BatchSize:     6,
+		MinBytes:      1,
 		FlushInterval: 100 * time.Millisecond,
 		MaxWait:       100 * time.Millisecond,
 	}
@@ -190,6 +195,7 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 		Topic:         topic,
 		GroupID:       groupID,
 		BatchSize:     6,
+		MinBytes:      1,
 		FlushInterval: 500 * time.Millisecond,
 		MaxWait:       100 * time.Millisecond,
 	}
@@ -245,6 +251,7 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 		Topic:         topic,
 		GroupID:       groupID,
 		BatchSize:     1,
+		MinBytes:      1,
 		FlushInterval: 100 * time.Millisecond,
 		MaxWait:       100 * time.Millisecond,
 	}

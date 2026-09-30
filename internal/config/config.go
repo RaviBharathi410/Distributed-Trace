@@ -19,8 +19,10 @@ type Config struct {
 	ClickHouseURL     string
 	ClickHouseDB      string
 	RedisURL          string
-	KafkaBrokers      string
-	KafkaTopicSpans   string
+	KafkaBrokers                string
+	KafkaTopicSpans             string
+	KafkaMinBytes               int
+	KafkaAllowAutoTopicCreation bool
 
 	JWTPrivateKeyPath string
 	JWTPublicKeyPath  string
@@ -127,6 +129,12 @@ func Load() (*Config, error) {
 
 	cfg.ClickHouseDB = getEnv("CLICKHOUSE_DB", "default")
 	cfg.KafkaTopicSpans = getEnv("KAFKA_TOPIC_SPANS", "otel-spans")
+
+	cfg.KafkaMinBytes, err = getEnvInt("KAFKA_MIN_BYTES", 10240)
+	if err != nil {
+		return nil, err
+	}
+	cfg.KafkaAllowAutoTopicCreation = getEnv("KAFKA_ALLOW_AUTO_TOPIC_CREATION", "false") == "true"
 
 	cfg.LogLevel = getEnv("LOG_LEVEL", "info")
 	cfg.LogFormat = getEnv("LOG_FORMAT", "json")

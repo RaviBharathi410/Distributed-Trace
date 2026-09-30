@@ -45,6 +45,10 @@ jobs:
       - name: Build standalone server binary
         run: go build -v -o bin/server ./cmd/server
 
+      # Container orchestration rationale: ClickHouse uses GitHub Actions native `services:` because it requires standard flags.
+      # Redpanda is orchestrated via `docker compose up -d redpanda` because single-node Redpanda requires specialized startup CLI flags
+      # (--smp 1, --memory 1G, --reserve-memory 0M, --overprovisioned, and dual PLAINTEXT/OUTSIDE advertised listeners) which are centrally
+      # managed in docker-compose.yml as the single source of truth without shell escaping issues in the Actions services block.
       - name: Start Redpanda test broker
         run: |
           docker compose up -d redpanda
