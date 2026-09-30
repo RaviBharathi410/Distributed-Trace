@@ -220,6 +220,9 @@
   7. **CI Workflow Updated ([`.github/workflows/ci.yml`](file:///d:/Projects/DistributedTrace/.github/workflows/ci.yml)):**
      - Added `./internal/analysis/...` to test matrix with `-race` and `-cover`.
 - **Verification Evidence (Commands Run & CI Runs):**
+  - **Remote GitHub Actions CI Run #10:** [Run 36737145193](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36737145193) -> **COMPLETED SUCCESS** (Head SHA `c071b8a`, Duration 1m 57s, 0 failures across both jobs).
+    - `Backend (Go 1.22)` -> **Success** (Native ClickHouse container + Redpanda test broker + `go test -race -cover` including `./internal/analysis/...` and live integration tests).
+    - `Frontend (Node 20 / Vite)` -> **Success** (ESLint + TypeScript typecheck + Vite build in 22s).
   - `go test -v -cover ./internal/analysis/...` -> Exited 0 (**100% tests passing**).
   - `go test -v -cover ./internal/repository/clickhouse/...` -> Exited 0 (**100% tests passing**).
   - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
