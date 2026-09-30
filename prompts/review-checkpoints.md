@@ -184,4 +184,49 @@
   3. Anomaly persistence in ClickHouse `anomalies` table with multi-tenant partitioning.
   4. End-to-end integration test verifying anomaly detection from ingested span latency spikes.
 
+---
+
+## Checkpoint: 2026-09-30 — Phase 3 Complete: Causal Analysis & Anomaly Detection Pipeline
+- **Status:** ✅ **Phase 3 Complete — All Exit Criteria Satisfied**.
+- **Project Completion:** ~89% (Causal graph traversal, Welford statistical baselines, ClickHouse anomaly persistence, consumer hook wiring, and live integration tests).
+- **What Changed Since Last Checkpoint:**
+  1. **Statistical Baseline Calculation ([`internal/analysis/baseline.go`](file:///d:/Projects/DistributedTrace/internal/analysis/baseline.go)):**
+     - Implemented Welford's single-pass algorithm for rolling mean $\mu$ and sample variance $\sigma^2 = M_2 / (N-1)$.
+     - Added cold-start guard ($N \ge 5$ required before anomaly classification).
+     - Standard deviation floor ($\sigma \ge 1.0\text{ms}$) to prevent division by zero and microsecond false positives on uniform workloads.
+     - Minimum absolute duration threshold ($\ge 50\text{ms}$) and minimum deviation threshold ($d - \mu \ge 30\text{ms}$) to avoid alerting on trivial sub-millisecond jitter.
+     - Historical baseline preloading via `PreloadFromClickHouse` querying quantiles and averages.
+     - Comprehensive unit tests in [`internal/analysis/baseline_test.go`](file:///d:/Projects/DistributedTrace/internal/analysis/baseline_test.go).
+  2. **Deterministic Causal Graph Traversal ([`internal/analysis/causal.go`](file:///d:/Projects/DistributedTrace/internal/analysis/causal.go)):**
+     - Assembles in-memory trace trees from raw spans grouped by `(OrgID, TraceID)`.
+     - Computes self-time for each span: $\text{SelfTime} = \text{Duration} - \sum \text{ChildDurations}$.
+     - Critical-path bottleneck detection: evaluates downstream children consuming $\ge 40\%$ parent duration, walking down the critical path until the leaf bottleneck or highest self-time node is identified as `RootCauseService` with ordered `RootCausePath`.
+     - Pure algorithmic execution ($O(N)$) with zero LLM calls on the hot path (Decision #26).
+     - Verified with unit tests in [`internal/analysis/causal_test.go`](file:///d:/Projects/DistributedTrace/internal/analysis/causal_test.go).
+  3. **Anomaly Detection Orchestrator ([`internal/analysis/detector.go`](file:///d:/Projects/DistributedTrace/internal/analysis/detector.go)):**
+     - Orchestrates baseline evaluation, causal tree analysis, severity grading (`critical`, `high`, `medium`, `low`), and error-rate delta calculation.
+     - Persists anomalies to ClickHouse `anomalies` table with strict multi-tenant partitioning.
+     - Full unit test coverage in [`internal/analysis/detector_test.go`](file:///d:/Projects/DistributedTrace/internal/analysis/detector_test.go).
+  4. **ClickHouse Anomaly Persistence & Scan Safety (Decision #24):**
+     - Fixed `GetStats` in [`internal/repository/clickhouse/anomalies.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/anomalies.go) to scan ClickHouse `sum(...)` into intermediate `uint64` variables before casting to `int`, resolving driver type mismatch errors.
+     - Updated [`internal/repository/clickhouse/tenancy_test.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/tenancy_test.go) mock helper `assignVal` to handle `uint64` targets.
+  5. **Pipeline Integration & Consumer Hook ([`internal/ingest/consumer.go`](file:///d:/Projects/DistributedTrace/internal/ingest/consumer.go), [`cmd/server/main.go`](file:///d:/Projects/DistributedTrace/cmd/server/main.go)):**
+     - Added `PostBatchHook` callback to `SpanConsumer` invoked asynchronously upon batch flush.
+     - Wired `AnomalyDetector.ProcessBatch` to `PostBatchHook` in `main.go`, seamlessly analyzing live ingested spans without blocking Kafka ingestion or ClickHouse batch commits.
+  6. **Live Multi-Tier Integration Test ([`internal/analysis/integration_test.go`](file:///d:/Projects/DistributedTrace/internal/analysis/integration_test.go)):**
+     - Executes against live ClickHouse instance loading DDL from migration files (`001_create_otel_spans.sql`, `002_create_anomalies.sql`).
+     - Simulates a 3-tier distributed transaction (`api-gateway` -> `order-service` -> `catalog-db`), with a 1800ms bottleneck at `catalog-db`.
+     - Asserts that an anomaly is created, `RootCauseService` is isolated to `catalog-db`, and strict tenant isolation holds (Org B cannot read Org A's anomalies).
+  7. **CI Workflow Updated ([`.github/workflows/ci.yml`](file:///d:/Projects/DistributedTrace/.github/workflows/ci.yml)):**
+     - Added `./internal/analysis/...` to test matrix with `-race` and `-cover`.
+- **Verification Evidence (Commands Run & CI Runs):**
+  - `go test -v -cover ./internal/analysis/...` -> Exited 0 (**100% tests passing**).
+  - `go test -v -cover ./internal/repository/clickhouse/...` -> Exited 0 (**100% tests passing**).
+  - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
+  - `npm run build` -> Exited 0 (`dist/` built in 700ms).
+- **Next Checkpoint's Exit Criteria (Phase 4 — Real-time Service Graph & Topology Visualization):**
+  1. Service graph API aggregation endpoint with health status and edge latencies.
+  2. Interactive Service Map frontend rendering node health (green/yellow/red) and dependency edges.
+  3. Real-time topology updates reflecting live ingested span metadata.
+
 

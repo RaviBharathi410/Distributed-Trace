@@ -64,7 +64,7 @@ jobs:
       - name: Run unit & regression tests with coverage
         run: |
           set -o pipefail
-          go test -v -race -cover ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/... 2>&1 | tee test_output.log || {
+          go test -v -race -cover ./internal/analysis/... ./internal/api/... ./internal/auth/... ./internal/ingest/... ./internal/repository/clickhouse/... 2>&1 | tee test_output.log || {
             status=$?
             echo "### ❌ Go Test Failure Log" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY

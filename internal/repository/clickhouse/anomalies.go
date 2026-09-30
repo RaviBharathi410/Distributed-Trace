@@ -226,11 +226,17 @@ func (r *AnomalyRepository) GetStats(ctx context.Context, orgID string) (*domain
 		WHERE org_id = ? AND status != 'resolved' %s`, comment)
 
 	var stats domain.AnomalyStats
-	err := r.conn.QueryRow(ctx, sql, orgID).Scan(&stats.Critical, &stats.High, &stats.Medium, &stats.Low)
+	var critical, high, medium, low uint64
+	err := r.conn.QueryRow(ctx, sql, orgID).Scan(&critical, &high, &medium, &low)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "GetAnomalyStats").Inc()
 		return nil, fmt.Errorf("failed to get stats: %w", err)
 	}
+
+	stats.Critical = int(critical)
+	stats.High = int(high)
+	stats.Medium = int(medium)
+	stats.Low = int(low)
 
 	return &stats, nil
 }

@@ -35,13 +35,22 @@ type ConsumerConfig struct {
 	MaxWait       time.Duration
 }
 
+type PostBatchHook func(ctx context.Context, spans []domain.Span)
+
 type SpanConsumer struct {
-	reader MessageReader
-	writer SpanBatchWriter
-	cfg    ConsumerConfig
-	stopCh chan struct{}
-	doneCh chan struct{}
-	mu     sync.Mutex
+	reader        MessageReader
+	writer        SpanBatchWriter
+	cfg           ConsumerConfig
+	stopCh        chan struct{}
+	doneCh        chan struct{}
+	mu            sync.Mutex
+	postBatchHook PostBatchHook
+}
+
+func (c *SpanConsumer) SetPostBatchHook(hook PostBatchHook) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.postBatchHook = hook
 }
 
 func NewSpanConsumer(cfg ConsumerConfig, writer SpanBatchWriter) *SpanConsumer {
@@ -202,6 +211,17 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 
 		consecutiveErrors = 0
 		observability.KafkaMessagesConsumed.WithLabelValues(c.cfg.Topic, "ok").Add(float64(len(spansBuffer)))
+
+		c.mu.Lock()
+		hook := c.postBatchHook
+		c.mu.Unlock()
+
+		if hook != nil && len(spansBuffer) > 0 {
+			cpy := make([]domain.Span, len(spansBuffer))
+			copy(cpy, spansBuffer)
+			go hook(context.Background(), cpy)
+		}
+
 		spansBuffer = spansBuffer[:0]
 		msgsBuffer = msgsBuffer[:0]
 		return nil

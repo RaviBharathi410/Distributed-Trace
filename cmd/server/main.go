@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/RaviBharathi410/distributedtrace/internal/analysis"
 	"github.com/RaviBharathi410/distributedtrace/internal/api"
 	"github.com/RaviBharathi410/distributedtrace/internal/auth"
 	"github.com/RaviBharathi410/distributedtrace/internal/config"
@@ -151,6 +152,17 @@ func main() {
 			FlushInterval: 1 * time.Second,
 		}
 		spanConsumer = ingest.NewSpanConsumer(consumerCfg, traceRepo)
+
+		// 8. Initialize Real-Time Causal Anomaly Detection Pipeline
+		baselineCalc := analysis.NewBaselineCalculator()
+		causalAnalyzer := analysis.NewCausalAnalyzer()
+		anomalyDetector := analysis.NewAnomalyDetector(baselineCalc, causalAnalyzer, anomalyRepo)
+
+		spanConsumer.SetPostBatchHook(func(ctx context.Context, spans []domain.Span) {
+			if _, err := anomalyDetector.ProcessBatch(ctx, spans); err != nil {
+				observability.Log.Error("Automated anomaly detection failed on batch", zap.Error(err))
+			}
+		})
 
 		var consumerCtx context.Context
 		consumerCtx, consumerCancel = context.WithCancel(context.Background())

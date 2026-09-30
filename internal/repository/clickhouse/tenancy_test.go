@@ -80,6 +80,12 @@ func assignVal(target any, source any) {
 		if u, ok := source.(uint32); ok {
 			*t = u
 		}
+	case *uint64:
+		if u, ok := source.(uint64); ok {
+			*t = u
+		} else if n, ok := source.(int); ok {
+			*t = uint64(n)
+		}
 	case *map[string]string:
 		if m, ok := source.(map[string]string); ok {
 			*t = m
@@ -169,10 +175,10 @@ func (m *MockConn) QueryRow(ctx context.Context, query string, args ...any) driv
 		}
 	}
 
-	// Route anomaly stats query
+	// Route anomaly stats query (ClickHouse sum returns UInt64)
 	if strings.Contains(query, "sum(severity = 'critical')") {
 		return &mockRow{
-			values: []any{1, 2, 3, 4},
+			values: []any{uint64(1), uint64(2), uint64(3), uint64(4)},
 		}
 	}
 
