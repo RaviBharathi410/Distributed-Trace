@@ -211,7 +211,8 @@
      - Fixed `GetStats` in [`internal/repository/clickhouse/anomalies.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/anomalies.go) to scan ClickHouse `sum(...)` into intermediate `uint64` variables before casting to `int`, resolving driver type mismatch errors.
      - Updated [`internal/repository/clickhouse/tenancy_test.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/tenancy_test.go) mock helper `assignVal` to handle `uint64` targets.
   5. **Pipeline Integration & Consumer Hook ([`internal/ingest/consumer.go`](file:///d:/Projects/DistributedTrace/internal/ingest/consumer.go), [`cmd/server/main.go`](file:///d:/Projects/DistributedTrace/cmd/server/main.go)):**
-     - Added `PostBatchHook` callback to `SpanConsumer` invoked asynchronously upon batch flush.
+     - Added `PostBatchHook` callback to `SpanConsumer` with a bounded worker pool (2 workers, queue capacity 32) and non-blocking load shedding (`AnalysisBatchesDropped`) to protect ingestion throughput and ClickHouse connection pools from saturation during traffic spikes.
+     - Graceful drain on shutdown: `SpanConsumer.Run` drains queued analysis batches and waits for workers before closing.
      - Wired `AnomalyDetector.ProcessBatch` to `PostBatchHook` in `main.go`, seamlessly analyzing live ingested spans without blocking Kafka ingestion or ClickHouse batch commits.
   6. **Live Multi-Tier Integration Test ([`internal/analysis/integration_test.go`](file:///d:/Projects/DistributedTrace/internal/analysis/integration_test.go)):**
      - Executes against live ClickHouse instance loading DDL from migration files (`001_create_otel_spans.sql`, `002_create_anomalies.sql`).
@@ -220,16 +221,18 @@
   7. **CI Workflow Updated ([`.github/workflows/ci.yml`](file:///d:/Projects/DistributedTrace/.github/workflows/ci.yml)):**
      - Added `./internal/analysis/...` to test matrix with `-race` and `-cover`.
 - **Verification Evidence (Commands Run & CI Runs):**
-  - **Remote GitHub Actions CI Run #10:** [Run 36737145193](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36737145193) -> **COMPLETED SUCCESS** (Head SHA `c071b8a`, Duration 1m 57s, 0 failures across both jobs).
-    - `Backend (Go 1.22)` -> **Success** (Native ClickHouse container + Redpanda test broker + `go test -race -cover` including `./internal/analysis/...` and live integration tests).
-    - `Frontend (Node 20 / Vite)` -> **Success** (ESLint + TypeScript typecheck + Vite build in 22s).
+  - **Remote GitHub Actions CI Run #11:** [Run 36861862548](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36861862548) -> **COMPLETED SUCCESS** (Head SHA `1f0b355`, Duration 1m 58s, 0 failures across both jobs).
+    - `Backend (Go 1.22)` -> **Success** (Native ClickHouse container + Redpanda test broker + bounded worker pool tests + live integration tests).
+    - `Frontend (Node 20 / Vite)` -> **Success** (ESLint + TypeScript typecheck + Vite build in 21s).
+  - **Remote GitHub Actions CI Run #10:** [Run 36737145193](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36737145193) -> **COMPLETED SUCCESS** (Head SHA `c071b8a`, Duration 1m 57s).
   - `go test -v -cover ./internal/analysis/...` -> Exited 0 (**100% tests passing**).
+  - `go test -v -cover ./internal/ingest/...` -> Exited 0 (**70.2% statement coverage, 100% tests passing**).
   - `go test -v -cover ./internal/repository/clickhouse/...` -> Exited 0 (**100% tests passing**).
   - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
-  - `npm run build` -> Exited 0 (`dist/` built in 700ms).
+  - `npm run build` -> Exited 0 (`dist/` built in 3.92s).
 - **Next Checkpoint's Exit Criteria (Phase 4 — Real-time Service Graph & Topology Visualization):**
-  1. Service graph API aggregation endpoint with health status and edge latencies.
-  2. Interactive Service Map frontend rendering node health (green/yellow/red) and dependency edges.
+  1. Service graph API aggregation endpoint (`GET /api/v1/services/graph`) computing live health status (`healthy`, `degraded`, `critical`) directly from active ClickHouse anomalies and latency baselines (unified truth model, no parallel computation path).
+  2. Interactive Service Map frontend rendering node health status, RPS, error rates, and directed edge latencies.
   3. Real-time topology updates reflecting live ingested span metadata.
 
 
