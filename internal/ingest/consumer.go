@@ -189,6 +189,30 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 		}
 	}
 
+	const (
+		hookQueueCapacity = 32
+		hookWorkers       = 2
+	)
+	hookCh := make(chan []domain.Span, hookQueueCapacity)
+	var hookWg sync.WaitGroup
+
+	for i := 0; i < hookWorkers; i++ {
+		hookWg.Add(1)
+		go func() {
+			defer hookWg.Done()
+			for batch := range hookCh {
+				c.mu.Lock()
+				hook := c.postBatchHook
+				c.mu.Unlock()
+				if hook != nil {
+					hookCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+					hook(hookCtx, batch)
+					cancel()
+				}
+			}
+		}()
+	}
+
 	flush := func() error {
 		if len(spansBuffer) == 0 {
 			return nil
@@ -219,7 +243,15 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 		if hook != nil && len(spansBuffer) > 0 {
 			cpy := make([]domain.Span, len(spansBuffer))
 			copy(cpy, spansBuffer)
-			go hook(context.Background(), cpy)
+			select {
+			case hookCh <- cpy:
+			default:
+				// Worker queue saturated under peak load: shed load to protect ingestion throughput
+				observability.AnalysisBatchesDropped.Inc()
+				observability.Log.Warn("Post-batch analysis queue saturated; dropping batch analysis to shed load",
+					zap.Int("dropped_spans", len(cpy)),
+				)
+			}
 		}
 
 		spansBuffer = spansBuffer[:0]
@@ -249,6 +281,8 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 				observability.Log.Error("Failed to flush remaining spans on shutdown", zap.Error(err))
 			}
 		}
+		close(hookCh)
+		hookWg.Wait()
 		_ = c.reader.Close()
 	}()
 

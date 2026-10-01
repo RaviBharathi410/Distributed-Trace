@@ -105,4 +105,10 @@ var (
 		Name: "tail_sampler_buffer_depth",
 		Help: "Current buffer sizing measured from Redis active trace pools",
 	})
+
+	// Anomaly Detection Analysis
+	AnalysisBatchesDropped = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "analysis_batches_dropped_total",
+		Help: "Total post-batch analysis tasks dropped due to worker queue saturation",
+	})
 )

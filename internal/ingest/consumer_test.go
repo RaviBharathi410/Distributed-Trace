@@ -305,3 +305,79 @@ func TestSpanConsumer_MalformedJSONIsCommittedWithoutCrash(t *testing.T) {
 		t.Fatalf("expected 0 batches written for malformed payload, got %d", len(mockWriter.batches))
 	}
 }
+
+func TestSpanConsumer_BoundedPostBatchHook_ExecutesAndDrains(t *testing.T) {
+	testSpans := []domain.Span{
+		{
+			OrgID:       "org-hook",
+			TraceID:     "trace-h1",
+			SpanID:      "span-h1",
+			ServiceName: "auth-service",
+			DurationMs:  25,
+			StartTime:   time.Now(),
+		},
+		{
+			OrgID:       "org-hook",
+			TraceID:     "trace-h2",
+			SpanID:      "span-h2",
+			ServiceName: "billing-service",
+			DurationMs:  85,
+			StartTime:   time.Now(),
+		},
+	}
+
+	var testMsgs []kafka.Message
+	for i, s := range testSpans {
+		data, _ := json.Marshal(s)
+		testMsgs = append(testMsgs, kafka.Message{
+			Topic:  "otel-spans",
+			Offset: int64(i),
+			Value:  data,
+		})
+	}
+
+	mockReader := newMockMessageReader(testMsgs)
+	mockWriter := &mockSpanBatchWriter{}
+
+	cfg := ConsumerConfig{
+		Topic:         "otel-spans",
+		BatchSize:     2,
+		FlushInterval: 50 * time.Millisecond,
+	}
+
+	consumer := NewSpanConsumerWithReader(mockReader, mockWriter, cfg)
+
+	var hookReceived []domain.Span
+	var hookMu sync.Mutex
+	consumer.SetPostBatchHook(func(ctx context.Context, spans []domain.Span) {
+		hookMu.Lock()
+		defer hookMu.Unlock()
+		hookReceived = append(hookReceived, spans...)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	consumerDone := make(chan struct{})
+	go func() {
+		_ = consumer.Run(ctx)
+		close(consumerDone)
+	}()
+
+	// Wait for consumer to process batch and exit cleanly
+	select {
+	case <-consumerDone:
+	case <-time.After(1 * time.Second):
+		t.Fatal("consumer did not finish within timeout")
+	}
+
+	hookMu.Lock()
+	defer hookMu.Unlock()
+	if len(hookReceived) != 2 {
+		t.Fatalf("expected 2 spans passed to post-batch hook, got %d", len(hookReceived))
+	}
+	if hookReceived[0].TraceID != "trace-h1" || hookReceived[1].TraceID != "trace-h2" {
+		t.Errorf("unexpected spans received by hook: %+v", hookReceived)
+	}
+}
+
