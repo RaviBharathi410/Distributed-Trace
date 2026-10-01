@@ -150,6 +150,25 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 		t.Fatalf("failed to insert anomaly for Org A: %v", err)
 	}
 
+	// Insert an active critical anomaly for idle-audit-svc-a in Org A
+	// CRITICAL REQUIREMENT: idle-audit-svc-a has ZERO spans inserted in otel_spans table.
+	anmIdle := &domain.Anomaly{
+		ID:                "anm-integ-idle-01",
+		OrgID:             testOrgA,
+		ServiceName:       "idle-audit-svc-a",
+		OperationName:     "AUDIT /sync",
+		RootCauseService:  "idle-audit-svc-a",
+		Severity:          "critical",
+		ZScore:            5.5,
+		BaselineLatencyMs: 20.0,
+		ObservedLatencyMs: 250.0,
+		Status:            "detected",
+		DetectedAt:        now,
+	}
+	if err := anomalyRepo.Insert(ctx, anmIdle); err != nil {
+		t.Fatalf("failed to insert idle anomaly for Org A: %v", err)
+	}
+
 	// 4. Query GetServiceGraph for Org A
 	from := now.Add(-1 * time.Hour)
 	to := now.Add(1 * time.Hour)
@@ -200,6 +219,39 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 	}
 	if paymentNode.ActiveAnomalies != 1 {
 		t.Errorf("expected payment-svc-a to have 1 active anomaly, got %d", paymentNode.ActiveAnomalies)
+	}
+
+	// 6. Assert Idle Service Survival on Live ClickHouse:
+	// idle-audit-svc-a must appear on topology map despite having 0 spans in otel_spans
+	var idleNode *domain.ServiceNode
+	for i := range graphA.Nodes {
+		if graphA.Nodes[i].Name == "idle-audit-svc-a" {
+			idleNode = &graphA.Nodes[i]
+			break
+		}
+	}
+	if idleNode == nil {
+		t.Fatalf("IDLE SERVICE SURVIVAL FAILURE: idle-audit-svc-a with active anomaly but 0 spans failed to appear in Org A graph: %+v", graphA.Nodes)
+	}
+	if idleNode.Health != "critical" {
+		t.Errorf("expected idle-audit-svc-a health to be 'critical', got %s", idleNode.Health)
+	}
+	if idleNode.ActiveAnomalies != 1 {
+		t.Errorf("expected idle-audit-svc-a active anomalies to be 1, got %d", idleNode.ActiveAnomalies)
+	}
+	if idleNode.P99Ms != 0.0 {
+		t.Errorf("expected idle-audit-svc-a P99Ms to be 0.0, got %f", idleNode.P99Ms)
+	}
+
+	// 7. Assert Org B does NOT see Org A's idle service or active anomalies
+	graphB, err := serviceRepo.GetServiceGraph(ctx, testOrgB, from, to)
+	if err != nil {
+		t.Fatalf("GetServiceGraph failed for Org B on live ClickHouse: %v", err)
+	}
+	for _, node := range graphB.Nodes {
+		if node.Name == "idle-audit-svc-a" || node.Name == "payment-svc-a" || node.Name == "frontend-api-a" {
+			t.Fatalf("LIVE CLICKHOUSE CROSS-TENANT LEAK: Org B graph contains Org A node: %s", node.Name)
+		}
 	}
 }
 

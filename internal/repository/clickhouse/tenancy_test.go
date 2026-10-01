@@ -242,6 +242,7 @@ func (m *MockConn) Query(ctx context.Context, query string, args ...any) (driver
 			return &mockRows{
 				rows: [][]any{
 					{"inventory-svc", uint64(1), uint64(0), uint64(0), uint64(1)},
+					{"idle-database-svc", uint64(1), uint64(0), uint64(0), uint64(1)},
 				},
 			}, nil
 		} else if queriedOrg == OrgB {
@@ -415,8 +416,65 @@ func TestGetServiceGraph_TenantIsolation(t *testing.T) {
 		t.Fatalf("GetServiceGraph failed for Org B: %v", err)
 	}
 	for _, node := range graphB.Nodes {
-		if node.Name == "checkout-api" || node.Name == "inventory-svc" {
+		if node.Name == "checkout-api" || node.Name == "inventory-svc" || node.Name == "idle-database-svc" {
 			t.Fatalf("CROSS-TENANT LEAK: Org B service graph contains Org A node: %s", node.Name)
+		}
+	}
+}
+
+func TestGetServiceGraph_IdleServiceSurvival_ActiveAnomalyWithZeroSpans(t *testing.T) {
+	conn := &MockConn{}
+	repo := NewServiceRepository(conn)
+	ctx := context.Background()
+
+	from := time.Now().Add(-1 * time.Hour)
+	to := time.Now()
+
+	// Query Org A:
+	// - checkout-api & inventory-svc have spans in otel_spans
+	// - idle-database-svc has ZERO spans in otel_spans, but 1 active critical anomaly in anomalies table
+	graphA, err := repo.GetServiceGraph(ctx, OrgA, from, to)
+	if err != nil {
+		t.Fatalf("GetServiceGraph failed for Org A: %v", err)
+	}
+
+	// 1. Assert idle-database-svc survived onto the graph despite having zero spans in query window
+	var idleNode *domain.ServiceNode
+	for i := range graphA.Nodes {
+		if graphA.Nodes[i].Name == "idle-database-svc" {
+			idleNode = &graphA.Nodes[i]
+			break
+		}
+	}
+
+	if idleNode == nil {
+		t.Fatalf("CRITICAL: idle-database-svc with active anomaly and 0 spans did NOT survive in GetServiceGraph nodes. Nodes returned: %+v", graphA.Nodes)
+	}
+
+	// 2. Assert health is critical, driven by the active anomaly
+	if idleNode.Health != "critical" {
+		t.Errorf("expected idle-database-svc health to be 'critical', got '%s'", idleNode.Health)
+	}
+
+	// 3. Assert active anomaly count is 1
+	if idleNode.ActiveAnomalies != 1 {
+		t.Errorf("expected idle-database-svc ActiveAnomalies to be 1, got %d", idleNode.ActiveAnomalies)
+	}
+
+	// 4. Assert P99 is 0 (as there were zero spans recorded)
+	if idleNode.P99Ms != 0.0 {
+		t.Errorf("expected idle-database-svc P99Ms to be 0.0, got %f", idleNode.P99Ms)
+	}
+
+	// 5. Assert Org B query does not see Org A's idle service
+	graphB, err := repo.GetServiceGraph(ctx, OrgB, from, to)
+	if err != nil {
+		t.Fatalf("GetServiceGraph failed for Org B: %v", err)
+	}
+
+	for _, node := range graphB.Nodes {
+		if node.Name == "idle-database-svc" {
+			t.Fatalf("CROSS-TENANT LEAK: Org B saw Org A's idle service: %s", node.Name)
 		}
 	}
 }
