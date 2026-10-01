@@ -60,6 +60,7 @@ export interface ServiceNode {
   name: string;
   p99: number;
   health: 'healthy' | 'degraded' | 'critical';
+  activeAnomalies?: number;
 }
 
 export interface ServiceEdge {
@@ -67,12 +68,24 @@ export interface ServiceEdge {
   target: string;
   rps: number;
   errorRate: number;
+  p95Ms?: number;
   criticalPath?: boolean;
 }
 
 export interface ServiceGraph {
   nodes: ServiceNode[];
   edges: ServiceEdge[];
+}
+
+export interface ServiceStats {
+  service_name: string;
+  p50: number;
+  p95: number;
+  p99: number;
+  error_rate: number;
+  request_rate: number;
+  from?: string;
+  to?: string;
 }
 
 export interface Anomaly {
@@ -239,7 +252,7 @@ export const servicesApi = {
     if (from) q.set('from', from);
     if (to) q.set('to', to);
     const qs = q.toString();
-    return request<Record<string, unknown>>(`/services/${encodeURIComponent(service)}/stats${qs ? `?${qs}` : ''}`);
+    return request<ServiceStats>(`/services/${encodeURIComponent(service)}/stats${qs ? `?${qs}` : ''}`);
   },
 };
 

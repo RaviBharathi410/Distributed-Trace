@@ -223,13 +223,31 @@ func (m *MockConn) Query(ctx context.Context, query string, args ...any) (driver
 		if queriedOrg == OrgA {
 			return &mockRows{
 				rows: [][]any{
-					{"checkout-api", "inventory-svc", 45.0, 0.1},
+					{"checkout-api", "inventory-svc", 45.0, 0.1, 80.0},
 				},
 			}, nil
 		} else if queriedOrg == OrgB {
 			return &mockRows{
 				rows: [][]any{
-					{"secret-billing-svc", "payroll-svc", 10.0, 0.0},
+					{"secret-billing-svc", "payroll-svc", 10.0, 0.0, 20.0},
+				},
+			}, nil
+		}
+		return &mockRows{rows: [][]any{}}, nil
+	}
+
+	// 2.5 GetServiceGraph Active Anomalies
+	if strings.Contains(query, "FROM anomalies") && strings.Contains(query, "GROUP BY service_name") {
+		if queriedOrg == OrgA {
+			return &mockRows{
+				rows: [][]any{
+					{"inventory-svc", uint64(1), uint64(0), uint64(0), uint64(1)},
+				},
+			}, nil
+		} else if queriedOrg == OrgB {
+			return &mockRows{
+				rows: [][]any{
+					{"secret-billing-svc", uint64(1), uint64(0), uint64(0), uint64(1)},
 				},
 			}, nil
 		}
@@ -370,6 +388,35 @@ func TestGetServiceGraph_TenantIsolation(t *testing.T) {
 	for _, node := range graphA.Nodes {
 		if node.Name == "secret-billing-svc" || node.Name == "payroll-svc" {
 			t.Fatalf("CROSS-TENANT LEAK: Org A service graph contains Org B node: %s", node.Name)
+		}
+	}
+
+	// Assert active anomaly on inventory-svc elevated health to critical
+	var inventoryNode *domain.ServiceNode
+	for i := range graphA.Nodes {
+		if graphA.Nodes[i].Name == "inventory-svc" {
+			inventoryNode = &graphA.Nodes[i]
+			break
+		}
+	}
+	if inventoryNode == nil {
+		t.Fatal("expected inventory-svc node in Org A service graph")
+	}
+	if inventoryNode.Health != "critical" {
+		t.Errorf("expected inventory-svc health to be 'critical' from active anomaly, got %s", inventoryNode.Health)
+	}
+	if inventoryNode.ActiveAnomalies != 1 {
+		t.Errorf("expected inventory-svc to have 1 active anomaly, got %d", inventoryNode.ActiveAnomalies)
+	}
+
+	// Query Org B and verify isolation in reverse
+	graphB, err := repo.GetServiceGraph(ctx, OrgB, time.Now().Add(-1*time.Hour), time.Now())
+	if err != nil {
+		t.Fatalf("GetServiceGraph failed for Org B: %v", err)
+	}
+	for _, node := range graphB.Nodes {
+		if node.Name == "checkout-api" || node.Name == "inventory-svc" {
+			t.Fatalf("CROSS-TENANT LEAK: Org B service graph contains Org A node: %s", node.Name)
 		}
 	}
 }

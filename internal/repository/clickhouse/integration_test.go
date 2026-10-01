@@ -60,8 +60,17 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 		t.Fatalf("failed to execute migration 001_create_otel_spans.sql: %v", err)
 	}
 
+	anomalyMigrationSQL, err := findMigrationFile("002_create_anomalies.sql")
+	if err != nil {
+		t.Fatalf("failed to locate migration file: %v", err)
+	}
+	if err := conn.Exec(ctx, anomalyMigrationSQL); err != nil {
+		t.Fatalf("failed to execute migration 002_create_anomalies.sql: %v", err)
+	}
+
 	repo := NewTraceRepository(conn)
 	serviceRepo := NewServiceRepository(conn)
+	anomalyRepo := NewAnomalyRepository(conn)
 
 	now := time.Now().UTC()
 	testOrgA := "integration-org-alpha"
@@ -123,6 +132,24 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 		t.Fatalf("failed to insert test spans: %v", err)
 	}
 
+	// Insert an active critical anomaly for payment-svc-a in Org A
+	anmA := &domain.Anomaly{
+		ID:                "anm-integ-a-01",
+		OrgID:             testOrgA,
+		ServiceName:       "payment-svc-a",
+		OperationName:     "POST /charge",
+		RootCauseService:  "payment-svc-a",
+		Severity:          "critical",
+		ZScore:            4.8,
+		BaselineLatencyMs: 15.0,
+		ObservedLatencyMs: 100.0,
+		Status:            "detected",
+		DetectedAt:        now,
+	}
+	if err := anomalyRepo.Insert(ctx, anmA); err != nil {
+		t.Fatalf("failed to insert anomaly for Org A: %v", err)
+	}
+
 	// 4. Query GetServiceGraph for Org A
 	from := now.Add(-1 * time.Hour)
 	to := now.Add(1 * time.Hour)
@@ -155,6 +182,24 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 	}
 	if !foundEdge && len(graphA.Edges) > 0 {
 		t.Errorf("expected to find edge frontend-api-a -> payment-svc-a in graph: %+v", graphA.Edges)
+	}
+
+	// Assert payment-svc-a health is 'critical' driven by the active anomaly
+	var paymentNode *domain.ServiceNode
+	for i := range graphA.Nodes {
+		if graphA.Nodes[i].Name == "payment-svc-a" {
+			paymentNode = &graphA.Nodes[i]
+			break
+		}
+	}
+	if paymentNode == nil {
+		t.Fatal("expected payment-svc-a node in Org A graph")
+	}
+	if paymentNode.Health != "critical" {
+		t.Errorf("expected payment-svc-a health to be 'critical' driven by active anomaly, got %s", paymentNode.Health)
+	}
+	if paymentNode.ActiveAnomalies != 1 {
+		t.Errorf("expected payment-svc-a to have 1 active anomaly, got %d", paymentNode.ActiveAnomalies)
 	}
 }
 
