@@ -193,8 +193,23 @@ func (b *BaselineCalculator) CalculateZScore(orgID, serviceName, operationName s
 	return zScore, mean, false
 }
 
+// MaxPreloadWindow aligns strictly with the ClickHouse 14-day MergeTree TTL for non-error spans
+// defined in migrations/clickhouse/001_create_otel_spans.sql. Querying beyond 14 days
+// would introduce silent sampling bias due to ClickHouse background TTL part eviction.
+const MaxPreloadWindow = 14 * 24 * time.Hour
+
+// DefaultPreloadWindow defines the standard 7-day historical lookback for statistical baselines,
+// capturing weekly seasonality/periodicity while staying safely within the 14-day TTL retention boundary.
+const DefaultPreloadWindow = 7 * 24 * time.Hour
+
 // PreloadFromClickHouse seeds the baseline accumulator from historical span metrics in ClickHouse.
 func (b *BaselineCalculator) PreloadFromClickHouse(ctx context.Context, conn clickhouse.Conn, orgID string, since time.Time) error {
+	// Clamp preload window to MaxPreloadWindow (14 days) to prevent silent sampling distortion from TTL eviction
+	minAllowedSince := time.Now().Add(-MaxPreloadWindow)
+	if since.Before(minAllowedSince) {
+		since = minAllowedSince
+	}
+
 	reqID := observability.GetRequestID(ctx)
 	comment := ""
 	if reqID != "" {

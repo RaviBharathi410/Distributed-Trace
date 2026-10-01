@@ -144,12 +144,14 @@ func main() {
 		)
 
 		consumerCfg := ingest.ConsumerConfig{
-			Brokers:       cfg.KafkaBrokers,
-			Topic:         cfg.KafkaTopicSpans,
-			GroupID:       "distributedtrace-ingest-consumer",
-			BatchSize:     500,
-			MinBytes:      cfg.KafkaMinBytes,
-			FlushInterval: 1 * time.Second,
+			Brokers:           cfg.KafkaBrokers,
+			Topic:             cfg.KafkaTopicSpans,
+			GroupID:           "distributedtrace-ingest-consumer",
+			BatchSize:         500,
+			MinBytes:          cfg.KafkaMinBytes,
+			FlushInterval:     1 * time.Second,
+			HookWorkers:       cfg.KafkaAnalysisWorkers,
+			HookQueueCapacity: cfg.KafkaAnalysisQueueCapacity,
 		}
 		spanConsumer = ingest.NewSpanConsumer(consumerCfg, traceRepo)
 

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
+	"github.com/RaviBharathi410/distributedtrace/internal/observability"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -380,4 +382,141 @@ func TestSpanConsumer_BoundedPostBatchHook_ExecutesAndDrains(t *testing.T) {
 		t.Errorf("unexpected spans received by hook: %+v", hookReceived)
 	}
 }
+
+func TestSpanConsumer_BoundedPostBatchHook_LoadSheddingUnderSaturation(t *testing.T) {
+	testSpans := []domain.Span{
+		{
+			OrgID:       "org-shed",
+			TraceID:     "trace-s1",
+			SpanID:      "span-s1",
+			ServiceName: "auth-service",
+			DurationMs:  25,
+			StartTime:   time.Now(),
+		},
+		{
+			OrgID:       "org-shed",
+			TraceID:     "trace-s2",
+			SpanID:      "span-s2",
+			ServiceName: "billing-service",
+			DurationMs:  85,
+			StartTime:   time.Now(),
+		},
+		{
+			OrgID:       "org-shed",
+			TraceID:     "trace-s3",
+			SpanID:      "span-s3",
+			ServiceName: "catalog-service",
+			DurationMs:  120,
+			StartTime:   time.Now(),
+		},
+	}
+
+	var testMsgs []kafka.Message
+	for i, s := range testSpans {
+		data, _ := json.Marshal(s)
+		testMsgs = append(testMsgs, kafka.Message{
+			Topic:  "otel-spans",
+			Offset: int64(i),
+			Value:  data,
+		})
+	}
+
+	mockReader := newMockMessageReader(testMsgs)
+	mockWriter := &mockSpanBatchWriter{}
+
+	cfg := ConsumerConfig{
+		Topic:             "otel-spans",
+		BatchSize:         1,
+		FlushInterval:     20 * time.Millisecond,
+		HookWorkers:       1,
+		HookQueueCapacity: 1,
+	}
+
+	consumer := NewSpanConsumerWithReader(mockReader, mockWriter, cfg)
+
+	blockWorkerCh := make(chan struct{})
+	workerStartedCh := make(chan struct{})
+	var workerStartedOnce sync.Once
+
+	var hookReceived []domain.Span
+	var hookMu sync.Mutex
+	consumer.SetPostBatchHook(func(ctx context.Context, spans []domain.Span) {
+		workerStartedOnce.Do(func() {
+			close(workerStartedCh)
+		})
+		// Block worker on first batch so queue fills up
+		<-blockWorkerCh
+		hookMu.Lock()
+		defer hookMu.Unlock()
+		hookReceived = append(hookReceived, spans...)
+	})
+
+	droppedBefore := testutil.ToFloat64(observability.AnalysisBatchesDropped)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	consumerDone := make(chan struct{})
+	go func() {
+		_ = consumer.Run(ctx)
+		close(consumerDone)
+	}()
+
+	// Wait for worker to pick up first batch and block
+	select {
+	case <-workerStartedCh:
+	case <-time.After(1 * time.Second):
+		t.Fatal("worker never started first batch")
+	}
+
+	// Give enough time for batch 2 to fill queue (capacity 1) and batch 3 to hit default (shed)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		mockWriter.mu.Lock()
+		bCount := len(mockWriter.batches)
+		mockWriter.mu.Unlock()
+		if bCount >= 3 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// Unblock worker so in-flight batches finish and consumer can exit
+	close(blockWorkerCh)
+	cancel()
+
+	select {
+	case <-consumerDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("consumer did not finish within timeout")
+	}
+
+	// 1. Assert all 3 batches were persisted to ClickHouse (persistence NEVER stopped or stalled!)
+	mockWriter.mu.Lock()
+	defer mockWriter.mu.Unlock()
+	if len(mockWriter.batches) != 3 {
+		t.Fatalf("expected all 3 batches persisted to ClickHouse despite analysis saturation, got %d", len(mockWriter.batches))
+	}
+
+	// 2. Assert all 3 messages had offsets committed to Kafka
+	mockReader.mu.Lock()
+	defer mockReader.mu.Unlock()
+	if len(mockReader.committed) != 3 {
+		t.Fatalf("expected all 3 Kafka messages committed, got %d", len(mockReader.committed))
+	}
+
+	// 3. Assert AnalysisBatchesDropped was incremented by at least 1
+	droppedAfter := testutil.ToFloat64(observability.AnalysisBatchesDropped)
+	if droppedAfter <= droppedBefore {
+		t.Fatalf("expected analysis_batches_dropped_total to increment, before=%v, after=%v", droppedBefore, droppedAfter)
+	}
+
+	// 4. Assert hook only received batches that fit in the queue (batch 3 was shed)
+	hookMu.Lock()
+	defer hookMu.Unlock()
+	if len(hookReceived) > 2 {
+		t.Fatalf("expected at most 2 batches received by hook due to load shedding, got %d spans", len(hookReceived))
+	}
+}
+
 

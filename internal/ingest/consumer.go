@@ -31,8 +31,10 @@ type ConsumerConfig struct {
 	GroupID       string
 	BatchSize     int
 	MinBytes      int
-	FlushInterval time.Duration
-	MaxWait       time.Duration
+	FlushInterval     time.Duration
+	MaxWait           time.Duration
+	HookWorkers       int
+	HookQueueCapacity int
 }
 
 type PostBatchHook func(ctx context.Context, spans []domain.Span)
@@ -96,6 +98,12 @@ func NewSpanConsumerWithReader(reader MessageReader, writer SpanBatchWriter, cfg
 	}
 	if cfg.GroupID == "" {
 		cfg.GroupID = "distributedtrace-ingest-consumer"
+	}
+	if cfg.HookWorkers <= 0 {
+		cfg.HookWorkers = 2
+	}
+	if cfg.HookQueueCapacity <= 0 {
+		cfg.HookQueueCapacity = 32
 	}
 
 	return &SpanConsumer{
@@ -189,10 +197,14 @@ func (c *SpanConsumer) Run(ctx context.Context) error {
 		}
 	}
 
-	const (
+	hookWorkers := c.cfg.HookWorkers
+	if hookWorkers <= 0 {
+		hookWorkers = 2
+	}
+	hookQueueCapacity := c.cfg.HookQueueCapacity
+	if hookQueueCapacity <= 0 {
 		hookQueueCapacity = 32
-		hookWorkers       = 2
-	)
+	}
 	hookCh := make(chan []domain.Span, hookQueueCapacity)
 	var hookWg sync.WaitGroup
 

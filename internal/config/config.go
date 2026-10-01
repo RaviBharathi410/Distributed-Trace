@@ -23,6 +23,8 @@ type Config struct {
 	KafkaTopicSpans             string
 	KafkaMinBytes               int
 	KafkaAllowAutoTopicCreation bool
+	KafkaAnalysisWorkers        int
+	KafkaAnalysisQueueCapacity  int
 
 	JWTPrivateKeyPath string
 	JWTPublicKeyPath  string
@@ -135,6 +137,14 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.KafkaAllowAutoTopicCreation = getEnv("KAFKA_ALLOW_AUTO_TOPIC_CREATION", "false") == "true"
+	cfg.KafkaAnalysisWorkers, err = getEnvInt("KAFKA_ANALYSIS_WORKERS", 2)
+	if err != nil {
+		return nil, err
+	}
+	cfg.KafkaAnalysisQueueCapacity, err = getEnvInt("KAFKA_ANALYSIS_QUEUE_CAPACITY", 32)
+	if err != nil {
+		return nil, err
+	}
 
 	cfg.LogLevel = getEnv("LOG_LEVEL", "info")
 	cfg.LogFormat = getEnv("LOG_FORMAT", "json")
