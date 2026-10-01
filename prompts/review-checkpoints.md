@@ -239,4 +239,40 @@
   2. Interactive Service Map frontend rendering node health status, RPS, error rates, and directed edge latencies.
   3. Real-time topology updates reflecting live ingested span metadata.
 
+---
+
+## Checkpoint: 2026-10-01 — Phase 4 Complete: Real-time Service Graph & Topology Visualization
+- **Status:** ✅ **Phase 4 Complete — All Exit Criteria Satisfied**.
+- **Project Completion:** ~94% (Live ClickHouse service topology aggregation, unified anomaly health evaluation, interactive D3 force-directed map with drawer telemetry, and verified remote CI).
+- **What Changed Since Last Checkpoint:**
+  1. **Unified Health Aggregation & Live Topology API ([`internal/repository/clickhouse/services.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/services.go)):**
+     - Single Source of Truth: `GetServiceGraph` queries active unresolved anomalies (`WHERE org_id = ? AND status != 'resolved'`) directly from ClickHouse, driving service node health (`critical`, `degraded`, `healthy`) from Phase 3 anomaly state rather than an ad-hoc parallel path.
+     - Idle Service Anomaly Visibility: Services with active anomalies remain visible on the topology map even if traffic temporarily stops.
+     - Directed Edge Latencies: Added $p95$ duration calculation (`quantile(0.95)(c.duration_ms) as p95_ms`) alongside RPS and error rates.
+     - Dynamic Critical Path: Highlights dependency edges targeting degraded or critical bottleneck services.
+     - Added `ActiveAnomalies int` to `domain.ServiceNode` and `P95Ms float64` to `domain.ServiceEdge` ([`internal/domain/service.go`](file:///d:/Projects/DistributedTrace/internal/domain/service.go)).
+  2. **Automated Multi-Tenant & Live ClickHouse Integration Tests:**
+     - Updated [`internal/repository/clickhouse/tenancy_test.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/tenancy_test.go): asserted that Org A queries isolate active anomalies to Org A nodes and never return Org B nodes, edges, or anomalies, with verified reverse isolation for Org B.
+     - Updated [`internal/repository/clickhouse/integration_test.go`](file:///d:/Projects/DistributedTrace/internal/repository/clickhouse/integration_test.go) (`TestGetServiceGraph_RealClickHouse_Integration`): loads both canonical migration files (`001_create_otel_spans.sql`, `002_create_anomalies.sql`), executes real MergeTree JOIN and anomaly aggregation on live ClickHouse, and verifies that `payment-svc-a` is marked critical with 1 active anomaly while Org B is 100% isolated.
+  3. **Interactive Topology UI ([`src/components/dashboard/ServiceMapTab.tsx`](file:///d:/Projects/DistributedTrace/src/components/dashboard/ServiceMapTab.tsx)):**
+     - Adaptive Interval Polling: 10s auto-refresh interval with window blur suppression and manual Refresh button (Decision #29), eliminating persistent WebSocket overhead (§6 cost discipline).
+     - Active Anomaly Badging: Displays pulsating badge indicating the count of unresolved anomalies on each node.
+     - Real-Time Drawer Inspection: Clicking a node queries live `servicesApi.getStats` and `anomaliesApi.list({ service, status: 'open' })`. Replaced all mock generators with real $p50, p95, p99$ latency metrics, request rates, error rates, active anomalies with $Z$-scores and root cause attribution, and directed dependency lists.
+     - Added "Filter Degraded" toggle, Reset Zoom, and pan/zoom SVG canvas controls.
+  4. **Architectural Decision #29 Logged ([`prompts/decision-log.md`](file:///d:/Projects/DistributedTrace/prompts/decision-log.md)):**
+     - Documented adaptive interval polling for topology updates and unified anomaly-driven health truth.
+- **Verification Evidence (Commands Run & CI Runs):**
+  - **Remote GitHub Actions CI Run #13:** [Run 36864628369](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/36864628369) -> **COMPLETED SUCCESS** (Head SHA `76b18ee`, Duration 1m 55s, 0 failures across both jobs).
+    - `Backend (Go 1.22)` -> **Success** (Native ClickHouse container + Redpanda test broker + live ServiceGraph anomaly integration tests).
+    - `Frontend (Node 20 / Vite)` -> **Success** (ESLint 0 warnings/0 errors + Vite build in 651ms).
+  - `go test -v -cover ./internal/repository/clickhouse/...` -> Exited 0 (**54.0% statement coverage, 100% tests passing**).
+  - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
+  - `npx eslint . --ext ts,tsx` -> Exited 0 (0 errors, 0 warnings).
+  - `npm run build` -> Exited 0 (`dist/` built in 651ms).
+- **Next Checkpoint's Exit Criteria (Phase 5 — AIOps Autonomous Root Cause Analysis & Remediation Engine):**
+  1. On-demand AI incident analysis trigger from UI (bypassing hot path, isolated to user investigation).
+  2. Structured LLM prompt assembling causal trace graph, baseline metrics, downstream root-cause service, and relevant error logs.
+  3. Actionable remediation recommendations generated with confidence scores and rollback playbooks.
+
+
 
