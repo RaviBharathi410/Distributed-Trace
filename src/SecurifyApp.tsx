@@ -485,6 +485,7 @@ const SupportSection: React.FC = () => {
 import { TracesTab } from './components/dashboard/TracesTab';
 import { ServiceMapTab } from './components/dashboard/ServiceMapTab';
 import { AnomaliesTab } from './components/dashboard/AnomaliesTab';
+import { CostsTab } from './components/dashboard/CostsTab';
 import { SettingsTab } from './components/dashboard/SettingsTab';
 
 const Dashboard: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
@@ -512,7 +513,7 @@ const Dashboard: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
 
       {/* TABS */}
       <div className="flex items-center px-8 border-b border-white/[0.06] bg-black shrink-0">
-        {['overview', 'traces', 'service map', 'anomalies', 'settings'].map(tab => (
+        {['overview', 'traces', 'service map', 'anomalies', 'costs', 'settings'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -530,6 +531,7 @@ const Dashboard: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         {activeTab === 'traces' && <TracesTab />}
         {activeTab === 'service map' && <ServiceMapTab />}
         {activeTab === 'anomalies' && <AnomaliesTab />}
+        {activeTab === 'costs' && <CostsTab />}
         {activeTab === 'settings' && <SettingsTab />}
       </div>
     </div>

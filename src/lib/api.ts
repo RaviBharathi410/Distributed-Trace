@@ -289,3 +289,39 @@ export const spansApi = {
     });
   },
 };
+
+export interface CostSummary {
+  orgId: string;
+  infraShareUsd: number;
+  llmSpendUsd: number;
+  totalCostUsd: number;
+  totalIncidentsExplained: number;
+  avgCostPerIncidentUsd: number;
+  hourlySpendUsd: number;
+  hourlyCapUsd: number;
+  activeOrgsCount: number;
+}
+
+export interface CostBreakdownItem {
+  id: string;
+  anomalyId: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  createdAt: string;
+}
+
+export const costsApi = {
+  async getSummary() {
+    return request<CostSummary>('/costs/summary');
+  },
+  async getBreakdown(params?: { limit?: number; offset?: number }) {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.offset) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return request<{ items: CostBreakdownItem[]; limit: number; offset: number }>(`/costs/breakdown${qs ? `?${qs}` : ''}`);
+  },
+};
+

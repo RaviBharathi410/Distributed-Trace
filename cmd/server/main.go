@@ -121,6 +121,7 @@ func main() {
 	userRepo := pgRepo.NewUserRepository(pgPool)
 	orgRepo := pgRepo.NewOrganizationRepository(pgPool)
 	apiKeyRepo := pgRepo.NewAPIKeyRepository(pgPool)
+	costRepo := pgRepo.NewCostRepository(pgPool)
 
 	traceRepo := chRepo.NewTraceRepository(chConn)
 	serviceRepo := chRepo.NewServiceRepository(chConn)
@@ -182,6 +183,7 @@ func main() {
 	serviceHandler := api.NewServiceHandler(serviceRepo)
 	anomalyHandler := api.NewAnomalyHandler(anomalyRepo)
 	spanHandler := api.NewSpanHandler(traceRepo, spanProducer)
+	costHandler := api.NewCostHandler(costRepo)
 
 	// 8. Setup Chi Router & Middleware
 	r := chi.NewRouter()
@@ -299,6 +301,13 @@ func main() {
 
 			// Mutating anomaly status requires Member, Admin, or Owner
 			r.With(auth.RequireRole(domain.RoleMember, domain.RoleAdmin)).Patch("/{id}/status", anomalyHandler.UpdateAnomalyStatus)
+		})
+
+		// Costs & Unit Economics endpoints (Protected)
+		r.Route("/costs", func(r chi.Router) {
+			r.Use(auth.RequireUserAuth(tokenService))
+			r.Get("/summary", costHandler.GetCostSummary)
+			r.Get("/breakdown", costHandler.GetCostBreakdown)
 		})
 	})
 

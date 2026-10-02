@@ -139,23 +139,56 @@ CREATE INDEX IF NOT EXISTS idx_tenant_llm_costs_org ON tenant_llm_costs (org_id,
 
 ## 6. Output-Side Guardrails & System Prompt Directives
 
-To strictly enforce the Phase 5A / 5B boundary, output-side safety is governed by explicit prompt rules and downstream schema validation:
+To strictly enforce the Phase 5A / 5B boundary, output-side safety is governed by a two-layer defense: contrastive prompt guidance and a deterministic regex-based advisory detector.
 
-### System Prompt Directives
+### System Prompt Directives & Contrastive Few-Shot Guidance
 ```text
 You are a read-only root-cause diagnostic engine for distributed traces.
 Your SOLE task is to explain what occurred based strictly on the provided telemetry facts.
 
 CRITICAL SAFETY & SCOPE RULES:
-1. Do NOT volunteer or suggest remediation actions, rollback steps, or configuration changes.
-2. Do NOT generate shell commands, kubectl directives, or infrastructure mutation instructions.
-3. Confine your response strictly to descriptive diagnosis of observed telemetry anomalies and contributing factors.
-4. Output must be valid JSON matching the exact schema provided.
+1. Do NOT volunteer or suggest remediation actions, operational fixes, or configuration changes.
+2. Do NOT use soft advisory phrasing (e.g., "this pattern is often resolved by...", "typically indicates the service needs more replicas", "consider tuning...").
+3. Do NOT generate shell commands, kubectl directives, or infrastructure mutation instructions.
+4. Confine your response strictly to descriptive diagnosis of observed telemetry anomalies and contributing factors.
+5. Output must be valid JSON matching the exact schema provided.
+
+CONTRASTIVE EXAMPLES:
+
+❌ VIOLATION (Soft Advisory / Prescriptive Phrasing - FORBIDDEN):
+{
+  "summary": "This pattern is often resolved by increasing connection pool size on payment-svc.",
+  "contributing_factors": [
+    "Typically indicates the service needs more replicas to handle traffic bursts.",
+    "This is commonly addressed by a cache warm restart."
+  ]
+}
+
+✅ COMPLIANT (Descriptive Observation of Telemetry Only - REQUIRED):
+{
+  "summary": "Database connection acquisition wait time in 'payment-svc' spiked from 15ms to 240ms, causing request queue buildup.",
+  "contributing_factors": [
+    "Active connections reached the configured pool limit of 100 at 14:02:10 UTC.",
+    "Upstream edge 'checkout-api' -> 'payment-svc' observed 260ms p95 latency while error rate remained at 0.4%."
+  ]
+}
 ```
 
-### Downstream Response Validation Assertion
-- The response parser validates that no imperative remediation keywords (`rollback`, `kubectl`, `restart`, `reboot`, `scale up`, `scale down`, `helm`, `apply`, `deploy`) exist in the output strings.
-- Automated tests assert that if a mock LLM output includes remediation directives, the validator strips or rejects them before returning to the user.
+### Two-Tiered Response Validation Engine
+A post-generation deterministic validator scans the output before it is returned to the user:
+1. **Tier 1 (Literal Command / Tooling Blocklist):**
+   - Matches literal infrastructure mutation keywords: `kubectl`, `helm`, `rollback`, `reboot`, `scale up`, `scale down`, `deploy`, `apply`.
+2. **Tier 2 (Soft Advisory Pattern Detector):**
+   - Regex-based matching on prescriptive and advisory phrasing constructs that attempt to volunteer fixes without using blocked keywords:
+     - `\b(resolved by|addressed by|fixed by|remedied by|mitigated by|workaround is)\b`
+     - `\b(should (increase|decrease|add|scale|restart|configure|tune|upgrade|revert|change|deploy|apply|check))\b`
+     - `\b(needs (more|fewer|additional|to be|scaling|tuning))\b`
+     - `\b(recommend(ed)? (increasing|decreasing|adding|scaling|restarting|configuring|to))\b`
+     - `\b(consider (increasing|decreasing|adding|scaling|restarting|tuning))\b`
+     - `\b(try (restarting|increasing|scaling|reverting))\b`
+     - `\b(best practice is to|solution is to|next step is to)\b`
+3. **Fallback Behavior:**
+   - If either Tier 1 or Tier 2 matches, the validator strips the prescriptive text or falls back cleanly to the deterministic telemetry summary ($0 token cost, 0 risk).
 
 ---
 
@@ -166,7 +199,11 @@ CRITICAL SAFETY & SCOPE RULES:
 3. **Deterministic Telemetry Grounding:** Prompt generation strictly uses the anomaly's deterministic fields (`root_cause_service`, `z_score`, `baseline_latency_ms`, `observed_latency_ms`). If the service name is not in the trace graph, prompt generation is aborted.
 4. **Pre-Flight Cost Ceiling Enforcement:** Code calculates estimated prompt token cost before dispatching outbound HTTP calls. Any payload with estimated cost $> \$0.01$ is rejected pre-flight.
 5. **Tenant Storm Circuit Breaker:** Consecutive explanation requests exceeding the \$1.00/hr org spend cap are short-circuited with `429` and served with a \$0 deterministic fallback.
-6. **Output-Side Remediation Ban Assertion:** Unit tests verify that output containing remediation or infrastructure modification directives is blocked by the response validator.
+6. **Output-Side Remediation & Soft-Advisory Ban Assertion:** Dedicated unit tests verify that the validator rejects:
+   - Direct imperative commands (`kubectl scale`, `rollback`).
+   - Soft advisory phrasing (`this pattern is often resolved by increasing connection pool size`, `typically indicates the service needs more replicas`, `this is commonly addressed by a cache warm restart`).
+   - Pure descriptive telemetry statements pass validation cleanly.
 7. **Idempotent Cache Behavior:** Consecutive calls to `POST /api/v1/anomalies/{id}/explain` return the cached explanation with `cost_attribution.cached == true` and \$0.00 incremental cost.
 8. **Zero Live Mutation:** The explanation engine has no access to infrastructure APIs (no Kubernetes client, no AWS/GCP SDK, no shell exec). Output is pure read-only JSON text.
 9. **CI Pass & Zero Credential Leakage:** All unit and integration tests compile and pass on GitHub Actions with real ClickHouse and Redpanda service containers. Zero API keys committed or logged.
+
