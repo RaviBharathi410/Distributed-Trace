@@ -84,3 +84,27 @@ func TestOutputValidator_AcceptsPureDescriptiveTelemetry(t *testing.T) {
 		}
 	}
 }
+
+func TestOutputValidator_TrueNegatives_ObservationalTelemetryWithTriggerWords(t *testing.T) {
+	validator := NewOutputValidator()
+
+	// These sentences contain trigger words like 'typically', 'often', 'needs', 'resolved', 'baseline'
+	// but are purely observational telemetry statements, NOT remediation advice.
+	observationalInputs := []string{
+		"Latency typically rises during the 2–4pm window, consistent with the 7-day baseline.",
+		"Error rate was often elevated during batch synchronizations, which resolved naturally once the queue drained.",
+		"Database connection needs 12ms on average to establish handshake under normal network load.",
+		"Historical anomaly was resolved automatically when background compaction completed at 03:00 UTC.",
+		"The observed latency needs to be evaluated against the rolling Welford mean of 45ms.",
+		"The trace waterfall indicates that upstream callers often retry failed idempotent GET requests.",
+		"Cache hit ratio typically fluctuates between 85% and 95% across diurnal traffic cycles.",
+		"The database connection pool acquisition latency was resolved when downstream lock contention subsided.",
+	}
+
+	for _, input := range observationalInputs {
+		if err := validator.ValidateText(input); err != nil {
+			t.Errorf("FALSE POSITIVE: valid observational telemetry was rejected by validator: %q, error: %v", input, err)
+		}
+	}
+}
+

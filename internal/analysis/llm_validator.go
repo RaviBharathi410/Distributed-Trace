@@ -23,16 +23,19 @@ var tier1CommandPatterns = []*regexp.Regexp{
 
 // Tier 2: Soft advisory / prescriptive modal regex patterns
 var tier2AdvisoryPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)\b(resolved by|addressed by|fixed by|remedied by|mitigated by|workaround is)\b`),
-	regexp.MustCompile(`(?i)\b(should (increase|decrease|add|scale|restart|configure|tune|upgrade|revert|change|deploy|apply|check|modify))\b`),
-	regexp.MustCompile(`(?i)\b(needs (more|fewer|additional|to be|scaling|tuning|restarting))\b`),
+	regexp.MustCompile(`(?i)\b((can be|often|typically|commonly|usually|is best) (resolved|addressed|fixed|remedied|mitigated) by)\b`),
+	regexp.MustCompile(`(?i)\b(pattern is (often |typically )?(resolved|addressed|fixed|mitigated) by)\b`),
+	regexp.MustCompile(`(?i)\b(workaround is to)\b`),
+	regexp.MustCompile(`(?i)\b(should (increase|decrease|add|scale|restart|reconfigure|tune|upgrade|revert|deploy|apply|modify))\b`),
+	regexp.MustCompile(`(?i)\b(operator should|team should|user should|you should)\b`),
+	regexp.MustCompile(`(?i)\b(needs to be (restarted|scaled|reconfigured|upgraded|reverted|increased|decreased|tuned|deployed))\b`),
+	regexp.MustCompile(`(?i)\b(needs (more|fewer|additional) (replicas|memory|cpu|threads?|allocation|capacity|instances|nodes|connections))\b`),
+	regexp.MustCompile(`(?i)\b(needs (scaling|tuning|restarting))\b`),
 	regexp.MustCompile(`(?i)\b(recommend(ed)? (increasing|decreasing|adding|scaling|restarting|configuring|tuning|to))\b`),
 	regexp.MustCompile(`(?i)\b(consider (increasing|decreasing|adding|scaling|restarting|tuning|adjusting|migrating))\b`),
 	regexp.MustCompile(`(?i)\b(try (restarting|increasing|scaling|reverting|tuning))\b`),
 	regexp.MustCompile(`(?i)\b(best practice is to|solution is to|next step is to)\b`),
 	regexp.MustCompile(`(?i)\b(typically indicates the service needs)\b`),
-	regexp.MustCompile(`(?i)\b(often resolved by)\b`),
-	regexp.MustCompile(`(?i)\b(commonly addressed by)\b`),
 }
 
 // OutputValidator inspects LLM-generated diagnosis text to ensure strict adherence to Phase 5A

@@ -103,7 +103,7 @@ export const CostsTab: React.FC = () => {
               </div>
               <div className="text-xs text-emerald-400/80 mt-1 flex items-center gap-1 font-dm-mono">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                Target &le; $0.010000 (Protected)
+                Ceiling: &le; $0.010000 (Configured)
               </div>
             </div>
           )}

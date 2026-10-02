@@ -187,8 +187,20 @@ A post-generation deterministic validator scans the output before it is returned
      - `\b(consider (increasing|decreasing|adding|scaling|restarting|tuning))\b`
      - `\b(try (restarting|increasing|scaling|reverting))\b`
      - `\b(best practice is to|solution is to|next step is to)\b`
-3. **Fallback Behavior:**
-   - If either Tier 1 or Tier 2 matches, the validator strips the prescriptive text or falls back cleanly to the deterministic telemetry summary ($0 token cost, 0 risk).
+3. **Validator Rejection Fallback Policy (Hard Stop — Zero Re-Prompts):**
+   - If either Tier 1 (commands) or Tier 2 (soft advisories) matches, the engine **does NOT re-prompt the LLM**. Issuing a second call would compound token consumption and risk exceeding the \$0.01 per-incident ceiling.
+   - The engine immediately degrades to a **100% deterministic Phase 3 telemetry summary** ($0 incremental cost, 0 operational risk).
+   - The response payload sets `"degraded_to_deterministic": true` and `"fallback_reason": "Output contained forbidden advisory/remediation phrasing; degraded to deterministic telemetry observation."`
+   - The single LLM call's token usage is recorded in `tenant_llm_costs` for honest billing transparency, but no further API calls are made.
+
+### Centralized Pricing & Vendor Drift Prevention
+- All model pricing parameters and ceiling constants are maintained in application configuration (`internal/config/config.go` and `.env.example`), avoiding hardcoded pricing numbers:
+  - `LLM_MODEL_NAME` (default: `"gemini-1.5-flash"`)
+  - `LLM_INPUT_PRICE_PER_MILLION` (default: `$0.075 / 1M` tokens, effective Oct 2024)
+  - `LLM_OUTPUT_PRICE_PER_MILLION` (default: `$0.300 / 1M` tokens, effective Oct 2024)
+  - `LLM_COST_CEILING_PER_INCIDENT` (default: `$0.010` max per incident)
+  - `LLM_HOURLY_SPEND_CAP` (default: `$1.000` max per tenant org)
+- Vendor pricing changes are managed via environment variables and tracked in the architectural decision log without requiring codebase refactoring.
 
 ---
 

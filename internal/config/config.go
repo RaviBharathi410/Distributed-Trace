@@ -40,6 +40,13 @@ type Config struct {
 	MaxWSConnections int
 	RateLimitAuth    int
 	RateLimitAPI     int
+
+	// Phase 5A LLM Explanation & Cost Attribution
+	LLMModelName              string
+	LLMInputPricePerMillion   float64
+	LLMOutputPricePerMillion  float64
+	LLMCostCeilingPerIncident float64
+	LLMHourlySpendCap         float64
 }
 
 func Load() (*Config, error) {
@@ -164,6 +171,24 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	cfg.LLMModelName = getEnv("LLM_MODEL_NAME", "gemini-1.5-flash")
+	cfg.LLMInputPricePerMillion, err = getEnvFloat("LLM_INPUT_PRICE_PER_MILLION", 0.075)
+	if err != nil {
+		return nil, err
+	}
+	cfg.LLMOutputPricePerMillion, err = getEnvFloat("LLM_OUTPUT_PRICE_PER_MILLION", 0.300)
+	if err != nil {
+		return nil, err
+	}
+	cfg.LLMCostCeilingPerIncident, err = getEnvFloat("LLM_COST_CEILING_PER_INCIDENT", 0.010)
+	if err != nil {
+		return nil, err
+	}
+	cfg.LLMHourlySpendCap, err = getEnvFloat("LLM_HOURLY_SPEND_CAP", 1.000)
+	if err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
 }
 
@@ -202,6 +227,18 @@ func getEnvDuration(key string, defaultVal time.Duration) (time.Duration, error)
 	val, err := time.ParseDuration(valStr)
 	if err != nil {
 		return 0, fmt.Errorf("invalid duration value for %s: %w", key, err)
+	}
+	return val, nil
+}
+
+func getEnvFloat(key string, defaultVal float64) (float64, error) {
+	valStr, ok := os.LookupEnv(key)
+	if !ok {
+		return defaultVal, nil
+	}
+	val, err := strconv.ParseFloat(valStr, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid float value for %s: %w", key, err)
 	}
 	return val, nil
 }
