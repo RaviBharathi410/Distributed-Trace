@@ -191,6 +191,11 @@ func main() {
 		HourlySpendCap:         cfg.LLMHourlySpendCap,
 	}
 	explainerEngine := analysis.NewIncidentExplainer(geminiClient, analysis.NewOutputValidator(), costRepo, explainerCfg)
+	observability.Log.Info("Incident explanation engine initialized (Decision #33 in-memory 24h cache lifecycle)",
+		zap.String("model", cfg.LLMModelName),
+		zap.Float64("cost_ceiling_per_incident", cfg.LLMCostCeilingPerIncident),
+		zap.Float64("hourly_spend_cap", cfg.LLMHourlySpendCap),
+	)
 	anomalyHandler := api.NewAnomalyHandlerWithExplainer(anomalyRepo, explainerEngine)
 
 	spanHandler := api.NewSpanHandler(traceRepo, spanProducer)

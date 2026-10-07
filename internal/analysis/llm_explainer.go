@@ -46,6 +46,7 @@ type GeminiClient struct {
 	apiKey     string
 	model      string
 	httpClient *http.Client
+	baseURL    string // optional override for testing, defaults to https://generativelanguage.googleapis.com
 }
 
 func NewGeminiClient(apiKey, model string) *GeminiClient {
@@ -109,7 +110,11 @@ func (c *GeminiClient) Generate(ctx context.Context, systemPrompt, userPrompt st
 		return "", 0, 0, ErrNoAPIKey
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.model, c.apiKey)
+	baseURL := c.baseURL
+	if baseURL == "" {
+		baseURL = "https://generativelanguage.googleapis.com"
+	}
+	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", baseURL, c.model, c.apiKey)
 
 	reqPayload := geminiRequest{
 		SystemInstruction: &geminiContent{
@@ -150,6 +155,16 @@ func (c *GeminiClient) Generate(ctx context.Context, systemPrompt, userPrompt st
 		return "", 0, 0, fmt.Errorf("failed to read gemini response body: %w", err)
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		var errResp geminiResponse
+		if err := json.Unmarshal(respBytes, &errResp); err == nil && errResp.Error != nil {
+			return "", 0, 0, fmt.Errorf("gemini api error (code %d, status %s): %s",
+				errResp.Error.Code, errResp.Error.Status, errResp.Error.Message)
+		}
+		return "", 0, 0, fmt.Errorf("gemini http error: status %d %s: %s",
+			resp.StatusCode, http.StatusText(resp.StatusCode), string(respBytes))
+	}
+
 	var geminiResp geminiResponse
 	if err := json.Unmarshal(respBytes, &geminiResp); err != nil {
 		return "", 0, 0, fmt.Errorf("failed to parse gemini response json: %w", err)
@@ -183,6 +198,9 @@ type IncidentExplainer struct {
 	validator *OutputValidator
 	costs     CostRecorder
 	cfg       ExplainerConfig
+	// cache holds idempotent explanations for up to 24 hours (Decision #33).
+	// Lifecycle note: Process restarts silently clear this in-process map. Re-requests after restart
+	// issue fresh calls bounded by the pre-flight ceiling ($0.01) and hourly storm cap ($1.00/hr).
 	cache     map[string]cachedExplanation
 	cacheMu   sync.RWMutex
 }

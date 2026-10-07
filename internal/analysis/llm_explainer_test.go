@@ -2,6 +2,10 @@ package analysis
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -288,3 +292,167 @@ func TestIncidentExplainer_UnconfiguredClient_GracefulFallback(t *testing.T) {
 		t.Errorf("expected $0.00 cost when unconfigured, got %f", res.CostAttribution.EstimatedCostUSD)
 	}
 }
+
+func TestIncidentExplainer_NetworkTimeoutOrConnectionError_DegradesToDeterministic_ZeroCostRecorded(t *testing.T) {
+	mockClient := &mockLLMClient{
+		err: errors.New("Post \"https://generativelanguage.googleapis.com/... \": context deadline exceeded (Client.Timeout exceeded)"),
+	}
+	mockCosts := &mockCostRecorder{}
+	cfg := sampleExplainerConfig()
+
+	explainer := NewIncidentExplainer(mockClient, nil, mockCosts, cfg)
+	anomaly := sampleAnomaly()
+
+	res, err := explainer.Explain(context.Background(), "org-123", anomaly, false)
+	if err != nil {
+		t.Fatalf("unexpected error during network failure: %v", err)
+	}
+
+	if !res.DegradedToDeterministic {
+		t.Errorf("expected DegradedToDeterministic to be true on network failure")
+	}
+	if !strings.Contains(res.FallbackReason, "LLM provider dispatch failed") {
+		t.Errorf("expected fallback reason to cite provider dispatch failure, got: %s", res.FallbackReason)
+	}
+	if !strings.Contains(res.FallbackReason, "context deadline exceeded") {
+		t.Errorf("expected fallback reason to preserve root cause error, got: %s", res.FallbackReason)
+	}
+
+	// CRITICAL TEST: Zero cost and zero tokens logged when network call aborted
+	if res.CostAttribution.EstimatedCostUSD != 0.0 {
+		t.Errorf("expected $0.00 cost when network call failed, got %f", res.CostAttribution.EstimatedCostUSD)
+	}
+	if res.CostAttribution.InputTokens != 0 || res.CostAttribution.OutputTokens != 0 {
+		t.Errorf("expected 0 tokens attributed, got in=%d, out=%d", res.CostAttribution.InputTokens, res.CostAttribution.OutputTokens)
+	}
+	if len(mockCosts.recorded) != 0 {
+		t.Errorf("expected 0 cost events recorded in ledger for aborted network call, got %d", len(mockCosts.recorded))
+	}
+}
+
+func TestIncidentExplainer_Provider5xxError_DegradesToDeterministic_ZeroCostRecorded(t *testing.T) {
+	mockClient := &mockLLMClient{
+		err: fmt.Errorf("gemini api error (code 503, status UNAVAILABLE): The model is overloaded. Please try again later."),
+	}
+	mockCosts := &mockCostRecorder{}
+	cfg := sampleExplainerConfig()
+
+	explainer := NewIncidentExplainer(mockClient, nil, mockCosts, cfg)
+	anomaly := sampleAnomaly()
+
+	res, err := explainer.Explain(context.Background(), "org-123", anomaly, false)
+	if err != nil {
+		t.Fatalf("unexpected error on 5xx: %v", err)
+	}
+
+	if !res.DegradedToDeterministic {
+		t.Errorf("expected DegradedToDeterministic to be true on 5xx")
+	}
+	if !strings.Contains(res.FallbackReason, "UNAVAILABLE") {
+		t.Errorf("expected fallback reason to mention UNAVAILABLE, got: %s", res.FallbackReason)
+	}
+	if res.CostAttribution.EstimatedCostUSD != 0.0 {
+		t.Errorf("expected $0.00 cost on 5xx, got %f", res.CostAttribution.EstimatedCostUSD)
+	}
+	if len(mockCosts.recorded) != 0 {
+		t.Errorf("expected 0 cost events recorded in ledger for 5xx, got %d", len(mockCosts.recorded))
+	}
+}
+
+func TestIncidentExplainer_MalformedJSONResponse_DegradesToDeterministic_HonestLedgerTracking(t *testing.T) {
+	// Provider returned a non-JSON conversational refusal or malformed payload, but consumed tokens
+	malformedResponse := "I apologize, but I cannot fulfill this request as formatted."
+
+	mockClient := &mockLLMClient{
+		response:     malformedResponse,
+		inputTokens:  750,
+		outputTokens: 50,
+	}
+	mockCosts := &mockCostRecorder{}
+	cfg := sampleExplainerConfig()
+
+	explainer := NewIncidentExplainer(mockClient, nil, mockCosts, cfg)
+	anomaly := sampleAnomaly()
+
+	res, err := explainer.Explain(context.Background(), "org-123", anomaly, false)
+	if err != nil {
+		t.Fatalf("unexpected error on malformed JSON: %v", err)
+	}
+
+	if !res.DegradedToDeterministic {
+		t.Errorf("expected DegradedToDeterministic to be true on malformed JSON")
+	}
+	if !strings.Contains(res.FallbackReason, "did not adhere to required JSON schema") {
+		t.Errorf("expected fallback reason to cite JSON schema failure, got: %s", res.FallbackReason)
+	}
+
+	// CRITICAL TEST: Honest ledger recording for consumed tokens
+	if len(mockCosts.recorded) != 1 {
+		t.Fatalf("expected 1 cost event recorded in ledger for consumed tokens, got %d", len(mockCosts.recorded))
+	}
+	if mockCosts.recorded[0].InputTokens != 750 || mockCosts.recorded[0].OutputTokens != 50 {
+		t.Errorf("expected recorded tokens (750, 50), got (%d, %d)", mockCosts.recorded[0].InputTokens, mockCosts.recorded[0].OutputTokens)
+	}
+
+	expectedCost := (750.0*0.075 + 50.0*0.300) / 1_000_000.0
+	if res.CostAttribution.EstimatedCostUSD != expectedCost {
+		t.Errorf("expected cost attribution to reflect consumed tokens (%f), got %f", expectedCost, res.CostAttribution.EstimatedCostUSD)
+	}
+}
+
+func TestGeminiClient_HTTPErrorParsing_WithMockServer(t *testing.T) {
+	t.Run("Parses_Google_JSON_429_Rate_Limit_Error", func(t *testing.T) {
+		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{
+				"error": {
+					"code": 429,
+					"message": "Resource has been exhausted (e.g. check quota).",
+					"status": "RESOURCE_EXHAUSTED"
+				}
+			}`))
+		}))
+		defer mockServer.Close()
+
+		client := NewGeminiClient("test-key", "gemini-1.5-flash")
+		client.baseURL = mockServer.URL
+		client.httpClient = mockServer.Client()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, _, _, err := client.Generate(ctx, "sys", "usr")
+		if err == nil {
+			t.Fatalf("expected error from 429 mock server, got nil")
+		}
+		if !strings.Contains(err.Error(), "code 429") || !strings.Contains(err.Error(), "RESOURCE_EXHAUSTED") {
+			t.Errorf("expected error to contain code 429 and RESOURCE_EXHAUSTED, got: %v", err)
+		}
+	})
+
+	t.Run("Parses_Non_JSON_502_Gateway_Error", func(t *testing.T) {
+		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`<html><title>502 Bad Gateway</title><body>502 Bad Gateway</body></html>`))
+		}))
+		defer mockServer.Close()
+
+		client := NewGeminiClient("test-key", "gemini-1.5-flash")
+		client.baseURL = mockServer.URL
+		client.httpClient = mockServer.Client()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, _, _, err := client.Generate(ctx, "sys", "usr")
+		if err == nil {
+			t.Fatalf("expected error from 502 gateway, got nil")
+		}
+		if !strings.Contains(err.Error(), "status 502 Bad Gateway") {
+			t.Errorf("expected error to preserve status 502 Bad Gateway, got: %v", err)
+		}
+	})
+}
+
