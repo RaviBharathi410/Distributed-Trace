@@ -172,7 +172,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	cfg.LLMModelName = getEnv("LLM_MODEL_NAME", "gemini-1.5-flash")
+	cfg.LLMModelName = getEnv("LLM_MODEL_NAME", "gemini-3.5-flash-lite")
 	cfg.LLMAPIKey = getEnv("LLM_API_KEY", getEnv("GEMINI_API_KEY", ""))
 	cfg.LLMInputPricePerMillion, err = getEnvFloat("LLM_INPUT_PRICE_PER_MILLION", 0.075)
 	if err != nil {

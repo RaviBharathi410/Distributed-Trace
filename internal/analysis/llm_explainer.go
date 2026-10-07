@@ -51,7 +51,7 @@ type GeminiClient struct {
 
 func NewGeminiClient(apiKey, model string) *GeminiClient {
 	if model == "" {
-		model = "gemini-1.5-flash"
+		model = "gemini-3.5-flash-lite"
 	}
 	return &GeminiClient{
 		apiKey: apiKey,

@@ -19,7 +19,11 @@ func TestGeminiClient_LiveIntegration(t *testing.T) {
 		t.Skip("skipping live Gemini API integration test: GEMINI_API_KEY / LLM_API_KEY environment variable not set. Export key to run live integration test.")
 	}
 
-	client := NewGeminiClient(apiKey, "gemini-1.5-flash")
+	model := os.Getenv("LLM_MODEL_NAME")
+	if model == "" {
+		model = "gemini-3.5-flash-lite"
+	}
+	client := NewGeminiClient(apiKey, model)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -53,6 +57,8 @@ func TestGeminiClient_LiveIntegration(t *testing.T) {
 	validator := NewOutputValidator()
 	if err := validator.ValidateDiagnosticOutput(parsed.Summary, parsed.ContributingFactors); err != nil {
 		t.Logf("Notice: live model generated output that triggered safety validator: %v", err)
+	} else {
+		t.Logf("Live Gemini Call Success! Model=%s, InTokens=%d, OutTokens=%d, ValidatorPassed=true", model, inTokens, outTokens)
 	}
 }
 
@@ -67,9 +73,14 @@ func TestIncidentExplainer_LiveEndToEnd_WithRealGemini(t *testing.T) {
 		t.Skip("skipping live IncidentExplainer integration test: GEMINI_API_KEY / LLM_API_KEY environment variable not set.")
 	}
 
-	client := NewGeminiClient(apiKey, "gemini-1.5-flash")
+	model := os.Getenv("LLM_MODEL_NAME")
+	if model == "" {
+		model = "gemini-3.5-flash-lite"
+	}
+	client := NewGeminiClient(apiKey, model)
 	mockCosts := &mockCostRecorder{}
 	cfg := sampleExplainerConfig()
+	cfg.ModelName = model
 	explainer := NewIncidentExplainer(client, NewOutputValidator(), mockCosts, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -97,5 +108,9 @@ func TestIncidentExplainer_LiveEndToEnd_WithRealGemini(t *testing.T) {
 		if rec.EstimatedCostUSD <= 0.0 {
 			t.Errorf("expected real non-zero cost recorded, got %f", rec.EstimatedCostUSD)
 		}
+		t.Logf("Live Explain Success! Model=%s, InTokens=%d, OutTokens=%d, Cost=$%.6f, Degraded=%v",
+			rec.Model, rec.InputTokens, rec.OutputTokens, rec.EstimatedCostUSD, explanation.DegradedToDeterministic)
+		t.Logf("Summary: %s", explanation.Summary)
+		t.Logf("Contributing Factors (%d): %v", len(explanation.ContributingFactors), explanation.ContributingFactors)
 	}
 }
