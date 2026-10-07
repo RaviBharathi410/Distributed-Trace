@@ -43,6 +43,7 @@ type Config struct {
 
 	// Phase 5A LLM Explanation & Cost Attribution
 	LLMModelName              string
+	LLMAPIKey                 string
 	LLMInputPricePerMillion   float64
 	LLMOutputPricePerMillion  float64
 	LLMCostCeilingPerIncident float64
@@ -172,6 +173,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg.LLMModelName = getEnv("LLM_MODEL_NAME", "gemini-1.5-flash")
+	cfg.LLMAPIKey = getEnv("LLM_API_KEY", getEnv("GEMINI_API_KEY", ""))
 	cfg.LLMInputPricePerMillion, err = getEnvFloat("LLM_INPUT_PRICE_PER_MILLION", 0.075)
 	if err != nil {
 		return nil, err

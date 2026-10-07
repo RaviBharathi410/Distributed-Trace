@@ -177,11 +177,22 @@ func main() {
 		}()
 	}
 
-	// 8. Initialize API Handlers
+	// 8. Initialize API Handlers & Explainer Engine
 	authHandler := api.NewAuthHandler(userRepo, orgRepo, apiKeyRepo, tokenService)
 	traceHandler := api.NewTraceHandler(traceRepo)
 	serviceHandler := api.NewServiceHandler(serviceRepo)
-	anomalyHandler := api.NewAnomalyHandler(anomalyRepo)
+
+	geminiClient := analysis.NewGeminiClient(cfg.LLMAPIKey, cfg.LLMModelName)
+	explainerCfg := analysis.ExplainerConfig{
+		ModelName:              cfg.LLMModelName,
+		InputPricePerMillion:   cfg.LLMInputPricePerMillion,
+		OutputPricePerMillion:  cfg.LLMOutputPricePerMillion,
+		CostCeilingPerIncident: cfg.LLMCostCeilingPerIncident,
+		HourlySpendCap:         cfg.LLMHourlySpendCap,
+	}
+	explainerEngine := analysis.NewIncidentExplainer(geminiClient, analysis.NewOutputValidator(), costRepo, explainerCfg)
+	anomalyHandler := api.NewAnomalyHandlerWithExplainer(anomalyRepo, explainerEngine)
+
 	spanHandler := api.NewSpanHandler(traceRepo, spanProducer)
 	costHandler := api.NewCostHandler(costRepo)
 
@@ -298,6 +309,7 @@ func main() {
 			r.Use(auth.RequireUserAuth(tokenService))
 			r.Get("/", anomalyHandler.ListAnomalies)
 			r.Get("/{id}", anomalyHandler.GetAnomalyByID)
+			r.Post("/{id}/explain", anomalyHandler.ExplainAnomaly)
 
 			// Mutating anomaly status requires Member, Admin, or Owner
 			r.With(auth.RequireRole(domain.RoleMember, domain.RoleAdmin)).Patch("/{id}/status", anomalyHandler.UpdateAnomalyStatus)

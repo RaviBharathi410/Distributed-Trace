@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { AlertCircle, AlertTriangle, Info, CheckCircle2, Search, Filter, RefreshCw, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, CheckCircle2, Search, Filter, RefreshCw, Loader2, Sparkles, ShieldAlert } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceArea } from 'recharts';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { anomaliesApi } from '../../lib/api';
-import type { Anomaly } from '../../lib/api';
+import type { Anomaly, IncidentExplanation } from '../../lib/api';
 
 const generateChartData = (baseline: number, observed: number) => {
   return Array.from({ length: 60 }).map((_, i) => {
@@ -23,6 +23,7 @@ export const AnomaliesTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [explanations, setExplanations] = useState<Record<string, IncidentExplanation>>({});
 
   // Real React Query: Fetch anomalies list and stats from ClickHouse backend
   const {
@@ -48,6 +49,16 @@ export const AnomaliesTab: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['anomalies'] });
     },
   });
+
+  // Mutation for on-demand root cause explanation (Phase 5A)
+  const explainMutation = useMutation({
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) => anomaliesApi.explain(id, force),
+    onSuccess: (result, variables) => {
+      setExplanations((prev) => ({ ...prev, [variables.id]: result }));
+    },
+  });
+
+  const formatCost = (val: number) => `$${val.toFixed(6)}`;
 
   const filtered = useMemo(() => {
     let res = [...anomalies];
@@ -371,6 +382,213 @@ export const AnomaliesTab: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* ROOT CAUSE EXPLANATION (Phase 5A) */}
+              {(() => {
+                const currentExp = selectedAnomaly ? explanations[selectedAnomaly.id] : undefined;
+                const isExplaining = explainMutation.isPending && explainMutation.variables?.id === selectedAnomaly.id;
+
+                return (
+                  <div className="flex flex-col gap-3 pt-3 border-t border-white/[0.08]">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-white/80">
+                          Root Cause Explanation & Diagnostics
+                        </h3>
+                      </div>
+                      {currentExp && (
+                        <button
+                          onClick={() => explainMutation.mutate({ id: selectedAnomaly.id, force: true })}
+                          disabled={explainMutation.isPending}
+                          className="text-xs text-white/50 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                          title="Re-run explanation (force cache refresh)"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isExplaining ? 'animate-spin' : ''}`} />
+                          <span>Re-analyze</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* STATE 1: UNANALYZED */}
+                    {!currentExp && !isExplaining && (
+                      <div className="p-4 bg-purple-950/10 border border-purple-500/20 rounded-lg flex flex-col gap-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-purple-200">On-Demand Root Cause Analysis</span>
+                          <p className="text-xs text-white/60">
+                            Synthesizes Phase 3 deterministic telemetry and critical-path traversal into a grounded diagnostic narrative.
+                            Confined to descriptive telemetry observations with zero remediation directives.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-purple-500/10">
+                          <button
+                            onClick={() => explainMutation.mutate({ id: selectedAnomaly.id, force: false })}
+                            className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded flex items-center gap-2 transition-all shadow-sm shadow-purple-900/50"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Explain Root Cause with AI (≤ $0.01)</span>
+                          </button>
+                          <span className="text-[11px] text-white/40 font-dm-mono">
+                            Ceiling: ≤ $0.010000 · Storm Cap: $1.00/hr
+                          </span>
+                        </div>
+
+                        {explainMutation.isError && (
+                          <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400 flex items-center gap-2">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{explainMutation.error?.message || 'Failed to explain incident'}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* LOADING STATE */}
+                    {isExplaining && (
+                      <div className="p-6 bg-purple-950/10 border border-purple-500/20 rounded-lg flex flex-col items-center justify-center gap-3">
+                        <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                        <div className="flex flex-col items-center gap-0.5 text-center">
+                          <span className="text-xs font-medium text-purple-200">Grounding Telemetry & Evaluating Safety Rules...</span>
+                          <span className="text-[11px] text-white/50">Running pre-flight ceiling checks and two-tier output validation</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STATE 2: AI PROSE DIAGNOSIS (COMPLIANT) */}
+                    {currentExp && !currentExp.degraded_to_deterministic && (
+                      <div className="p-4 bg-purple-950/15 border border-purple-500/30 rounded-lg flex flex-col gap-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-purple-500/20">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              <Sparkles className="w-3 h-3 text-purple-400" />
+                              AI Root Cause Diagnosis ({currentExp.cost_attribution.model})
+                            </span>
+                            <span className="text-xs font-dm-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              {(currentExp.confidence_score * 100).toFixed(0)}% Confidence
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {currentExp.cost_attribution.cached ? (
+                              <span className="text-[11px] font-dm-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                                ⚡ Cached ($0.000000)
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-dm-mono text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                                {formatCost(currentExp.cost_attribution.estimated_cost_usd)} · {currentExp.cost_attribution.input_tokens + currentExp.cost_attribution.output_tokens} tokens
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Diagnostic Summary</span>
+                          <p className="text-sm text-white/90 leading-relaxed font-sans bg-black/30 p-3 rounded border border-white/[0.05]">
+                            {currentExp.summary}
+                          </p>
+                        </div>
+
+                        {currentExp.contributing_factors && currentExp.contributing_factors.length > 0 && (
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Contributing Telemetry Factors</span>
+                            <div className="flex flex-col gap-1.5">
+                              {currentExp.contributing_factors.map((factor, idx) => (
+                                <div key={idx} className="flex items-start gap-2 p-2 bg-white/[0.02] border border-white/[0.05] rounded text-xs text-white/80">
+                                  <span className="text-purple-400 font-bold shrink-0">•</span>
+                                  <span>{factor}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-purple-500/20 flex items-center justify-between text-[11px] text-white/40 font-dm-mono">
+                          <span>Ceiling: ≤ $0.010000 (Enforced)</span>
+                          <span>Hourly Spend: ${currentExp.cost_attribution.hourly_spend_usd?.toFixed(4) || '0.0000'} / ${currentExp.cost_attribution.hourly_cap_usd?.toFixed(2) || '1.00'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STATE 3: DEGRADED FALLBACK (HONEST TRANSPARENCY) */}
+                    {currentExp && currentExp.degraded_to_deterministic && (
+                      <div className="p-4 bg-amber-950/15 border border-amber-500/30 rounded-lg flex flex-col gap-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-amber-500/20">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                            Fallback: Deterministic Telemetry Diagnosis
+                          </span>
+
+                          {currentExp.cost_attribution.input_tokens > 0 ? (
+                            <span className="text-[11px] font-dm-mono text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20" title="Token charge logged to tenant ledger before validator rejected output">
+                              Rejected by Validator · {formatCost(currentExp.cost_attribution.estimated_cost_usd)} ({currentExp.cost_attribution.input_tokens + currentExp.cost_attribution.output_tokens} tokens)
+                            </span>
+                          ) : (
+                            <span className="text-[11px] font-dm-mono text-green-400 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">
+                              $0.000000 LLM Incurred
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Prominent Transparency Banner */}
+                        <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded flex items-start gap-2.5">
+                          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-semibold text-amber-300">
+                              AI Explanation Bypassed — Serving Verified Mathematical Telemetry
+                            </span>
+                            <p className="text-[11px] text-amber-200/80 leading-normal">
+                              {currentExp.fallback_reason || 'Safety validator or pre-flight cost limit triggered.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Mathematical Telemetry Grid */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="p-2.5 bg-black/40 border border-white/[0.05] rounded flex flex-col gap-0.5">
+                            <span className="text-[10px] text-white/50 uppercase font-semibold">Isolated Bottleneck Service</span>
+                            <span className="text-xs font-bold font-dm-mono text-red-400">{currentExp.root_cause_service}</span>
+                            <span className="text-[10px] text-white/40">{currentExp.operation_name}</span>
+                          </div>
+                          <div className="p-2.5 bg-black/40 border border-white/[0.05] rounded flex flex-col gap-0.5">
+                            <span className="text-[10px] text-white/50 uppercase font-semibold">Latency vs Welford Baseline</span>
+                            <span className="text-xs font-bold font-dm-mono text-amber-400">
+                              {Math.round(selectedAnomaly.observed_latency_ms)}ms (vs {Math.round(selectedAnomaly.baseline_latency_ms)}ms)
+                            </span>
+                            <span className="text-[10px] text-white/40">Z-Score: {selectedAnomaly.z_score.toFixed(2)}σ above normal</span>
+                          </div>
+                        </div>
+
+                        {/* Descriptive Telemetry Observation */}
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Deterministic Findings</span>
+                          <p className="text-xs text-white/90 leading-relaxed font-sans bg-black/30 p-3 rounded border border-white/[0.05]">
+                            {currentExp.summary}
+                          </p>
+                        </div>
+
+                        {currentExp.contributing_factors && currentExp.contributing_factors.length > 0 && (
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">Verified Telemetry Facts</span>
+                            <div className="flex flex-col gap-1.5">
+                              {currentExp.contributing_factors.map((factor, idx) => (
+                                <div key={idx} className="flex items-start gap-2 p-2 bg-white/[0.02] border border-white/[0.05] rounded text-xs text-white/80">
+                                  <span className="text-amber-400 font-bold shrink-0">•</span>
+                                  <span>{factor}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-amber-500/20 flex items-center justify-between text-[11px] text-white/40 font-dm-mono">
+                          <span>Deterministic Fallback Mode ($0 Incremental Fee)</span>
+                          <span>Hourly Spend: ${currentExp.cost_attribution.hourly_spend_usd?.toFixed(4) || '0.0000'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

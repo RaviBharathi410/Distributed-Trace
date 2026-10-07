@@ -256,6 +256,31 @@ export const servicesApi = {
   },
 };
 
+export interface ExplanationCost {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  cached: boolean;
+  cost_ceiling_usd: number;
+  hourly_cap_usd: number;
+  hourly_spend_usd: number;
+}
+
+export interface IncidentExplanation {
+  anomaly_id: string;
+  org_id: string;
+  root_cause_service: string;
+  operation_name: string;
+  confidence_score: number;
+  summary: string;
+  contributing_factors: string[];
+  degraded_to_deterministic: boolean;
+  fallback_reason?: string;
+  cost_attribution: ExplanationCost;
+  generated_at: string;
+}
+
 export const anomaliesApi = {
   async list(params?: { severity?: string; service?: string; status?: string; limit?: number; offset?: number }) {
     const q = new URLSearchParams();
@@ -277,6 +302,13 @@ export const anomaliesApi = {
     return request<{ id: string; status: string }>(`/anomalies/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    });
+  },
+
+  async explain(id: string, forceRefresh: boolean = false) {
+    return request<IncidentExplanation>(`/anomalies/${id}/explain`, {
+      method: 'POST',
+      body: JSON.stringify({ force_refresh: forceRefresh }),
     });
   },
 };
