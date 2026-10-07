@@ -35,6 +35,7 @@ func TestOutputValidator_RejectsSoftAdvisoryPhrasing(t *testing.T) {
 		"This pattern is often resolved by increasing connection pool size on payment-svc.",
 		"Typically indicates the service needs more replicas to handle current ingress.",
 		"This is commonly addressed by a cache warm restart.",
+		"The service needs scaling.",
 		"We recommend increasing the database query timeout to 5000ms.",
 		"You should configure connection pool max idle connections to 50.",
 		"Consider tuning PostgreSQL shared buffers to mitigate buffer lock contention.",
