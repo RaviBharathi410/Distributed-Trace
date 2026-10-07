@@ -403,6 +403,12 @@ func TestIncidentExplainer_MalformedJSONResponse_DegradesToDeterministic_HonestL
 func TestGeminiClient_HTTPErrorParsing_WithMockServer(t *testing.T) {
 	t.Run("Parses_Google_JSON_429_Rate_Limit_Error", func(t *testing.T) {
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("x-goog-api-key") != "test-key" {
+				t.Errorf("expected x-goog-api-key header to be 'test-key', got: %s", r.Header.Get("x-goog-api-key"))
+			}
+			if strings.Contains(r.URL.RawQuery, "key=") {
+				t.Errorf("expected API key to NOT appear in query parameters (Decision #18), got query: %s", r.URL.RawQuery)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
 			_, _ = w.Write([]byte(`{

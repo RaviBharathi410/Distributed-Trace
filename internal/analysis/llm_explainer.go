@@ -114,7 +114,7 @@ func (c *GeminiClient) Generate(ctx context.Context, systemPrompt, userPrompt st
 	if baseURL == "" {
 		baseURL = "https://generativelanguage.googleapis.com"
 	}
-	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", baseURL, c.model, c.apiKey)
+	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent", baseURL, c.model)
 
 	reqPayload := geminiRequest{
 		SystemInstruction: &geminiContent{
@@ -143,6 +143,7 @@ func (c *GeminiClient) Generate(ctx context.Context, systemPrompt, userPrompt st
 		return "", 0, 0, fmt.Errorf("failed to create http request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-goog-api-key", c.apiKey)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
