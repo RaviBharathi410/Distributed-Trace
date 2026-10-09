@@ -30,9 +30,33 @@ try {
         -ContentType "application/json"
     Write-Output "PROBE_RESULT: ACTIVE (HTTP 200 OK - Key is currently LIVE and functioning)"
 } catch {
-    $statusCode = $_.Exception.Response.StatusCode.value__
-    $stream = $_.Exception.Response.GetResponseStream()
-    $err = (New-Object System.IO.StreamReader($stream)).ReadToEnd()
-    Write-Output "PROBE_RESULT: REVOKED / INVALID (HTTP $statusCode)"
-    Write-Output "ERROR_BODY: $err"
+    $statusCode = 0
+    if ($_.Exception.Response) {
+        $statusCode = $_.Exception.Response.StatusCode.value__
+    }
+    $reason = "REQUEST_FAILED"
+    $message = "Request was rejected"
+    try {
+        $stream = $_.Exception.Response.GetResponseStream()
+        $raw = (New-Object System.IO.StreamReader($stream)).ReadToEnd()
+        $json = $raw | ConvertFrom-Json
+        if ($json.error) {
+            if ($json.error.status) { $reason = $json.error.status }
+            if ($json.error.details -and $json.error.details[0].reason) {
+                $reason = $json.error.details[0].reason
+            }
+            if ($json.error.message) {
+                $message = $json.error.message
+            }
+        }
+    } catch {
+        # Fallback to general exception message
+        $message = $_.Exception.Message
+    }
+    # Strict secret protection: scrub any accidental key occurrence from message and reason
+    if ($key) {
+        if ($message) { $message = $message.Replace($key, "[REDACTED]") }
+        if ($reason) { $reason = $reason.Replace($key, "[REDACTED]") }
+    }
+    Write-Output "PROBE_RESULT: REVOKED / INVALID (HTTP $statusCode - Status: $reason - Message: $message)"
 }
