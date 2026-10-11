@@ -102,6 +102,35 @@ jobs:
     name: E2E Smoke (Phase 1 Full Stack & Real OTLP Ingest)
     runs-on: ubuntu-latest
     needs: [backend]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: distributedtrace
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d distributedtrace"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.3-alpine
+        env:
+          CLICKHOUSE_DB: default
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ""
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        ports:
+          - 9000:9000
+          - 8123:8123
+        options: >-
+          --health-cmd "wget --spider -q http://127.0.0.1:8123/ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -112,45 +141,17 @@ jobs:
           go-version: '1.22.x'
           cache: true
 
-      - name: Start full stack with clean volumes
+      - name: Start Redpanda streaming broker
         run: |
-          docker compose down -v
-          echo "Pre-pulling Docker images to isolate network download time..."
-          docker compose pull --quiet
-          echo "Starting containers in background..."
-          docker compose up -d postgres clickhouse redpanda
-          echo "Waiting for services to become healthy (up to 90s)..."
-          pg_ready=false
-          ch_ready=false
-          rp_ready=false
-          for i in $(seq 1 90); do
-            if docker compose exec -T postgres pg_isready -U postgres -d distributedtrace 2>/dev/null; then pg_ready=true; fi
-            if curl -s -f http://127.0.0.1:8123/ping 2>/dev/null | grep -q 'Ok' || docker compose exec -T clickhouse wget --spider -q http://127.0.0.1:8123/ping 2>/dev/null; then ch_ready=true; fi
-            if docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'HEALTHY'; then rp_ready=true; fi
-            if [ "$pg_ready" = "true" ] && [ "$ch_ready" = "true" ] && [ "$rp_ready" = "true" ]; then
-              echo "✔ All database and streaming services are HEALTHY at attempt ($i/90)s!"
+          docker compose up -d redpanda
+          for i in $(seq 1 45); do
+            if docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'HEALTHY'; then
+              echo "Redpanda broker cluster is HEALTHY on port 9092"
               break
             fi
-            echo "Waiting ($i/90)... pg=$pg_ready, ch=$ch_ready, rp=$rp_ready"
+            echo "Waiting for Redpanda cluster ($i/45)..."
             sleep 1
           done
-          if [ "$pg_ready" != "true" ] || [ "$ch_ready" != "true" ] || [ "$rp_ready" != "true" ]; then
-            echo "❌ Services timed out after 90s. Dumping container status and logs:"
-            docker compose ps
-            docker compose logs --tail=50
-            {
-              echo "### ❌ Service Readiness Timeout (pg=$pg_ready, ch=$ch_ready, rp=$rp_ready)"
-              echo '#### Container Status'
-              echo '```text'
-              docker compose ps
-              echo '```'
-              echo '#### Container Logs'
-              echo '```text'
-              docker compose logs --tail=100
-              echo '```'
-            } >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
           docker compose exec -T redpanda rpk topic create otel-spans -p 1 2>/dev/null || true
 
       - name: Build binaries
@@ -199,8 +200,6 @@ jobs:
         run: |
           echo "=== Server Output ==="
           cat server.log || true
-          echo "=== Docker Compose Status ==="
-          docker compose ps || true
-          echo "=== Docker Compose Logs ==="
-          docker compose logs --tail=50 || true
+          echo "=== Redpanda Container Logs ==="
+          docker compose logs --tail=50 redpanda || true
 
