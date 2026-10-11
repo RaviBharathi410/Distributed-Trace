@@ -7,6 +7,12 @@ import (
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
 )
 
+const (
+	// MaxBatchSpans limits the maximum number of spans accepted per batch (10,000).
+	// Accommodates default OpenTelemetry Collector batchprocessor configuration (send_batch_size: 8192).
+	MaxBatchSpans = 10000
+)
+
 type ValidationError struct {
 	Errors []string
 }
@@ -19,8 +25,8 @@ func ValidateSpans(spans []domain.Span) error {
 	if len(spans) == 0 {
 		return &ValidationError{Errors: []string{"empty span batch"}}
 	}
-	if len(spans) > 1000 {
-		return &ValidationError{Errors: []string{"batch size exceeds maximum limit of 1000 spans"}}
+	if len(spans) > MaxBatchSpans {
+		return &ValidationError{Errors: []string{fmt.Sprintf("batch size exceeds maximum limit of %d spans", MaxBatchSpans)}}
 	}
 
 	var errs []string

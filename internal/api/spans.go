@@ -34,12 +34,14 @@ func NewSpanHandler(traceRepo *clickhouse.TraceRepository, producer SpanPublishe
 }
 
 const (
-	// MaxIngestBodyBytes limits the maximum decompressed ingest body size (4 MB).
-	// Protects against gzip bombs and memory exhaustion attacks.
-	MaxIngestBodyBytes int64 = 4 * 1024 * 1024
+	// MaxIngestBodyBytes limits the maximum decompressed ingest body size (16 MB).
+	// Allows full OpenTelemetry Collector batch flushes (up to 10k spans in JSON/Protobuf)
+	// while strictly defending against multi-gigabyte decompression bombs.
+	MaxIngestBodyBytes int64 = 16 * 1024 * 1024
 
-	// MaxSpansPerBatch limits the maximum number of spans accepted per batch.
-	MaxSpansPerBatch = 1000
+	// MaxSpansPerBatch limits the maximum number of spans accepted per batch (10,000 spans).
+	// Accommodates default OpenTelemetry Collector batchprocessor limits (send_batch_size: 8192).
+	MaxSpansPerBatch = ingest.MaxBatchSpans
 )
 
 type IngestResponse struct {

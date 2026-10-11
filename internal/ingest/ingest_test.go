@@ -33,10 +33,10 @@ func TestValidateSpans(t *testing.T) {
 		}
 	})
 
-	t.Run("Fails when batch exceeds 1000 spans", func(t *testing.T) {
-		hugeBatch := make([]domain.Span, 1001)
+	t.Run("Fails when batch exceeds MaxBatchSpans limit", func(t *testing.T) {
+		hugeBatch := make([]domain.Span, MaxBatchSpans+1)
 		if err := ValidateSpans(hugeBatch); err == nil {
-			t.Errorf("expected error on batch > 1000")
+			t.Errorf("expected error on batch > %d", MaxBatchSpans)
 		}
 	})
 

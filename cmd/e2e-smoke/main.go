@@ -211,39 +211,39 @@ func main() {
 	}
 	fmt.Println("✔ Emitted span from OpenTelemetry SDK to /v1/traces over wire format.")
 
-	// Step 6: Wait for Kafka batch consumer and ClickHouse persistence
-	fmt.Println("\n[Step 6] Waiting for ingestion pipeline batch flush (4s)...")
-	time.Sleep(4 * time.Second)
-
-	// Step 7: Query traces via REST API
-	fmt.Println("\n[Step 7] Querying traces via GET /api/v1/traces...")
-	queryReq, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/traces?limit=50", nil)
-	queryReq.Header.Set("Authorization", "Bearer "+jwtToken)
-
-	qResp, err := client.Do(queryReq)
-	if err != nil || qResp.StatusCode != http.StatusOK {
-		respBytes, _ := io.ReadAll(qResp.Body)
-		log.Fatalf("❌ Trace query failed (status %d): %s", qResp.StatusCode, string(respBytes))
-	}
-	defer qResp.Body.Close()
-
-	var traces []TraceItem
-	if err := json.NewDecoder(qResp.Body).Decode(&traces); err != nil {
-		log.Fatalf("❌ Failed to decode trace query response: %v", err)
-	}
-
+	// Step 6 & 7: Poll traces via REST API until ClickHouse batch flushes
+	fmt.Println("\n[Step 6 & 7] Polling GET /api/v1/traces for ingested trace...")
 	found := false
-	for _, t := range traces {
-		if t.OperationName == spanName || t.ServiceName == serviceName {
-			found = true
-			fmt.Printf("✔ Found trace in ClickHouse: TraceID=%s, Service=%s, Operation=%s\n",
-				t.TraceID, t.ServiceName, t.OperationName)
-			break
+	for attempt := 1; attempt <= 15; attempt++ {
+		queryReq, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/traces?limit=50", nil)
+		queryReq.Header.Set("Authorization", "Bearer "+jwtToken)
+
+		qResp, err := client.Do(queryReq)
+		if err == nil && qResp.StatusCode == http.StatusOK {
+			var traces []TraceItem
+			_ = json.NewDecoder(qResp.Body).Decode(&traces)
+			qResp.Body.Close()
+
+			for _, t := range traces {
+				if t.OperationName == spanName || t.ServiceName == serviceName {
+					found = true
+					fmt.Printf("\n✔ Found trace in ClickHouse (attempt %d): TraceID=%s, Service=%s, Operation=%s\n",
+						attempt, t.TraceID, t.ServiceName, t.OperationName)
+					break
+				}
+			}
+			if found {
+				break
+			}
+		} else if qResp != nil {
+			qResp.Body.Close()
 		}
+		time.Sleep(1 * time.Second)
+		fmt.Print(".")
 	}
 
 	if !found {
-		log.Fatalf("❌ Ingested span %q was not found in ClickHouse query results (total returned: %d)", spanName, len(traces))
+		log.Fatalf("\n❌ Ingested span %q was not found in ClickHouse query results within 15s", spanName)
 	}
 
 	fmt.Println("\n==================================================")

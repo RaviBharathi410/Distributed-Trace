@@ -117,10 +117,10 @@ jobs:
           docker compose down -v
           docker compose up -d postgres clickhouse redpanda redis
           echo "Waiting for services to become healthy..."
+          pg_ready=false
+          ch_ready=false
+          rp_ready=false
           for i in $(seq 1 45); do
-            pg_ready=false
-            ch_ready=false
-            rp_ready=false
             if docker compose exec -T postgres pg_isready -U postgres -d distributedtrace 2>/dev/null; then pg_ready=true; fi
             if docker compose exec -T clickhouse wget --spider -q http://127.0.0.1:8123/ping 2>/dev/null; then ch_ready=true; fi
             if docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'HEALTHY'; then rp_ready=true; fi
@@ -131,9 +131,22 @@ jobs:
             echo "Waiting ($i/45)... pg=$pg_ready, ch=$ch_ready, rp=$rp_ready"
             sleep 1
           done
+          if [ "$pg_ready" != "true" ] || [ "$ch_ready" != "true" ] || [ "$rp_ready" != "true" ]; then
+            echo "❌ Services timed out. Dumping container status and logs:"
+            docker compose ps
+            docker compose logs --tail=50
+            exit 1
+          fi
+          docker compose exec -T redpanda rpk topic create otel-spans -p 1 2>/dev/null || true
+
+      - name: Build binaries
+        run: |
+          go build -v -o bin/server ./cmd/server
+          go build -v -o bin/migrate ./cmd/migrate
+          go build -v -o bin/e2e-smoke ./cmd/e2e-smoke
 
       - name: Apply database migrations
-        run: go run cmd/migrate/main.go
+        run: ./bin/migrate
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5433/distributedtrace?sslmode=disable
           CLICKHOUSE_URL: 127.0.0.1:9000
@@ -141,9 +154,9 @@ jobs:
 
       - name: Start DistributedTrace server
         run: |
-          go run cmd/server/main.go > server.log 2>&1 &
+          ./bin/server > server.log 2>&1 &
           echo $! > server.pid
-          sleep 3
+          sleep 2
         env:
           SERVER_PORT: 8080
           ENVIRONMENT: development
@@ -151,10 +164,12 @@ jobs:
           CLICKHOUSE_URL: 127.0.0.1:9000
           REDIS_URL: redis://localhost:6379
           KAFKA_BROKERS: localhost:9092
+          KAFKA_ALLOW_AUTO_TOPIC_CREATION: "true"
+          KAFKA_MIN_BYTES: 1
           ALLOWED_ORIGIN: http://localhost:5173
 
       - name: Run E2E Smoke Verification Flow
-        run: go run cmd/e2e-smoke/main.go
+        run: ./bin/e2e-smoke
         env:
           SERVER_BASE_URL: http://localhost:8080
 
