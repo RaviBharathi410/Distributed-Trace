@@ -23,6 +23,9 @@ func EnrichSpans(spans []domain.Span, orgID string) []domain.Span {
 		if s.Tags == nil {
 			s.Tags = make(map[string]string)
 		}
+		// Explicitly clamp tenant identity attributes to prevent spoofing
+		s.Tags["org_id"] = orgID
+		delete(s.Tags, "tenant_id")
 		enriched[i] = s
 	}
 

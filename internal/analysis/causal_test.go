@@ -159,3 +159,62 @@ func TestCausalAnalyzer_RootNodeBottleneck(t *testing.T) {
 		t.Fatalf("expected RootCausePath %+v, got %+v", expectedPath, res.RootCausePath)
 	}
 }
+
+func BenchmarkCausalAnalyzer_AnalyzeRootCause_DeepChain(b *testing.B) {
+	now := time.Now().UTC()
+	spans := make([]domain.Span, 20)
+	for i := 0; i < 20; i++ {
+		parentID := ""
+		if i > 0 {
+			parentID = "span-" + string(rune('a'+i-1))
+		}
+		spans[i] = domain.Span{
+			TraceID:       "trace-bench-deep",
+			SpanID:        "span-" + string(rune('a'+i)),
+			ParentSpanID:  parentID,
+			ServiceName:   "service-" + string(rune('a'+i)),
+			OperationName: "operation",
+			DurationMs:    uint32(1000 - i*40),
+			StartTime:     now.Add(time.Duration(i) * time.Millisecond),
+		}
+	}
+	analyzer := NewCausalAnalyzer()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = analyzer.AnalyzeRootCause(spans)
+	}
+}
+
+func BenchmarkCausalAnalyzer_AnalyzeRootCause_WideFanout100Spans(b *testing.B) {
+	now := time.Now().UTC()
+	spans := make([]domain.Span, 100)
+	spans[0] = domain.Span{
+		TraceID:       "trace-bench-fanout",
+		SpanID:        "span-root",
+		ParentSpanID:  "",
+		ServiceName:   "api-gateway",
+		OperationName: "GET /heavy",
+		DurationMs:    5000,
+		StartTime:     now,
+	}
+	for i := 1; i < 100; i++ {
+		spans[i] = domain.Span{
+			TraceID:       "trace-bench-fanout",
+			SpanID:        "span-child-" + string(rune('a'+(i%26))),
+			ParentSpanID:  "span-root",
+			ServiceName:   "service-" + string(rune('a'+(i%10))),
+			OperationName: "SubTask",
+			DurationMs:    uint32(10 + (i % 50)),
+			StartTime:     now.Add(time.Duration(i) * time.Millisecond),
+		}
+	}
+	// Make span 99 the bottleneck
+	spans[99].DurationMs = 4500
+
+	analyzer := NewCausalAnalyzer()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = analyzer.AnalyzeRootCause(spans)
+	}
+}
+

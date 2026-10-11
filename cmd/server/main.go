@@ -269,6 +269,13 @@ func main() {
 
 	r.Handle("/metrics", promhttp.Handler())
 
+	// Standard OpenTelemetry Protocol over HTTP (OTLP/HTTP) Ingestion (/v1/traces)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireIngestAuth(apiKeyRepo, tokenService))
+		r.Post("/v1/traces", spanHandler.IngestOTLP)
+		r.Post("/v1/traces/", spanHandler.IngestOTLP)
+	})
+
 	// 10. Mount REST API Routes (/api/v1)
 	r.Route("/api/v1", func(r chi.Router) {
 		// Auth endpoints
@@ -292,6 +299,12 @@ func main() {
 		r.Route("/spans", func(r chi.Router) {
 			r.Use(auth.RequireIngestAuth(apiKeyRepo, tokenService))
 			r.Post("/", spanHandler.IngestSpans)
+		})
+
+		// Standard OTLP Ingestion under API prefix (/api/v1/traces/otlp)
+		r.Route("/traces/otlp", func(r chi.Router) {
+			r.Use(auth.RequireIngestAuth(apiKeyRepo, tokenService))
+			r.Post("/", spanHandler.IngestOTLP)
 		})
 
 		// Traces endpoints (Protected)

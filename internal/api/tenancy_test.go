@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -14,6 +15,11 @@ import (
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
 	chRepo "github.com/RaviBharathi410/distributedtrace/internal/repository/clickhouse"
 	"github.com/go-chi/chi/v5"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -25,6 +31,7 @@ const (
 type apiMockConn struct {
 	lastQuery string
 	lastArgs  []any
+	batches   []*apiMockBatch
 }
 
 func (m *apiMockConn) Contributors() []string                          { return nil }
@@ -39,7 +46,9 @@ func (m *apiMockConn) AsyncInsert(ctx context.Context, query string, wait bool, 
 	return nil
 }
 func (m *apiMockConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
-	return &apiMockBatch{conn: m}, nil
+	b := &apiMockBatch{conn: m}
+	m.batches = append(m.batches, b)
+	return b, nil
 }
 func (m *apiMockConn) Exec(ctx context.Context, query string, args ...any) error {
 	m.lastQuery = query
@@ -224,6 +233,108 @@ func TestSpanIngest_TenantEnrichment(t *testing.T) {
 	handler.IngestSpans(rec, req)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected 202 Accepted, got %d", rec.Code)
+	}
+}
+
+func TestSpanHandler_IngestOTLP_Protobuf_Gzip_TenantIsolation(t *testing.T) {
+	mockConn := &apiMockConn{}
+	traceRepo := chRepo.NewTraceRepository(mockConn)
+	handler := NewSpanHandler(traceRepo, nil)
+
+	// Malicious client tries to spoof org_id and tenant_id inside OTLP resource and span attributes
+	traceIDBytes := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+	spanIDBytes := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+
+	protoReq := &coltracepb.ExportTraceServiceRequest{
+		ResourceSpans: []*tracepb.ResourceSpans{
+			{
+				Resource: &resourcepb.Resource{
+					Attributes: []*commonpb.KeyValue{
+						{
+							Key:   "service.name",
+							Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "billing-svc"}},
+						},
+						{
+							Key:   "org_id",
+							Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "spoofed-victim-org"}},
+						},
+						{
+							Key:   "tenant_id",
+							Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "spoofed-victim-tenant"}},
+						},
+					},
+				},
+				ScopeSpans: []*tracepb.ScopeSpans{
+					{
+						Spans: []*tracepb.Span{
+							{
+								TraceId:           traceIDBytes,
+								SpanId:            spanIDBytes,
+								Name:              "POST /invoice",
+								Kind:              tracepb.Span_SPAN_KIND_SERVER,
+								StartTimeUnixNano: uint64(time.Now().Add(-100 * time.Millisecond).UnixNano()),
+								EndTimeUnixNano:   uint64(time.Now().UnixNano()),
+								Attributes: []*commonpb.KeyValue{
+									{
+										Key:   "org_id",
+										Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "spoofed-victim-org"}},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	protoBytes, err := proto.Marshal(protoReq)
+	if err != nil {
+		t.Fatalf("failed to marshal proto: %v", err)
+	}
+
+	// Compress payload with gzip
+	var gzBuffer bytes.Buffer
+	gzWriter := gzip.NewWriter(&gzBuffer)
+	if _, err := gzWriter.Write(protoBytes); err != nil {
+		t.Fatalf("failed to gzip proto: %v", err)
+	}
+	if err := gzWriter.Close(); err != nil {
+		t.Fatalf("failed to close gzip writer: %v", err)
+	}
+
+	// Authentic user is TestOrgA
+	ctx := context.WithValue(context.Background(), auth.OrgIDKey, TestOrgA)
+	req := httptest.NewRequest(http.MethodPost, "/v1/traces", &gzBuffer).WithContext(ctx)
+	req.Header.Set("Content-Type", "application/x-protobuf")
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept", "application/x-protobuf")
+
+	rec := httptest.NewRecorder()
+	handler.IngestOTLP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if rec.Header().Get("Content-Type") != "application/x-protobuf" {
+		t.Errorf("expected Content-Type application/x-protobuf, got %q", rec.Header().Get("Content-Type"))
+	}
+
+	// Verify the stored span in ClickHouse batch has TestOrgA as OrgID, not the spoofed org
+	if len(mockConn.batches) == 0 || len(mockConn.batches[0].appendedRows) == 0 {
+		t.Fatalf("expected batch append to ClickHouse")
+	}
+	savedOrgID := mockConn.batches[0].appendedRows[0][0].(string)
+	if savedOrgID != TestOrgA {
+		t.Errorf("SECURITY ALERT: Expected OrgID %q, but got spoofed %q", TestOrgA, savedOrgID)
+	}
+	savedTags := mockConn.batches[0].appendedRows[0][9].(map[string]string)
+	if savedTags["org_id"] != TestOrgA {
+		t.Errorf("SECURITY ALERT: Expected tag org_id %q, but got %q", TestOrgA, savedTags["org_id"])
+	}
+	if _, exists := savedTags["tenant_id"]; exists {
+		t.Errorf("SECURITY ALERT: Expected tenant_id tag to be purged, but found %q", savedTags["tenant_id"])
 	}
 }
 

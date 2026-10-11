@@ -109,6 +109,10 @@ func RequireIngestAuth(apiKeyRepo *postgres.APIKeyRepository, tokenService *Toke
 			}
 
 			if apiKey != "" {
+				if apiKeyRepo == nil {
+					writeJSONError(w, http.StatusUnauthorized, "invalid api key")
+					return
+				}
 				hash := HashAPIKey(apiKey)
 				keyRecord, err := apiKeyRepo.GetByHash(r.Context(), hash)
 				if err != nil || keyRecord == nil {

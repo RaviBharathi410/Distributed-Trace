@@ -97,3 +97,70 @@ jobs:
 
       - name: Run TypeScript typecheck & Vite build
         run: npm run build
+
+  e2e-smoke:
+    name: E2E Smoke (Phase 1 Full Stack & Real OTLP Ingest)
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache: true
+
+      - name: Start full stack with clean volumes
+        run: |
+          docker compose down -v
+          docker compose up -d postgres clickhouse redpanda redis
+          echo "Waiting for services to become healthy..."
+          for i in $(seq 1 45); do
+            pg_ready=false
+            ch_ready=false
+            rp_ready=false
+            if docker compose exec -T postgres pg_isready -U postgres -d distributedtrace 2>/dev/null; then pg_ready=true; fi
+            if docker compose exec -T clickhouse wget --spider -q http://127.0.0.1:8123/ping 2>/dev/null; then ch_ready=true; fi
+            if docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'HEALTHY'; then rp_ready=true; fi
+            if [ "$pg_ready" = "true" ] && [ "$ch_ready" = "true" ] && [ "$rp_ready" = "true" ]; then
+              echo "All database and streaming services are HEALTHY!"
+              break
+            fi
+            echo "Waiting ($i/45)... pg=$pg_ready, ch=$ch_ready, rp=$rp_ready"
+            sleep 1
+          done
+
+      - name: Apply database migrations
+        run: go run cmd/migrate/main.go
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5433/distributedtrace?sslmode=disable
+          CLICKHOUSE_URL: 127.0.0.1:9000
+          CLICKHOUSE_DB: default
+
+      - name: Start DistributedTrace server
+        run: |
+          go run cmd/server/main.go > server.log 2>&1 &
+          echo $! > server.pid
+          sleep 3
+        env:
+          SERVER_PORT: 8080
+          ENVIRONMENT: development
+          DATABASE_URL: postgres://postgres:postgres@localhost:5433/distributedtrace?sslmode=disable
+          CLICKHOUSE_URL: 127.0.0.1:9000
+          REDIS_URL: redis://localhost:6379
+          KAFKA_BROKERS: localhost:9092
+          ALLOWED_ORIGIN: http://localhost:5173
+
+      - name: Run E2E Smoke Verification Flow
+        run: go run cmd/e2e-smoke/main.go
+        env:
+          SERVER_BASE_URL: http://localhost:8080
+
+      - name: Dump server logs on failure
+        if: failure()
+        run: |
+          echo "=== Server Output ==="
+          cat server.log || true
+

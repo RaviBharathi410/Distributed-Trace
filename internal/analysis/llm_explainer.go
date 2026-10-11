@@ -89,15 +89,16 @@ type geminiCandidate struct {
 	} `json:"content"`
 }
 
-type geminiUsageMetadata struct {
+type GeminiUsageMetadata struct {
 	PromptTokenCount     int `json:"promptTokenCount"`
 	CandidatesTokenCount int `json:"candidatesTokenCount"`
+	ThoughtsTokenCount   int `json:"thoughtsTokenCount"`
 	TotalTokenCount      int `json:"totalTokenCount"`
 }
 
 type geminiResponse struct {
 	Candidates    []geminiCandidate   `json:"candidates"`
-	UsageMetadata geminiUsageMetadata `json:"usageMetadata"`
+	UsageMetadata GeminiUsageMetadata `json:"usageMetadata"`
 	Error         *struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
@@ -106,8 +107,13 @@ type geminiResponse struct {
 }
 
 func (c *GeminiClient) Generate(ctx context.Context, systemPrompt, userPrompt string) (string, int, int, error) {
+	rawContent, _, inTokens, outTokens, err := c.GenerateWithUsage(ctx, systemPrompt, userPrompt)
+	return rawContent, inTokens, outTokens, err
+}
+
+func (c *GeminiClient) GenerateWithUsage(ctx context.Context, systemPrompt, userPrompt string) (string, GeminiUsageMetadata, int, int, error) {
 	if c.apiKey == "" {
-		return "", 0, 0, ErrNoAPIKey
+		return "", GeminiUsageMetadata{}, 0, 0, ErrNoAPIKey
 	}
 
 	baseURL := c.baseURL
@@ -135,56 +141,65 @@ func (c *GeminiClient) Generate(ctx context.Context, systemPrompt, userPrompt st
 
 	bodyBytes, err := json.Marshal(reqPayload)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to marshal gemini request: %w", err)
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("failed to marshal gemini request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to create http request: %w", err)
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("failed to create http request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("x-goog-api-key", c.apiKey)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("gemini request error: %w", err)
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("gemini request error: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", 0, 0, fmt.Errorf("failed to read gemini response body: %w", err)
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("failed to read gemini response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp geminiResponse
 		if err := json.Unmarshal(respBytes, &errResp); err == nil && errResp.Error != nil {
-			return "", 0, 0, fmt.Errorf("gemini api error (code %d, status %s): %s",
+			return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("gemini api error (code %d, status %s): %s",
 				errResp.Error.Code, errResp.Error.Status, errResp.Error.Message)
 		}
-		return "", 0, 0, fmt.Errorf("gemini http error: status %d %s: %s",
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("gemini http error: status %d %s: %s",
 			resp.StatusCode, http.StatusText(resp.StatusCode), string(respBytes))
 	}
 
 	var geminiResp geminiResponse
 	if err := json.Unmarshal(respBytes, &geminiResp); err != nil {
-		return "", 0, 0, fmt.Errorf("failed to parse gemini response json: %w", err)
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("failed to parse gemini response json: %w", err)
 	}
 
 	if geminiResp.Error != nil {
-		return "", 0, 0, fmt.Errorf("gemini api error (code %d, status %s): %s",
+		return "", GeminiUsageMetadata{}, 0, 0, fmt.Errorf("gemini api error (code %d, status %s): %s",
 			geminiResp.Error.Code, geminiResp.Error.Status, geminiResp.Error.Message)
 	}
 
 	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
-		return "", 0, 0, errors.New("empty response candidates from gemini")
+		return "", geminiResp.UsageMetadata, 0, 0, errors.New("empty response candidates from gemini")
 	}
 
 	rawContent := geminiResp.Candidates[0].Content.Parts[0].Text
 	inTokens := geminiResp.UsageMetadata.PromptTokenCount
+	// Billable output tokens per Google API billing rules:
+	// Output tokens include candidatesTokenCount + thoughtsTokenCount (billed at output rate).
+	// Computing TotalTokenCount - PromptTokenCount guarantees all non-prompt tokens (including thinking)
+	// are faithfully captured and billed at the output rate.
 	outTokens := geminiResp.UsageMetadata.CandidatesTokenCount
+	if geminiResp.UsageMetadata.TotalTokenCount > geminiResp.UsageMetadata.PromptTokenCount {
+		outTokens = geminiResp.UsageMetadata.TotalTokenCount - geminiResp.UsageMetadata.PromptTokenCount
+	} else if geminiResp.UsageMetadata.ThoughtsTokenCount > 0 {
+		outTokens += geminiResp.UsageMetadata.ThoughtsTokenCount
+	}
 
-	return rawContent, inTokens, outTokens, nil
+	return rawContent, geminiResp.UsageMetadata, inTokens, outTokens, nil
 }
 
 type cachedExplanation struct {

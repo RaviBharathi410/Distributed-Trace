@@ -1,15 +1,15 @@
 # DistributedTrace
 
-DistributedTrace is a production-grade, multi-region observability platform designed for modern cloud-native infrastructure. It ingests OpenTelemetry spans, correlates traces using probabilistic causal inference, and surfaces anomalies in under 500ms.
+DistributedTrace is a production-grade, multi-tenant observability platform designed for modern cloud-native infrastructure. It ingests OpenTelemetry spans, correlates traces using deterministic Welford statistical baselines and trace critical-path graph analysis, and provides transparent cost-attributed incident explanations.
 
 ## Features
 
-- **Real-time Trace Streaming:** View a live feed of traces across your microservices architecture.
-- **Service Dependency Graph:** Automatically visualize the topology of your services, highlighting latency and error bottlenecks.
-- **Causal Anomaly Detection:** Instantly identify the root cause of latency spikes or error storms with our intelligent correlation engine.
-- **Multi-Region Support:** Built for global scale, capable of ingesting data from `us-east-1`, `eu-west-1`, and beyond seamlessly.
-- **Extremely High Throughput:** Powered by Kafka and ClickHouse, capable of handling 50K+ spans/sec ingest and petabytes of compressed trace storage.
-- **RBAC & Security:** Robust role-based access control, secure API keys, and comprehensive audit logging.
+- **High-Throughput Trace Ingestion:** OpenTelemetry (OTLP) HTTP ingest buffered through Kafka/Redpanda and persisted into ClickHouse MergeTree storage.
+- **Service Dependency Graph:** Dynamic service topology visualization highlighting latency and error bottlenecks, updated via adaptive interval polling.
+- **Deterministic Causal Anomaly Detection:** Real-time root-cause bottleneck traversal and online Welford variance tracking with cold-start guards and tenant isolation.
+- **On-Demand AI Root Cause Explanation:** User-triggered incident explanation powered by Gemini 3.5 Flash-Lite with two-tiered output validation (no remediation commands or soft advisories) and 24-hour fingerprint caching.
+- **Tenant Cost Ledger & Guardrails:** Pre-flight token cost checks (≤ $0.010/call ceiling) and hourly storm budget caps ($1.00/hr) with transparent per-tenant spend attribution.
+- **Multi-Tenant RBAC & Security:** Organization isolation, Argon2id password hashing, Ed25519 asymmetric JWT authentication, and secure API key management.
 
 ## Tech Stack
 
@@ -19,67 +19,64 @@ DistributedTrace is a production-grade, multi-region observability platform desi
 - **Styling:** Tailwind CSS + custom CSS animations
 - **Icons:** Lucide React
 
-### Backend (Under Construction)
+### Backend
 - **Language:** Go (Golang) 1.22
 - **Router:** Chi Router
-- **WebSockets:** Gorilla WebSocket for live streaming
-- **Telemetry:** OpenTelemetry (OTLP)
+- **Telemetry:** OpenTelemetry (OTLP JSON & Protobuf)
+- **Real-Time Updates:** Adaptive interval polling (10s auto-refresh, window-blur suppression) eliminating stateful WebSocket server overhead (Decision #29)
 
-### Infrastructure & Data stores
-- **Relational DB:** PostgreSQL (Users, Organizations, API Keys, Configuration)
+### Infrastructure & Data Stores
+- **Relational DB:** PostgreSQL (Users, Organizations, API Keys, Tenant Configuration)
 - **Columnar DB:** ClickHouse (High-volume Spans, Metrics, Anomalies)
-- **Message Broker:** Apache Kafka (Ingestion pipeline buffering)
+- **Message Broker:** Apache Kafka / Redpanda (Ingestion pipeline stream buffer)
+- **Caching & Baselines:** Redis / In-memory concurrent safe caches
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js (v18+)
 - Go (v1.22+)
-- Docker & Docker Compose (for local infrastructure)
+- Docker & Docker Compose
 
-### Running the Frontend Locally
+### 1. Start Infrastructure Dependencies
+```bash
+docker compose up -d
+```
+This starts PostgreSQL, ClickHouse, Redpanda (Kafka), and Redis.
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-4. Open your browser and navigate to `http://localhost:5173`
-
-### Backend Setup
-
-*Note: The backend is currently in active development.*
-
-The backend relies on PostgreSQL and ClickHouse. Migrations for both databases are located in the `/migrations/` directory.
-
-To run the backend (once fully implemented):
+### 2. Run the Backend API Server
 ```bash
 go run cmd/server/main.go
 ```
+The server starts listening on `:8080`.
+
+### 3. Run the Frontend Development Server
+```bash
+npm install
+npm run dev
+```
+Open your browser and navigate to `http://localhost:5173`.
 
 ## Project Structure
 
 ```
 ├── cmd/
-│   └── server/          # Go application entrypoint
+│   └── server/               # Go application entrypoint
 ├── internal/
-│   ├── auth/            # JWT & Hashing
-│   ├── config/          # Environment configuration
-│   ├── domain/          # Core models (Span, User, Anomaly, etc.)
-│   ├── observability/   # OpenTelemetry & Zap Logging setup
-│   └── repository/      # ClickHouse & PostgreSQL data access
+│   ├── analysis/             # Causal graph analysis, Welford baselines & LLM explainer
+│   ├── auth/                 # Argon2id, Ed25519 JWT & API key verification
+│   ├── config/               # Environment configuration & cost constants
+│   ├── domain/               # Core models (Span, Anomaly, User, Organization)
+│   ├── ingestion/            # OTLP parser, Kafka producer & consumer batching
+│   ├── observability/        # Zap logging & Prometheus metrics
+│   └── repository/           # ClickHouse & PostgreSQL data access
 ├── migrations/
-│   ├── clickhouse/      # Schema for analytical data
-│   └── postgres/        # Schema for relational data
-├── public/              # Static assets (images, fonts)
+│   ├── clickhouse/           # Schema for analytical trace data & anomalies
+│   └── postgres/             # Schema for relational user & tenant data
 └── src/
-    ├── components/      # React components (Dashboard, Modals, etc.)
-    ├── pages/           # React views
-    └── SecurifyApp.tsx  # Main React entrypoint
+    ├── components/           # React dashboard components & tabs
+    ├── pages/                # React views
+    └── DistributedTraceApp.tsx # Main React entrypoint
 ```
 
 ## License

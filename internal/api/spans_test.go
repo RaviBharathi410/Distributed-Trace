@@ -2,9 +2,11 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +15,10 @@ import (
 	"github.com/RaviBharathi410/distributedtrace/internal/auth"
 	"github.com/RaviBharathi410/distributedtrace/internal/domain"
 	chRepo "github.com/RaviBharathi410/distributedtrace/internal/repository/clickhouse"
+	"github.com/go-chi/chi/v5"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type mockSpanPublisher struct {
@@ -108,3 +114,193 @@ func TestSpanHandler_DecoupledPipeline(t *testing.T) {
 		}
 	})
 }
+
+func TestSpanHandler_IngestPayloadSizeLimits(t *testing.T) {
+	mockConn := &apiMockConn{}
+	traceRepo := chRepo.NewTraceRepository(mockConn)
+	handler := NewSpanHandler(traceRepo, nil)
+	ctx := context.WithValue(context.Background(), auth.OrgIDKey, TestOrgA)
+
+	t.Run("IngestSpans rejects payload exceeding MaxIngestBodyBytes with 413", func(t *testing.T) {
+		oversized := bytes.Repeat([]byte(" "), int(MaxIngestBodyBytes)+1024)
+		req := httptest.NewRequest(http.MethodPost, "/spans", bytes.NewReader(oversized)).WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handler.IngestSpans(rec, req)
+
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("expected 413 Request Entity Too Large, got %d. Body: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("IngestSpans rejects batch exceeding MaxSpansPerBatch with 413", func(t *testing.T) {
+		now := time.Now()
+		oversizedBatch := make([]domain.Span, MaxSpansPerBatch+1)
+		for i := range oversizedBatch {
+			oversizedBatch[i] = domain.Span{
+				TraceID:       "trace-1",
+				SpanID:        fmt.Sprintf("span-%d", i),
+				ServiceName:   "svc",
+				OperationName: "op",
+				DurationMs:    10,
+				StatusCode:    1,
+				StartTime:     now,
+			}
+		}
+
+		body, _ := json.Marshal(oversizedBatch)
+		req := httptest.NewRequest(http.MethodPost, "/spans", bytes.NewReader(body)).WithContext(ctx)
+		rec := httptest.NewRecorder()
+
+		handler.IngestSpans(rec, req)
+
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("expected 413 Request Entity Too Large for 1001 spans, got %d", rec.Code)
+		}
+	})
+
+	t.Run("IngestOTLP rejects uncompressed payload exceeding MaxIngestBodyBytes with 413", func(t *testing.T) {
+		oversized := bytes.Repeat([]byte(" "), int(MaxIngestBodyBytes)+1024)
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", bytes.NewReader(oversized)).WithContext(ctx)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.IngestOTLP(rec, req)
+
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("expected 413 Request Entity Too Large, got %d", rec.Code)
+		}
+	})
+
+	t.Run("IngestOTLP neutralizes gzip bomb exceeding MaxIngestBodyBytes with 413", func(t *testing.T) {
+		var gzBuf bytes.Buffer
+		gzWriter := gzip.NewWriter(&gzBuf)
+		uncompressedOversized := bytes.Repeat([]byte("A"), int(MaxIngestBodyBytes)+1024)
+		if _, err := gzWriter.Write(uncompressedOversized); err != nil {
+			t.Fatalf("failed to write gzip payload: %v", err)
+		}
+		if err := gzWriter.Close(); err != nil {
+			t.Fatalf("failed to close gzip: %v", err)
+		}
+
+		t.Logf("Gzip bomb payload size: %d bytes (decompresses to %d bytes)", gzBuf.Len(), len(uncompressedOversized))
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", &gzBuf).WithContext(ctx)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Encoding", "gzip")
+		rec := httptest.NewRecorder()
+
+		handler.IngestOTLP(rec, req)
+
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("expected 413 Request Entity Too Large for gzip bomb, got %d. Body: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("IngestOTLP rejects batch exceeding MaxSpansPerBatch with 413", func(t *testing.T) {
+		protoSpans := make([]*tracepb.Span, MaxSpansPerBatch+1)
+		for i := range protoSpans {
+			protoSpans[i] = &tracepb.Span{
+				TraceId:           []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+				SpanId:            []byte{1, 2, 3, 4, 5, 6, 7, 8},
+				Name:              "op",
+				StartTimeUnixNano: uint64(time.Now().UnixNano()),
+				EndTimeUnixNano:   uint64(time.Now().Add(10 * time.Millisecond).UnixNano()),
+			}
+		}
+
+		protoReq := &coltracepb.ExportTraceServiceRequest{
+			ResourceSpans: []*tracepb.ResourceSpans{
+				{
+					ScopeSpans: []*tracepb.ScopeSpans{
+						{Spans: protoSpans},
+					},
+				},
+			},
+		}
+
+		body, _ := proto.Marshal(protoReq)
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", bytes.NewReader(body)).WithContext(ctx)
+		req.Header.Set("Content-Type", "application/x-protobuf")
+		rec := httptest.NewRecorder()
+
+		handler.IngestOTLP(rec, req)
+
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("expected 413 Request Entity Too Large for >1000 OTLP spans, got %d", rec.Code)
+		}
+	})
+}
+
+func TestOTLPEndpoint_RouteAuthMount_Strict401(t *testing.T) {
+	svc, err := auth.NewTokenServiceFromPaths("", "", "test-issuer", "test")
+	if err != nil {
+		t.Fatalf("failed to create token service: %v", err)
+	}
+
+	mockConn := &apiMockConn{}
+	traceRepo := chRepo.NewTraceRepository(mockConn)
+	spanHandler := NewSpanHandler(traceRepo, nil)
+
+	r := chi.NewRouter()
+	// Mount routes identically to cmd/server/main.go
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireIngestAuth(nil, svc))
+		r.Post("/v1/traces", spanHandler.IngestOTLP)
+		r.Post("/v1/traces/", spanHandler.IngestOTLP)
+	})
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/traces/otlp", func(r chi.Router) {
+			r.Use(auth.RequireIngestAuth(nil, svc))
+			r.Post("/", spanHandler.IngestOTLP)
+		})
+	})
+
+	endpoints := []string{"/v1/traces", "/v1/traces/", "/api/v1/traces/otlp"}
+	for _, ep := range endpoints {
+		t.Run("No auth header to "+ep+" returns 401", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, ep, bytes.NewReader([]byte("{}")))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			r.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("SECURITY VIOLATION: expected 401 on unauthenticated %s, got %d", ep, rec.Code)
+			}
+		})
+
+		t.Run("Invalid API key to "+ep+" returns 401", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, ep, bytes.NewReader([]byte("{}")))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-API-Key", "dt_live_invalid_key_value")
+			rec := httptest.NewRecorder()
+
+			r.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("SECURITY VIOLATION: expected 401 on invalid key for %s, got %d", ep, rec.Code)
+			}
+		})
+	}
+
+	t.Run("Valid JWT to /v1/traces is accepted and authenticated", func(t *testing.T) {
+		token, err := svc.GenerateToken("user-1", "org-allowed", "admin", 1*time.Hour)
+		if err != nil {
+			t.Fatalf("failed to generate token: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", bytes.NewReader([]byte(`{"resourceSpans":[]}`)))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+
+		r.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK with valid credentials, got %d. Body: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+

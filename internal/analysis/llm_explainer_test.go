@@ -77,9 +77,9 @@ func sampleAnomaly() *domain.Anomaly {
 
 func sampleExplainerConfig() ExplainerConfig {
 	return ExplainerConfig{
-		ModelName:              "gemini-1.5-flash",
-		InputPricePerMillion:   0.075,
-		OutputPricePerMillion:  0.300,
+		ModelName:              "gemini-3.5-flash-lite",
+		InputPricePerMillion:   0.30,
+		OutputPricePerMillion:  2.50,
 		CostCeilingPerIncident: 0.010,
 		HourlySpendCap:         1.000,
 	}
@@ -181,8 +181,8 @@ func TestIncidentExplainer_ValidGeneration_PassesValidationAndCaches(t *testing.
 		t.Errorf("expected 1 cost event recorded in ledger, got %d", len(mockCosts.recorded))
 	}
 
-	// Verify cost calculation: (850*0.075 + 150*0.300) / 1,000,000 = (63.75 + 45) / 1,000,000 = 0.00010875
-	expectedCost := (850.0*0.075 + 150.0*0.300) / 1_000_000.0
+	// Verify cost calculation: (850*0.30 + 150*2.50) / 1,000,000 = (255 + 375) / 1,000,000 = 0.000630
+	expectedCost := (850.0*0.30 + 150.0*2.50) / 1_000_000.0
 	if res.CostAttribution.EstimatedCostUSD != expectedCost {
 		t.Errorf("expected cost %f, got %f", expectedCost, res.CostAttribution.EstimatedCostUSD)
 	}
@@ -263,7 +263,7 @@ func TestIncidentExplainer_ValidatorRejection_HardStopZeroRePrompts_DegradesToDe
 	}
 
 	// Fallback cost attribution reflects the rejected call's actual cost for ledger honesty
-	expectedCost := (900.0*0.075 + 200.0*0.300) / 1_000_000.0
+	expectedCost := (900.0*0.30 + 200.0*2.50) / 1_000_000.0
 	if res.CostAttribution.EstimatedCostUSD != expectedCost {
 		t.Errorf("expected cost attribution to reflect rejected tokens (%f), got %f", expectedCost, res.CostAttribution.EstimatedCostUSD)
 	}
@@ -394,7 +394,7 @@ func TestIncidentExplainer_MalformedJSONResponse_DegradesToDeterministic_HonestL
 		t.Errorf("expected recorded tokens (750, 50), got (%d, %d)", mockCosts.recorded[0].InputTokens, mockCosts.recorded[0].OutputTokens)
 	}
 
-	expectedCost := (750.0*0.075 + 50.0*0.300) / 1_000_000.0
+	expectedCost := (750.0*0.30 + 50.0*2.50) / 1_000_000.0
 	if res.CostAttribution.EstimatedCostUSD != expectedCost {
 		t.Errorf("expected cost attribution to reflect consumed tokens (%f), got %f", expectedCost, res.CostAttribution.EstimatedCostUSD)
 	}

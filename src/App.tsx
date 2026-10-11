@@ -1,10 +1,10 @@
 import React from 'react';
-import SecurifyApp from './SecurifyApp';
+import DistributedTraceApp from './DistributedTraceApp';
 import './App.css';
 
 function App() {
   return (
-    <SecurifyApp />
+    <DistributedTraceApp />
   );
 }
 

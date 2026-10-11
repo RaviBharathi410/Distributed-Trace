@@ -79,6 +79,66 @@ func TestRequireUserAuth(t *testing.T) {
 	})
 }
 
+func TestRequireIngestAuth_RejectsUnauthenticated(t *testing.T) {
+	svc := setupTestTokenService(t)
+	mw := RequireIngestAuth(nil, svc)
+
+	dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	h := mw(dummyHandler)
+
+	t.Run("Rejects request with no X-API-Key and no Authorization header with 401", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", nil)
+		rec := httptest.NewRecorder()
+
+		h.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 Unauthorized, got %d", rec.Code)
+		}
+	})
+
+	t.Run("Rejects request with invalid Bearer token with 401", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", nil)
+		req.Header.Set("Authorization", "Bearer invalid-jwt-token")
+		rec := httptest.NewRecorder()
+
+		h.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 Unauthorized, got %d", rec.Code)
+		}
+	})
+
+	t.Run("Accepts request with valid user JWT and injects org_id", func(t *testing.T) {
+		token, err := svc.GenerateToken("user-123", "org-test-999", "admin", 1*time.Hour)
+		if err != nil {
+			t.Fatalf("failed to generate token: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/traces", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+
+		var injectedOrg string
+		checkedHandler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			injectedOrg = GetOrgID(r.Context())
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		checkedHandler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK, got %d", rec.Code)
+		}
+		if injectedOrg != "org-test-999" {
+			t.Errorf("expected injected org 'org-test-999', got %q", injectedOrg)
+		}
+	})
+}
+
 func TestRequireRole(t *testing.T) {
 	adminOnlyHandler := RequireRole(domain.RoleAdmin)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -17,7 +17,7 @@ const CountUp: React.FC<{ end: number, format?: string, duration?: number }> = (
 };
 
 // --- App Root ---
-const SecurifyApp: React.FC = () => {
+const DistributedTraceApp: React.FC = () => {
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard'>('landing');
 
   return (
@@ -303,7 +303,7 @@ const PlatformSection: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
             { title: 'Distributed Tracing', desc: 'End-to-end trace correlation across services with sub-millisecond precision. OpenTelemetry native.' },
-            { title: 'Anomaly Detection', desc: 'Probabilistic causal inference engine powered by NetworkX graph analysis and SciPy statistical models.' },
+            { title: 'Anomaly Detection', desc: 'Deterministic Welford baseline tracking and trace critical-path graph analysis implemented in native Go.' },
             { title: 'Real-time Pipeline', desc: 'Go + Kafka ingestion pipeline with ClickHouse storage. 50K spans/sec sustained throughput.' },
           ].map((item, i) => (
             <div key={i} className="p-8 border border-white/[0.08] rounded-lg hover:border-white/20 transition-colors group">
@@ -326,12 +326,12 @@ const ProofSection: React.FC = () => {
       <div className="max-w-6xl mx-auto">
         <h2 className="text-5xl md:text-7xl font-medium tracking-tight mb-6">proof</h2>
         <p className="text-white/60 max-w-2xl text-lg mb-16">
-          Numbers that speak for themselves. Our platform processes billions of spans daily across Fortune 500 companies.
+          Production-grade architecture designed for predictable cost, deterministic root-cause attribution, and high-throughput OTLP ingest.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
             { num: '99.99%', label: 'uptime SLA' },
-            { num: '<500ms', label: 'anomaly detection' },
+            { num: '0.14ms', label: 'causal traversal per 100-span trace' },
             { num: '50K', label: 'spans/sec ingest' },
             { num: '3+', label: 'geographic regions' },
           ].map((item, i) => (
@@ -357,7 +357,7 @@ const HowItWorksSection: React.FC = () => {
           {[
             { step: '01', title: 'Instrument', desc: 'Add OpenTelemetry SDK to your services. Auto-instrumentation available for Go, Python, Java, and Node.js.' },
             { step: '02', title: 'Ingest', desc: 'Spans flow through our Go + Kafka pipeline, deduplicated and enriched with service topology metadata.' },
-            { step: '03', title: 'Analyze', desc: 'ClickHouse stores and indexes traces. Our Python engine runs causal inference to surface anomalies in under 500ms.' },
+            { step: '03', title: 'Analyze', desc: 'ClickHouse stores and indexes traces. The Go ingestion engine evaluates Welford baselines and critical-path bottleneck traversal post-ingest.' },
             { step: '04', title: 'Alert', desc: 'Get notified via Slack, PagerDuty, or webhooks when anomalies are detected. Full root cause analysis included.' },
           ].map((item, i) => (
             <div key={i} className="flex gap-8 items-start group">
@@ -665,4 +665,4 @@ const OverviewTab: React.FC = () => {
 };
 
 
-export default SecurifyApp;
+export default DistributedTraceApp;

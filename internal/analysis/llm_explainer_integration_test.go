@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -29,10 +30,14 @@ func TestGeminiClient_LiveIntegration(t *testing.T) {
 
 	userPrompt := BuildUserPrompt(sampleAnomaly())
 
-	rawResp, inTokens, outTokens, err := client.Generate(ctx, systemPrompt, userPrompt)
+	rawResp, rawUsage, inTokens, outTokens, err := client.GenerateWithUsage(ctx, systemPrompt, userPrompt)
 	if err != nil {
 		t.Fatalf("live Gemini Generate failed: %v", err)
 	}
+
+	t.Logf("RAW usageMetadata: promptTokenCount=%d, candidatesTokenCount=%d, thoughtsTokenCount=%d, totalTokenCount=%d",
+		rawUsage.PromptTokenCount, rawUsage.CandidatesTokenCount, rawUsage.ThoughtsTokenCount, rawUsage.TotalTokenCount)
+	t.Logf("Billable Tokens: inTokens=%d, outTokens=%d", inTokens, outTokens)
 
 	if inTokens <= 0 {
 		t.Errorf("expected positive input token count, got %d", inTokens)
@@ -81,6 +86,16 @@ func TestIncidentExplainer_LiveEndToEnd_WithRealGemini(t *testing.T) {
 	mockCosts := &mockCostRecorder{}
 	cfg := sampleExplainerConfig()
 	cfg.ModelName = model
+	if inStr := os.Getenv("LLM_INPUT_PRICE_PER_MILLION"); inStr != "" {
+		if p, err := strconv.ParseFloat(inStr, 64); err == nil {
+			cfg.InputPricePerMillion = p
+		}
+	}
+	if outStr := os.Getenv("LLM_OUTPUT_PRICE_PER_MILLION"); outStr != "" {
+		if p, err := strconv.ParseFloat(outStr, 64); err == nil {
+			cfg.OutputPricePerMillion = p
+		}
+	}
 	explainer := NewIncidentExplainer(client, NewOutputValidator(), mockCosts, cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
