@@ -115,7 +115,7 @@ jobs:
       - name: Start full stack with clean volumes
         run: |
           docker compose down -v
-          docker compose up -d postgres clickhouse redpanda redis
+          docker compose up -d postgres clickhouse redpanda
           echo "Waiting for services to become healthy..."
           pg_ready=false
           ch_ready=false
@@ -156,7 +156,14 @@ jobs:
         run: |
           ./bin/server > server.log 2>&1 &
           echo $! > server.pid
-          sleep 2
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8080/health | grep -q '"ok"'; then
+              echo "Server is UP and HEALTHY on port 8080"
+              break
+            fi
+            echo "Waiting for server to become ready ($i/30)..."
+            sleep 1
+          done
         env:
           SERVER_PORT: 8080
           ENVIRONMENT: development
@@ -178,4 +185,8 @@ jobs:
         run: |
           echo "=== Server Output ==="
           cat server.log || true
+          echo "=== Docker Compose Status ==="
+          docker compose ps || true
+          echo "=== Docker Compose Logs ==="
+          docker compose logs --tail=50 || true
 

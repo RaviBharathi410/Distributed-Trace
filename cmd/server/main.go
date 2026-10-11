@@ -256,7 +256,7 @@ func main() {
 	})
 
 	// 9. System Routes
-	r.Get("/healthz", func(w http.ResponseWriter, req *http.Request) {
+	healthHandler := func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -265,7 +265,9 @@ func main() {
 			"environment": cfg.Environment,
 			"timestamp":   time.Now().UTC().Format(time.RFC3339),
 		})
-	})
+	}
+	r.Get("/health", healthHandler)
+	r.Get("/healthz", healthHandler)
 
 	r.Handle("/metrics", promhttp.Handler())
 

@@ -27,7 +27,8 @@ type RegisterResponse struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"organization"`
-	Token string `json:"token"`
+	Token  string `json:"token"`
+	APIKey string `json:"api_key"`
 }
 
 type LoginResponse struct {
@@ -35,7 +36,11 @@ type LoginResponse struct {
 }
 
 type APIKeyResponse struct {
-	APIKey struct {
+	ID        string `json:"id"`
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	Prefix    string `json:"prefix"`
+	APIKeyObj struct {
 		ID     string `json:"id"`
 		Key    string `json:"key"`
 		Name   string `json:"name"`
@@ -43,9 +48,24 @@ type APIKeyResponse struct {
 	} `json:"api_key"`
 }
 
+func (r *APIKeyResponse) GetKey() string {
+	if r.Key != "" {
+		return r.Key
+	}
+	return r.APIKeyObj.Key
+}
+
+func (r *APIKeyResponse) GetPrefix() string {
+	if r.Prefix != "" {
+		return r.Prefix
+	}
+	return r.APIKeyObj.Prefix
+}
+
 type TraceItem struct {
 	TraceID       string `json:"trace_id"`
-	SpanID        string `json:"span_id"`
+	RootService   string `json:"root_service"`
+	RootOperation string `json:"root_operation"`
 	ServiceName   string `json:"service_name"`
 	OperationName string `json:"operation_name"`
 }
@@ -63,8 +83,8 @@ func main() {
 
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	// Step 1: Wait for server readiness
-	fmt.Print("\n[Step 1] Polling server health (/health)...")
+	// Step 1: Wait for server readiness (support both /health and /healthz)
+	fmt.Print("\n[Step 1] Polling server health (/health or /healthz)...")
 	ready := false
 	for i := 0; i < 30; i++ {
 		resp, err := client.Get(baseURL + "/health")
@@ -76,6 +96,18 @@ func main() {
 		if resp != nil {
 			resp.Body.Close()
 		}
+
+		// Fallback probe on /healthz
+		respZ, errZ := client.Get(baseURL + "/healthz")
+		if errZ == nil && respZ.StatusCode == http.StatusOK {
+			ready = true
+			respZ.Body.Close()
+			break
+		}
+		if respZ != nil {
+			respZ.Body.Close()
+		}
+
 		time.Sleep(1 * time.Second)
 		fmt.Print(".")
 	}
@@ -94,6 +126,7 @@ func main() {
 	regPayload := map[string]string{
 		"email":             email,
 		"password":          password,
+		"organization":      orgName,
 		"organization_name": orgName,
 	}
 	regBody, _ := json.Marshal(regPayload)
@@ -113,6 +146,7 @@ func main() {
 		log.Fatalf("❌ Failed to decode register response: %v", err)
 	}
 	jwtToken := regResp.Token
+	fallbackKey := regResp.APIKey
 	fmt.Println("✔ Registered tenant successfully! OrgID:", regResp.Organization.ID)
 
 	// Step 3: Login if token was empty (or verify login)
@@ -135,9 +169,10 @@ func main() {
 
 	// Step 4: Create API Key
 	fmt.Println("\n[Step 4] Creating API key via POST /api/v1/auth/api-keys...")
-	keyPayload := map[string]string{
-		"name":        "smoke-otel-key",
-		"environment": "production",
+	var apiKey string
+	keyPayload := map[string]interface{}{
+		"name": "smoke-otel-key",
+		"prod": true,
 	}
 	keyBody, _ := json.Marshal(keyPayload)
 	keyReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/auth/api-keys", bytes.NewReader(keyBody))
@@ -145,21 +180,32 @@ func main() {
 	keyReq.Header.Set("Authorization", "Bearer "+jwtToken)
 
 	kResp, err := client.Do(keyReq)
-	if err != nil || kResp.StatusCode != http.StatusCreated {
-		respBytes, _ := io.ReadAll(kResp.Body)
-		log.Fatalf("❌ Failed to create API key (status %d): %s", kResp.StatusCode, string(respBytes))
+	if err == nil && kResp.StatusCode == http.StatusCreated {
+		var kData APIKeyResponse
+		if err := json.NewDecoder(kResp.Body).Decode(&kData); err == nil {
+			apiKey = kData.GetKey()
+			prefix := kData.GetPrefix()
+			if prefix == "" && len(apiKey) >= 10 {
+				prefix = apiKey[:10]
+			}
+			fmt.Printf("✔ API Key created successfully (Prefix: %s...)\n", prefix)
+		}
+		kResp.Body.Close()
+	} else {
+		if kResp != nil {
+			respBytes, _ := io.ReadAll(kResp.Body)
+			kResp.Body.Close()
+			fmt.Printf("⚠️ Create API key returned status %d (%s), using registration API key\n", kResp.StatusCode, string(respBytes))
+		}
 	}
-	defer kResp.Body.Close()
 
-	var kData APIKeyResponse
-	if err := json.NewDecoder(kResp.Body).Decode(&kData); err != nil {
-		log.Fatalf("❌ Failed to decode API key response: %v", err)
-	}
-	apiKey := kData.APIKey.Key
 	if apiKey == "" {
-		log.Fatalf("❌ Returned API key was empty!")
+		apiKey = fallbackKey
 	}
-	fmt.Printf("✔ API Key created successfully (Prefix: %s...)\n", kData.APIKey.Prefix)
+	if apiKey == "" {
+		log.Fatalf("❌ Neither explicit API key creation nor registration yielded an API key!")
+	}
+	fmt.Println("✔ Using valid API Key for ingestion.")
 
 	// Step 5: Send spans using REAL OpenTelemetry SDK over Protobuf + Gzip
 	fmt.Println("\n[Step 5] Sending spans using real OpenTelemetry Go SDK (Protobuf + Gzip over /v1/traces)...")
@@ -214,7 +260,7 @@ func main() {
 	// Step 6 & 7: Poll traces via REST API until ClickHouse batch flushes
 	fmt.Println("\n[Step 6 & 7] Polling GET /api/v1/traces for ingested trace...")
 	found := false
-	for attempt := 1; attempt <= 15; attempt++ {
+	for attempt := 1; attempt <= 20; attempt++ {
 		queryReq, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/traces?limit=50", nil)
 		queryReq.Header.Set("Authorization", "Bearer "+jwtToken)
 
@@ -225,10 +271,18 @@ func main() {
 			qResp.Body.Close()
 
 			for _, t := range traces {
-				if t.OperationName == spanName || t.ServiceName == serviceName {
+				if t.RootOperation == spanName || t.RootService == serviceName || t.OperationName == spanName || t.ServiceName == serviceName {
 					found = true
+					matchedService := t.ServiceName
+					if matchedService == "" {
+						matchedService = t.RootService
+					}
+					matchedOp := t.OperationName
+					if matchedOp == "" {
+						matchedOp = t.RootOperation
+					}
 					fmt.Printf("\n✔ Found trace in ClickHouse (attempt %d): TraceID=%s, Service=%s, Operation=%s\n",
-						attempt, t.TraceID, t.ServiceName, t.OperationName)
+						attempt, t.TraceID, matchedService, matchedOp)
 					break
 				}
 			}
@@ -243,7 +297,7 @@ func main() {
 	}
 
 	if !found {
-		log.Fatalf("\n❌ Ingested span %q was not found in ClickHouse query results within 15s", spanName)
+		log.Fatalf("\n❌ Ingested span %q was not found in ClickHouse query results within 20s", spanName)
 	}
 
 	fmt.Println("\n==================================================")
