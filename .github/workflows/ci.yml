@@ -159,6 +159,7 @@ jobs:
           go build -v -o bin/server ./cmd/server
           go build -v -o bin/migrate ./cmd/migrate
           go build -v -o bin/e2e-smoke ./cmd/e2e-smoke
+          go build -v -o bin/loadtest ./cmd/loadtest
 
       - name: Apply database migrations
         run: ./bin/migrate
@@ -194,6 +195,33 @@ jobs:
         run: ./bin/e2e-smoke
         env:
           SERVER_BASE_URL: http://127.0.0.1:8080
+
+      - name: Record container baseline resources
+        run: |
+          echo "### 📊 Container Resource Utilization (Baseline)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream
+
+      - name: Run Empirical Ingestion Load & ClickHouse system.parts Benchmark
+        run: |
+          ./bin/loadtest -mode live -spans 25000 -batch-size 5000 -server http://127.0.0.1:8080 -clickhouse 127.0.0.1:9000 2>&1 | tee loadtest.log
+          echo "### 📈 Empirical ClickHouse Ingestion & system.parts Benchmark" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat loadtest.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        env:
+          CLICKHOUSE_URL: 127.0.0.1:9000
+          CLICKHOUSE_DB: default
+
+      - name: Record container sustained load resources
+        run: |
+          echo "### 📊 Container Resource Utilization (Sustained Ingest)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream
 
       - name: Dump server logs on failure
         if: failure()

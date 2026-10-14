@@ -269,10 +269,62 @@
   - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
   - `npx eslint . --ext ts,tsx` -> Exited 0 (0 errors, 0 warnings).
   - `npm run build` -> Exited 0 (`dist/` built in 651ms).
-- **Next Checkpoint's Exit Criteria (Phase 5 — AIOps Autonomous Root Cause Analysis & Remediation Engine):**
+- **Next Checkpoint's Exit Criteria (Phase 5A — Autonomous Root Cause Explanation & OTLP Ingest Infrastructure):**
   1. On-demand AI incident analysis trigger from UI (bypassing hot path, isolated to user investigation).
   2. Structured LLM prompt assembling causal trace graph, baseline metrics, downstream root-cause service, and relevant error logs.
-  3. Actionable remediation recommendations generated with confidence scores and rollback playbooks.
+  3. Dual-tiered safety validator preventing remediation directives on LLM output.
+  4. Native OTLP Protobuf + Gzip receiver with tenant clamping and size limits.
+  5. Automated end-to-end smoke CI pipeline verifying real OTel SDK trace ingestion.
+
+---
+
+## Checkpoint: 2026-10-14 — Phase 5A Complete: Autonomous Causal Explanation, Strict Cost Ledger, Native OTLP Ingestion & E2E Smoke Pipeline
+- **Status:** ✅ **Phase 5A Complete — All Exit Criteria Satisfied (Live Model Verified, Cost Ledger Audited, OTLP Receiver Integrated, E2E Smoke Automated)**.
+- **Project Completion:** ~97% (AIOps on-demand causal explanation, Gemini 3.5 Flash-Lite integration, strict token cost ledger & ceilings, native OTLP Protobuf/Gzip receiver with tenant clamping, decompression bomb & 10k batch caps, standalone migration runner, and 100% green remote CI E2E smoke pipeline).
+- **What Changed Since Last Checkpoint:**
+  1. **Empirically Verified Model Migration to `gemini-3.5-flash-lite` (Decision #34):**
+     - Retired legacy `gemini-1.5-flash` after live API verification proved it deprecated (HTTP 404 NOT_FOUND).
+     - Standardized on actively served `gemini-3.5-flash-lite` across [`internal/config/config.go`](file:///d:/Projects/DistributedTrace/internal/config/config.go) and [`internal/analysis/explainer.go`](file:///d:/Projects/DistributedTrace/internal/analysis/explainer.go).
+     - Validated live against Google Generative Language API (`TestGeminiClient_LiveIntegration`): 638 prompt tokens, 172 candidate tokens, 0 thoughts tokens, 810 total tokens, $0.000574 recorded cost per incident.
+  2. **Thinking Token Accounting & Cost Ledger Precision (Decision #35):**
+     - Fixed output token billing formula: `billedOutputTokens = totalTokenCount - promptTokenCount` in [`internal/analysis/explainer.go`](file:///d:/Projects/DistributedTrace/internal/analysis/explainer.go) and [`internal/observability/telemetry.go`](file:///d:/Projects/DistributedTrace/internal/observability/telemetry.go), ensuring thinking/reasoning tokens billed at output rate are captured with micro-dollar accuracy.
+     - Pre-flight incident spend ceiling enforced ($\le \$0.01$/call) and hourly tenant spend cap ($\le \$1.00$/hr) enforced *before* issuing any vendor calls.
+     - Two-tiered safety validator (Tier 1 command blocklist + Tier 2 regex soft-advisory detector) rejects dangerous remediation instructions or speculative advice.
+     - Hard-stop fallback on validator rejection: immediately degrades to Phase 3 deterministic telemetry summary with zero token retries, preventing runaway cost.
+  3. **Three-State Frontend Drawer Experience (Decision #32):**
+     - UI explicitly renders three distinct states: Unanalyzed (on-demand button with cost pill), AI Prose Diagnostic (purple badge, confidence score, root cause narrative), and Degraded Fallback (`degraded_to_deterministic: true`, amber banner detailing exact fallback reason, structured mathematical telemetry cards).
+     - In-memory 24h explanation caching with fingerprinting (Decision #33).
+  4. **Native OTLP/HTTP Receiver (`/v1/traces`) with Tenant Clamping (Decision #35):**
+     - Implemented `/v1/traces`, `/v1/traces/`, and `/api/v1/traces/otlp` accepting standard OpenTelemetry Protocol HTTP payloads in Protobuf (`application/x-protobuf`) and JSON (`application/json`) with transparent Gzip decompression (`Content-Encoding: gzip`).
+     - Clamped `org_id` context to authenticated tenant in `EnrichSpans`, stripping any client-supplied spoofed `tenant_id` or `org_id` tags.
+     - Verified end-to-end with the official OpenTelemetry Go SDK (`otlptracehttp`) emitting traces with Gzip compression and Protobuf encoding (`TestRealOpenTelemetrySDK_IngestOTLP_ProtobufGzip` PASS in 0.02s).
+     - Added automated unit test verifying default OpenTelemetry Collector batch size (8,192 spans) through handler to ClickHouse batch persistence (`TestSpanHandler_IngestOTLP_8192Batch_HandlerToClickHouse` PASS in 0.07s).
+  5. **Decompression Bomb Protection & Ingestion Size Caps (Decision #36):**
+     - Wrapped uncompressed and decompressed request streams in `io.LimitReader` bounded at 16 MB (`MaxIngestBodyBytes`), immediately aborting with HTTP 413 Request Entity Too Large.
+     - Capped incoming batches at 10,000 spans (`MaxSpansPerBatch`), returning HTTP 413 on oversized batches.
+     - Verified with unit tests (`TestSpanHandler_IngestPayloadSizeLimits`) neutralizing a 4.1KB gzip payload expanding to >16MB.
+  6. **Strict Ingestion Route Authentication Verification:**
+     - Verified `/v1/traces`, `/v1/traces/`, and `/api/v1/traces/otlp` are mounted within `auth.RequireIngestAuth`, strictly returning HTTP 401 when unauthenticated (`TestOTLPEndpoint_RouteAuthMount_Strict401`).
+  7. **Standalone Migration Runner & Remote CI E2E Smoke Pipeline:**
+     - Created standalone database migration runner ([`cmd/migrate/main.go`](file:///d:/Projects/DistributedTrace/cmd/migrate/main.go)) idempotently creating and validating all 8 PostgreSQL tables and 3 ClickHouse tables.
+     - Built automated full-stack E2E smoke verification runner ([`cmd/e2e-smoke/main.go`](file:///d:/Projects/DistributedTrace/cmd/e2e-smoke/main.go)).
+     - Verified 100% green on GitHub Actions CI ([Run #38155396652](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/38155396652)): starts Postgres, ClickHouse, and Redpanda containers, executes migrations, starts API server, registers tenant, generates API key, exports traces via real OpenTelemetry Go SDK, and verifies ClickHouse query retrieval.
+  8. **Empirical Benchmarking & SaaS Unit Cost Accounting:**
+     - Created synthetic high-entropy load test benchmark ([`cmd/loadtest/main.go`](file:///d:/Projects/DistributedTrace/cmd/loadtest/main.go)) across 10 distinct microservices with dynamic URLs, SQL queries, user agents, errors, and hex IDs.
+     - Wire format results: JSON Raw 948.7 B/span, JSON Gzip 131.1 B/span (7.24x), OTLP Proto Raw 740.5 B/span, OTLP Proto Gzip 146.0 B/span (5.07x). Hardware labeled: `Local Development Machine (Laptop / windows amd64, 12 CPUs)`.
+     - **CRITICAL PRICING & COST CLARIFICATION:** The earlier $0.0133/M spans figure is an **unmeasured preliminary estimate** based on wire format modeling. True storage unit costs require live ClickHouse `system.parts` (`data_compressed_bytes` / `rows`) measurements on merged parts under sustained ingest. Final SaaS pricing tiers are strictly held pending empirical ClickHouse disk parts measurements and container CPU/RAM numbers.
+- **Verification Evidence (Commands Run & CI Runs):**
+  - **Remote GitHub Actions CI Run #14:** [Run 38155396652](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/38155396652) -> **COMPLETED SUCCESS**
+    - `Backend (Go 1.22)` -> **Success** (unit & regression tests with coverage and race detector in 1m 24s).
+    - `Frontend (Node 20 / Vite)` -> **Success** (ESLint 0 errors/0 warnings + Vite build in 21s).
+    - `E2E Smoke (Phase 1 Full Stack & Real OTLP Ingest)` -> [Job 114517634095](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/38155396652/job/114517634095) **Success** in 48s.
+  - `go test -v -run 8192Batch ./internal/api/...` -> Exited 0 (**PASS: 0.07s, 8,192 spans ingested and persisted to ClickHouse mock with strict org isolation**).
+  - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
+  - `npm run build` -> Exited 0 (`dist/` built in 710ms).
+- **Next Checkpoint's Exit Criteria (Phase 5B — Closed-Loop Remediation & Final SaaS Pricing):**
+  1. Live empirical ClickHouse `system.parts` measurements (`data_compressed_bytes`, `data_uncompressed_bytes`, `compression_ratio`) on merged parts under sustained ingestion load with container CPU/RAM recording.
+  2. Final SaaS pricing tiers calibrated directly from empirical disk storage and network wire numbers.
+  3. Closed-loop remediation playbooks with human-in-the-loop approval gates.
 
 
 

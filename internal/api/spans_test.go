@@ -17,6 +17,8 @@ import (
 	chRepo "github.com/RaviBharathi410/distributedtrace/internal/repository/clickhouse"
 	"github.com/go-chi/chi/v5"
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -301,6 +303,119 @@ func TestOTLPEndpoint_RouteAuthMount_Strict401(t *testing.T) {
 			t.Fatalf("expected 200 OK with valid credentials, got %d. Body: %s", rec.Code, rec.Body.String())
 		}
 	})
+}
+
+func TestSpanHandler_IngestOTLP_8192Batch_HandlerToClickHouse(t *testing.T) {
+	mockConn := &apiMockConn{}
+	traceRepo := chRepo.NewTraceRepository(mockConn)
+	handler := NewSpanHandler(traceRepo, nil)
+
+	const batchSize = 8192
+	protoSpans := make([]*tracepb.Span, batchSize)
+	now := time.Now()
+
+	for i := 0; i < batchSize; i++ {
+		traceID := make([]byte, 16)
+		traceID[0] = 0xAA
+		traceID[15] = byte(i % 256)
+
+		spanID := make([]byte, 8)
+		spanID[0] = 0xBB
+		spanID[6] = byte((i >> 8) % 256)
+		spanID[7] = byte(i % 256)
+
+		protoSpans[i] = &tracepb.Span{
+			TraceId:           traceID,
+			SpanId:            spanID,
+			Name:              fmt.Sprintf("operation-%d", i%15),
+			Kind:              tracepb.Span_SPAN_KIND_SERVER,
+			StartTimeUnixNano: uint64(now.UnixNano()),
+			EndTimeUnixNano:   uint64(now.Add(25 * time.Millisecond).UnixNano()),
+			Attributes: []*commonpb.KeyValue{
+				{
+					Key:   "http.status_code",
+					Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_IntValue{IntValue: 200}},
+				},
+				{
+					Key:   "http.method",
+					Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "POST"}},
+				},
+			},
+			Status: &tracepb.Status{
+				Code: tracepb.Status_STATUS_CODE_OK,
+			},
+		}
+	}
+
+	protoReq := &coltracepb.ExportTraceServiceRequest{
+		ResourceSpans: []*tracepb.ResourceSpans{
+			{
+				Resource: &resourcepb.Resource{
+					Attributes: []*commonpb.KeyValue{
+						{
+							Key:   "service.name",
+							Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "collector-batch-service"}},
+						},
+					},
+				},
+				ScopeSpans: []*tracepb.ScopeSpans{
+					{
+						Spans: protoSpans,
+					},
+				},
+			},
+		},
+	}
+
+	rawBytes, err := proto.Marshal(protoReq)
+	if err != nil {
+		t.Fatalf("failed to marshal 8,192 protobuf spans: %v", err)
+	}
+
+	var gzBuf bytes.Buffer
+	gzWriter := gzip.NewWriter(&gzBuf)
+	if _, err := gzWriter.Write(rawBytes); err != nil {
+		t.Fatalf("failed to gzip compress 8,192 spans: %v", err)
+	}
+	if err := gzWriter.Close(); err != nil {
+		t.Fatalf("failed to close gzip writer: %v", err)
+	}
+
+	t.Logf("8,192 OTLP Collector batch wire size: %d bytes raw, %d bytes gzip compressed", len(rawBytes), gzBuf.Len())
+
+	ctx := context.WithValue(context.Background(), auth.OrgIDKey, TestOrgA)
+	req := httptest.NewRequest(http.MethodPost, "/v1/traces", &gzBuf).WithContext(ctx)
+	req.Header.Set("Content-Type", "application/x-protobuf")
+	req.Header.Set("Content-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+
+	handler.IngestOTLP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for 8,192-span Collector batch, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify ClickHouse batch persistence
+	if len(mockConn.batches) == 0 {
+		t.Fatalf("expected ClickHouse batch to be prepared for 8,192 spans")
+	}
+
+	totalPersisted := 0
+	for _, b := range mockConn.batches {
+		totalPersisted += len(b.appendedRows)
+		for _, row := range b.appendedRows {
+			orgID, ok := row[0].(string)
+			if !ok || orgID != TestOrgA {
+				t.Fatalf("tenant isolation violation: expected org_id %q, got %v", TestOrgA, row[0])
+			}
+		}
+	}
+
+	if totalPersisted != batchSize {
+		t.Fatalf("expected exactly %d spans persisted to ClickHouse, got %d", batchSize, totalPersisted)
+	}
+
+	t.Logf("✔ Successfully ingested and persisted full 8,192-span OpenTelemetry Collector batch from handler to ClickHouse with strict tenant isolation!")
 }
 
 
