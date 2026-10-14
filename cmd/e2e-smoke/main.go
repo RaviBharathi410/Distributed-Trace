@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,11 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	trace "go.opentelemetry.io/otel/trace"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type RegisterResponse struct {
@@ -81,7 +87,7 @@ func main() {
 	fmt.Println("Target:", baseURL)
 	fmt.Println("==================================================")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	// Step 1: Wait for server readiness (support both /health and /healthz)
 	fmt.Print("\n[Step 1] Polling server health (/health or /healthz)...")
@@ -147,7 +153,8 @@ func main() {
 	}
 	jwtToken := regResp.Token
 	fallbackKey := regResp.APIKey
-	fmt.Println("✔ Registered tenant successfully! OrgID:", regResp.Organization.ID)
+	orgID := regResp.Organization.ID
+	fmt.Println("✔ Registered tenant successfully! OrgID:", orgID)
 
 	// Step 3: Login if token was empty (or verify login)
 	if jwtToken == "" {
@@ -211,7 +218,6 @@ func main() {
 	fmt.Println("\n[Step 5] Sending spans using real OpenTelemetry Go SDK (Protobuf + Gzip over /v1/traces)...")
 	ctx := context.Background()
 
-	// Strip http:// from endpoint for otlptracehttp
 	hostEndpoint := baseURL
 	if len(hostEndpoint) > 7 && hostEndpoint[:7] == "http://" {
 		hostEndpoint = hostEndpoint[7:]
@@ -300,8 +306,139 @@ func main() {
 		log.Fatalf("\n❌ Ingested span %q was not found in ClickHouse query results within 20s", spanName)
 	}
 
+	// Step 8: 8,192-Span Collector Batch Live Ingest (Handler -> Redpanda -> Consumer -> ClickHouse)
+	fmt.Println("\n[Step 8] Sending 8,192-span batch through /v1/traces (real Redpanda + consumer + ClickHouse)...")
+	const batchSpans = 8192
+	collectorProtoSpans := make([]*tracepb.Span, batchSpans)
+	batchNow := time.Now()
+	batchServiceID := fmt.Sprintf("collector-e2e-service-%d", timestamp)
+
+	for i := 0; i < batchSpans; i++ {
+		traceID := make([]byte, 16)
+		traceID[0] = 0xEE
+		traceID[14] = byte((i >> 8) % 256)
+		traceID[15] = byte(i % 256)
+
+		spanID := make([]byte, 8)
+		spanID[0] = 0xFF
+		spanID[6] = byte((i >> 8) % 256)
+		spanID[7] = byte(i % 256)
+
+		collectorProtoSpans[i] = &tracepb.Span{
+			TraceId:           traceID,
+			SpanId:            spanID,
+			Name:              fmt.Sprintf("e2e.collector.op_%d", i%20),
+			Kind:              tracepb.Span_SPAN_KIND_SERVER,
+			StartTimeUnixNano: uint64(batchNow.UnixNano()),
+			EndTimeUnixNano:   uint64(batchNow.Add(15 * time.Millisecond).UnixNano()),
+			Attributes: []*commonpb.KeyValue{
+				{
+					Key:   "http.status_code",
+					Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_IntValue{IntValue: 200}},
+				},
+				{
+					Key:   "batch.id",
+					Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_IntValue{IntValue: int64(timestamp)}},
+				},
+			},
+			Status: &tracepb.Status{
+				Code: tracepb.Status_STATUS_CODE_OK,
+			},
+		}
+	}
+
+	protoReq := &coltracepb.ExportTraceServiceRequest{
+		ResourceSpans: []*tracepb.ResourceSpans{
+			{
+				Resource: &resourcepb.Resource{
+					Attributes: []*commonpb.KeyValue{
+						{
+							Key:   "service.name",
+							Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: batchServiceID}},
+						},
+					},
+				},
+				ScopeSpans: []*tracepb.ScopeSpans{
+					{
+						Spans: collectorProtoSpans,
+					},
+				},
+			},
+		},
+	}
+
+	rawProto, err := proto.Marshal(protoReq)
+	if err != nil {
+		log.Fatalf("❌ Failed to marshal 8,192 protobuf spans: %v", err)
+	}
+
+	var gzBatch bytes.Buffer
+	gzWriter := gzip.NewWriter(&gzBatch)
+	if _, err := gzWriter.Write(rawProto); err != nil {
+		log.Fatalf("❌ Failed to gzip 8,192 spans: %v", err)
+	}
+	_ = gzWriter.Close()
+
+	fmt.Printf("  • Dispatching 8,192 spans payload (%d raw bytes, %d compressed bytes)...\n",
+		len(rawProto), gzBatch.Len())
+
+	tBatchStart := time.Now()
+	bReq, err := http.NewRequest(http.MethodPost, baseURL+"/v1/traces", &gzBatch)
+	if err != nil {
+		log.Fatalf("❌ Failed to create batch request: %v", err)
+	}
+	bReq.Header.Set("Content-Type", "application/x-protobuf")
+	bReq.Header.Set("Content-Encoding", "gzip")
+	bReq.Header.Set("X-API-Key", apiKey)
+
+	batchResp, err := client.Do(bReq)
+	if err != nil {
+		log.Fatalf("❌ Ingest request failed for 8,192 batch: %v", err)
+	}
+	batchResp.Body.Close()
+	if batchResp.StatusCode != http.StatusOK && batchResp.StatusCode != http.StatusAccepted {
+		log.Fatalf("❌ Server rejected 8,192-span batch with status %d", batchResp.StatusCode)
+	}
+	fmt.Printf("✔ Server accepted 8,192-span batch in %v (dispatched to Redpanda topic)\n", time.Since(tBatchStart))
+
+	chHTTP := os.Getenv("CLICKHOUSE_HTTP_URL")
+	if chHTTP == "" {
+		chHTTP = "http://127.0.0.1:8123"
+	}
+	fmt.Printf("  • Polling ClickHouse (%s) for 8,192 persisted spans under service %s...\n", chHTTP, batchServiceID)
+
+	var persistedCount int
+	batchPersisted := false
+	for attempt := 1; attempt <= 45; attempt++ {
+		countURL := fmt.Sprintf("%s/?query=SELECT+count()+FROM+otel_spans+WHERE+service_name+=+'%s'", chHTTP, batchServiceID)
+		cResp, err := client.Get(countURL)
+		if err == nil && cResp.StatusCode == http.StatusOK {
+			cBody, _ := io.ReadAll(cResp.Body)
+			cResp.Body.Close()
+			var cnt int
+			if _, err := fmt.Sscanf(string(cBody), "%d", &cnt); err == nil {
+				persistedCount = cnt
+				if cnt >= batchSpans {
+					batchPersisted = true
+					fmt.Printf("\n✔ All %d spans verified in ClickHouse after %d attempts (%v)!\n",
+						cnt, attempt, time.Since(tBatchStart))
+					break
+				}
+			}
+		} else if cResp != nil {
+			cResp.Body.Close()
+		}
+		time.Sleep(1 * time.Second)
+		fmt.Printf("(%d/%d) ", persistedCount, batchSpans)
+	}
+
+	if !batchPersisted {
+		log.Fatalf("\n❌ Timed out waiting for 8,192-span batch to persist in ClickHouse (persisted: %d/%d)",
+			persistedCount, batchSpans)
+	}
+
 	fmt.Println("\n==================================================")
-	fmt.Println("✔ PHASE 1 END-TO-END DEMO EXIT CRITERION VERIFIED")
-	fmt.Println("  Register -> Login -> API Key -> Real OTLP SDK -> ClickHouse Query")
+	fmt.Println("✔ 8,192-SPAN COLLECTOR BATCH FULL-STACK INTEGRATION VERIFIED")
+	fmt.Println("  OTLP/Protobuf+Gzip -> API Handler -> Redpanda Broker -> Consumer -> ClickHouse")
 	fmt.Println("==================================================")
 }

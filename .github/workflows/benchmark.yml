@@ -1,0 +1,162 @@
+name: Empirical Storage & Ingestion Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      spans:
+        description: 'Total number of spans to ingest'
+        required: true
+        default: '1000000'
+        type: string
+      batch_size:
+        description: 'Spans per OTLP request batch'
+        required: true
+        default: '8192'
+        type: string
+  schedule:
+    - cron: '0 2 * * *' # Nightly at 2am UTC
+
+jobs:
+  benchmark:
+    name: Full-Stack Ingest & system.parts Benchmark
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: distributedtrace
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d distributedtrace"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.3-alpine
+        env:
+          CLICKHOUSE_DB: default
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: ""
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        ports:
+          - 9000:9000
+          - 8123:8123
+        options: >-
+          --health-cmd "wget --spider -q http://127.0.0.1:8123/ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache: true
+
+      - name: Start Redpanda streaming broker
+        run: |
+          docker compose up -d redpanda
+          for i in $(seq 1 45); do
+            if docker compose exec -T redpanda rpk cluster health 2>/dev/null | grep -q 'HEALTHY'; then
+              echo "Redpanda broker cluster is HEALTHY on port 9092"
+              break
+            fi
+            echo "Waiting for Redpanda cluster ($i/45)..."
+            sleep 1
+          done
+          docker compose exec -T redpanda rpk topic create otel-spans -p 1 2>/dev/null || true
+
+      - name: Build binaries
+        run: |
+          go build -v -o bin/server ./cmd/server
+          go build -v -o bin/migrate ./cmd/migrate
+          go build -v -o bin/loadtest ./cmd/loadtest
+
+      - name: Apply database migrations
+        run: ./bin/migrate
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5433/distributedtrace?sslmode=disable
+          CLICKHOUSE_URL: 127.0.0.1:9000
+          CLICKHOUSE_DB: default
+
+      - name: Start DistributedTrace server
+        run: |
+          ./bin/server > server.log 2>&1 &
+          echo $! > server.pid
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:8080/health | grep -q '"ok"'; then
+              echo "Server is UP and HEALTHY on port 8080 at ($i/30)s"
+              break
+            fi
+            echo "Waiting for server to become ready ($i/30)..."
+            sleep 1
+          done
+        env:
+          SERVER_PORT: 8080
+          ENVIRONMENT: development
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5433/distributedtrace?sslmode=disable
+          CLICKHOUSE_URL: 127.0.0.1:9000
+          REDIS_URL: redis://127.0.0.1:6379
+          KAFKA_BROKERS: 127.0.0.1:9092
+          KAFKA_ALLOW_AUTO_TOPIC_CREATION: "true"
+          KAFKA_MIN_BYTES: 10000
+          ALLOWED_ORIGIN: http://localhost:5173
+
+      - name: Capture baseline container resource metrics
+        run: |
+          echo "### 📊 Container Resource Utilization (Baseline)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream
+
+      - name: Run Empirical Ingestion Load & ClickHouse system.parts Benchmark
+        run: |
+          SPANS="${{ inputs.spans || '1000000' }}"
+          BATCH="${{ inputs.batch_size || '8192' }}"
+          echo "Executing live empirical benchmark: $SPANS spans (batch size: $BATCH)..."
+          ./bin/loadtest -mode live -spans "$SPANS" -batch-size "$BATCH" \
+            -server http://127.0.0.1:8080 \
+            -clickhouse 127.0.0.1:9000 \
+            -output-json benchmark-results.json \
+            -output-md benchmark-report.md 2>&1 | tee loadtest.log
+
+          if [ -f benchmark-report.md ]; then
+            cat benchmark-report.md >> $GITHUB_STEP_SUMMARY
+          fi
+        env:
+          CLICKHOUSE_URL: 127.0.0.1:9000
+          CLICKHOUSE_DB: default
+
+      - name: Capture sustained load container resource metrics
+        run: |
+          echo "### 📊 Container Resource Utilization (Sustained Ingest)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker stats --no-stream
+
+      - name: Upload Benchmark Results Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: empirical-storage-benchmark-${{ github.run_number }}
+          path: |
+            benchmark-results.json
+            benchmark-report.md
+            loadtest.log
+          if-no-files-found: warn
+
+      - name: Dump server logs on failure
+        if: failure()
+        run: |
+          echo "=== Server Output ==="
+          cat server.log || true
+          echo "=== Redpanda Container Logs ==="
+          docker compose logs --tail=50 redpanda || true

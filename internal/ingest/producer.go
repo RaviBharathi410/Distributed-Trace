@@ -32,7 +32,8 @@ func NewSpanProducerWithConfig(cfg ProducerConfig) *SpanProducer {
 		Balancer:               &kafka.Hash{}, // partition by key (trace_id)
 		RequiredAcks:           kafka.RequireAll,
 		Async:                  false,
-		WriteTimeout:           5 * time.Second,
+		WriteTimeout:           30 * time.Second,
+		BatchBytes:             10 * 1024 * 1024, // 10MB to accommodate up to 10k span batches
 		AllowAutoTopicCreation: cfg.AllowAutoTopicCreation,
 	}
 

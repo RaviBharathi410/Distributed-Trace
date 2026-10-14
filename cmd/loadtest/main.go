@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	clickhousedriver "github.com/ClickHouse/clickhouse-go/v2"
@@ -90,18 +91,16 @@ func generateRealisticBatch(spanCount int, orgID string) []domain.Span {
 		ops := endpoints[svc]
 		op := ops[r.Intn(len(ops))]
 
-		// Log-normal duration distribution: median ~45ms, long tail up to 1.5s
 		normVal := r.NormFloat64()
 		durationMs := uint32(math.Max(2.0, math.Exp(3.8+0.7*normVal)))
 
-		statusCode := uint8(1) // Ok
+		statusCode := uint8(1)
 		var errMsg string
-		if r.Float64() < 0.08 { // 8% realistic error rate
-			statusCode = 2 // Error
+		if r.Float64() < 0.08 {
+			statusCode = 2
 			errMsg = errorTypes[r.Intn(len(errorTypes))]
 		}
 
-		// Dynamic high-cardinality varied attributes
 		tags := map[string]string{
 			"http.method":        []string{"GET", "POST", "PUT", "DELETE"}[r.Intn(4)],
 			"http.status_code":   fmt.Sprintf("%d", []int{200, 201, 204, 400, 401, 403, 404, 429, 500, 502, 503}[r.Intn(11)]),
@@ -205,14 +204,61 @@ func buildOTLPProtobuf(spans []domain.Span) ([]byte, error) {
 
 func detectHardware() string {
 	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		return fmt.Sprintf("Cloud VM (GitHub Actions Runner / %s %s, 2 CPUs)", runtime.GOOS, runtime.GOARCH)
+		return fmt.Sprintf("Shared 2-4 vCPU box (GitHub Actions Runner / %s %s) - INDICATIVE ONLY, NOT A SIZING GUIDE", runtime.GOOS, runtime.GOARCH)
 	}
 	if os.Getenv("AWS_EXECUTION_ENV") != "" {
-		return fmt.Sprintf("Cloud VM (AWS EC2 / %s %s)", runtime.GOOS, runtime.GOARCH)
+		return fmt.Sprintf("Cloud VM (AWS EC2 / %s %s) - INDICATIVE ONLY", runtime.GOOS, runtime.GOARCH)
 	}
 
-	return fmt.Sprintf("Local Development Machine (Laptop / %s %s, %d CPUs)",
+	return fmt.Sprintf("Local Development Machine (Laptop / %s %s, %d CPUs) - INDICATIVE ONLY",
 		runtime.GOOS, runtime.GOARCH, runtime.NumCPU())
+}
+
+type TablePartStat struct {
+	Table               string  `json:"table"`
+	ActiveParts         uint64  `json:"active_parts"`
+	TotalRows           uint64  `json:"total_rows"`
+	DataCompressedBytes uint64  `json:"data_compressed_bytes"`
+	DataUncompBytes     uint64  `json:"data_uncompressed_bytes"`
+	MarksBytes          uint64  `json:"marks_bytes"`
+	BytesOnDisk         uint64  `json:"bytes_on_disk"`
+	CompBytesPerSpan    float64 `json:"compressed_bytes_per_span"`
+	TotalDiskPerSpan    float64 `json:"total_bytes_on_disk_per_span"`
+	CompressionRatio    float64 `json:"compression_ratio"`
+}
+
+type SkippingIndexStat struct {
+	Table       string `json:"table"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Expr        string `json:"expr"`
+	Granularity uint64 `json:"granularity"`
+}
+
+type ColumnStorageStat struct {
+	Name         string `json:"name"`
+	Compressed   uint64 `json:"compressed_bytes"`
+	Uncompressed uint64 `json:"uncompressed_bytes"`
+	Ratio        float64 `json:"ratio"`
+}
+
+type BenchmarkReportPayload struct {
+	Timestamp               string              `json:"timestamp"`
+	HardwareEnvironment     string              `json:"hardware_environment"`
+	SpansSent               int                 `json:"spans_sent"`
+	SpansPersisted          int                 `json:"spans_persisted"`
+	IngestionDurationSec    float64             `json:"ingestion_duration_seconds"`
+	SustainedSpansPerSec    float64             `json:"sustained_spans_per_second"`
+	Tables                  []TablePartStat     `json:"tables"`
+	SkippingIndices         []SkippingIndexStat `json:"skipping_indices"`
+	TopColumns              []ColumnStorageStat `json:"top_columns"`
+	AllInclusiveDiskPerSpan float64             `json:"all_inclusive_disk_bytes_per_span"`
+	DiskFootprintGBPerM     float64             `json:"disk_footprint_gb_per_million"`
+	EBSMonthlyCostPerM      float64             `json:"aws_ebs_monthly_cost_per_million"`
+	S3MonthlyCostPerM       float64             `json:"aws_s3_monthly_cost_per_million"`
+	WireCrossAZCostPerM     float64             `json:"network_cross_az_cost_per_million"`
+	RealTotalIngestCostPerM float64             `json:"real_total_ingest_cost_per_million"`
+	StatusNote              string              `json:"status_note"`
 }
 
 func runWireBenchmark(spanCount int, hardwareLabel string) {
@@ -231,7 +277,6 @@ func runWireBenchmark(spanCount int, hardwareLabel string) {
 	fmt.Printf("✔ Generated %d realistic spans across %d distinct services in %v\n",
 		len(spans), len(services), genDuration)
 
-	// 1. JSON Serialization & Compression
 	jsonBytes, err := json.Marshal(spans)
 	if err != nil {
 		fmt.Printf("❌ Failed to marshal spans JSON: %v\n", err)
@@ -243,7 +288,6 @@ func runWireBenchmark(spanCount int, hardwareLabel string) {
 	_, _ = gzWriter.Write(jsonBytes)
 	_ = gzWriter.Close()
 
-	// 2. OTLP Protobuf Serialization & Compression
 	tProto := time.Now()
 	protoBytes, err := buildOTLPProtobuf(spans)
 	protoDuration := time.Since(tProto)
@@ -304,7 +348,7 @@ func runWireBenchmark(spanCount int, hardwareLabel string) {
 	fmt.Println("================================================================================")
 }
 
-func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, batchSize int) {
+func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputMD string, totalSpans, batchSize int) {
 	fmt.Println("================================================================================")
 	fmt.Println("DistributedTrace Empirical Ingestion & Live ClickHouse system.parts Benchmark")
 	fmt.Printf("Hardware Environment Label : %s\n", hardwareLabel)
@@ -326,7 +370,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, 
 	}
 	defer chConn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	if err := chConn.Ping(ctx); err != nil {
@@ -384,7 +428,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, 
 	_ = chConn.QueryRow(ctx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&initialCount)
 
 	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 45 * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 100,
@@ -437,7 +481,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, 
 		totalWireBytes += int64(gzBuf.Len())
 		totalIngestedSpans += curBatch
 		remaining -= curBatch
-		if batchNum%5 == 0 || remaining == 0 {
+		if batchNum%10 == 0 || remaining == 0 {
 			elapsed := time.Since(tIngestStart)
 			rate := float64(totalIngestedSpans) / elapsed.Seconds()
 			fmt.Printf("  • Batch %3d: Ingested %d/%d spans (%.0f spans/sec, %.1f KB wire)\n",
@@ -454,13 +498,13 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, 
 	tDrainStart := time.Now()
 	var currentCount uint64
 	flushed := false
-	for i := 0; i < 90; i++ {
+	for i := 0; i < 120; i++ {
 		_ = chConn.QueryRow(ctx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&currentCount)
 		if currentCount >= expectedTotal {
 			flushed = true
 			break
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 	if !flushed {
 		fmt.Printf("⚠️ Warning: Polling timed out. Persisted %d of %d expected spans.\n", currentCount-initialCount, totalIngestedSpans)
@@ -476,62 +520,97 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, 
 		fmt.Printf("✔ Part merges finalized in %v.\n", time.Since(tOptimize))
 	}
 
-	var dataCompressedBytes uint64
-	var dataUncompressedBytes uint64
-	var activeRows uint64
-	var activeParts uint64
+	// 1. Comprehensive Multi-Table Accounting (otel_spans, service_metrics_hourly, anomalies)
+	tablesToMeasure := []string{"otel_spans", "service_metrics_hourly", "anomalies"}
+	var tableStats []TablePartStat
+	var grandTotalBytesOnDisk uint64
 
-	row := chConn.QueryRow(ctx, `
-		SELECT
-			sum(data_compressed_bytes),
-			sum(data_uncompressed_bytes),
-			sum(rows),
-			count()
-		FROM system.parts
-		WHERE table = 'otel_spans' AND active = 1
-	`)
-	if err := row.Scan(&dataCompressedBytes, &dataUncompressedBytes, &activeRows, &activeParts); err != nil {
-		log.Fatalf("❌ Failed to query system.parts: %v", err)
-	}
+	for _, tbl := range tablesToMeasure {
+		var activeParts, totalRows, dataComp, dataUncomp, marksBytes, bytesOnDisk uint64
+		q := fmt.Sprintf(`
+			SELECT
+				count(),
+				sum(rows),
+				sum(data_compressed_bytes),
+				sum(data_uncompressed_bytes),
+				sum(marks_bytes),
+				sum(bytes_on_disk)
+			FROM system.parts
+			WHERE database = '%s' AND table = '%s' AND active = 1
+		`, chDB, tbl)
 
-	compressedBytesPerSpan := 0.0
-	uncompressedBytesPerSpan := 0.0
-	compressionRatio := 0.0
-	if activeRows > 0 {
-		compressedBytesPerSpan = float64(dataCompressedBytes) / float64(activeRows)
-		uncompressedBytesPerSpan = float64(dataUncompressedBytes) / float64(activeRows)
-		if dataCompressedBytes > 0 {
-			compressionRatio = float64(dataUncompressedBytes) / float64(dataCompressedBytes)
+		row := chConn.QueryRow(ctx, q)
+		if err := row.Scan(&activeParts, &totalRows, &dataComp, &dataUncomp, &marksBytes, &bytesOnDisk); err == nil {
+			stat := TablePartStat{
+				Table:               tbl,
+				ActiveParts:         activeParts,
+				TotalRows:           totalRows,
+				DataCompressedBytes: dataComp,
+				DataUncompBytes:     dataUncomp,
+				MarksBytes:          marksBytes,
+				BytesOnDisk:         bytesOnDisk,
+			}
+			if totalRows > 0 {
+				stat.CompBytesPerSpan = float64(dataComp) / float64(totalRows)
+				stat.TotalDiskPerSpan = float64(bytesOnDisk) / float64(totalRows)
+				if dataComp > 0 {
+					stat.CompressionRatio = float64(dataUncomp) / float64(dataComp)
+				}
+			}
+			tableStats = append(tableStats, stat)
+			grandTotalBytesOnDisk += bytesOnDisk
 		}
 	}
 
-	rows, err := chConn.Query(ctx, `
+	// 2. Skipping Index Accounting (system.data_skipping_indices)
+	var skippingIndices []SkippingIndexStat
+	idxRows, err := chConn.Query(ctx, fmt.Sprintf(`
+		SELECT name, type, expr, granularity
+		FROM system.data_skipping_indices
+		WHERE database = '%s' AND table = 'otel_spans'
+	`, chDB))
+	if err == nil {
+		defer idxRows.Close()
+		for idxRows.Next() {
+			var sis SkippingIndexStat
+			sis.Table = "otel_spans"
+			if err := idxRows.Scan(&sis.Name, &sis.Type, &sis.Expr, &sis.Granularity); err == nil {
+				skippingIndices = append(skippingIndices, sis)
+			}
+		}
+	}
+
+	// 3. Top Columns Storage Footprint
+	colRows, err := chConn.Query(ctx, fmt.Sprintf(`
 		SELECT
 			column,
 			sum(data_compressed_bytes) AS col_comp,
 			sum(data_uncompressed_bytes) AS col_uncomp
 		FROM system.parts_columns
-		WHERE table = 'otel_spans' AND active = 1
+		WHERE database = '%s' AND table = 'otel_spans' AND active = 1
 		GROUP BY column
 		ORDER BY col_comp DESC
-	`)
-	type colStat struct {
-		Name         string
-		Compressed   uint64
-		Uncompressed uint64
-	}
-	var colStats []colStat
+	`, chDB))
+	var colStats []ColumnStorageStat
 	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var cs colStat
-			if err := rows.Scan(&cs.Name, &cs.Compressed, &cs.Uncompressed); err == nil {
+		defer colRows.Close()
+		for colRows.Next() {
+			var cs ColumnStorageStat
+			if err := colRows.Scan(&cs.Name, &cs.Compressed, &cs.Uncompressed); err == nil {
+				if cs.Compressed > 0 {
+					cs.Ratio = float64(cs.Uncompressed) / float64(cs.Compressed)
+				}
 				colStats = append(colStats, cs)
 			}
 		}
 	}
 
-	realGBPerMillion := (compressedBytesPerSpan * 1_000_000.0) / (1024 * 1024 * 1024)
+	allInclusiveDiskPerSpan := 0.0
+	if totalIngestedSpans > 0 {
+		allInclusiveDiskPerSpan = float64(grandTotalBytesOnDisk) / float64(totalIngestedSpans)
+	}
+
+	realGBPerMillion := (allInclusiveDiskPerSpan * 1_000_000.0) / (1024 * 1024 * 1024)
 	realEBSMonthlyCostPerMillion := realGBPerMillion * 0.08
 	realS3MonthlyCostPerMillion := realGBPerMillion * 0.023
 	wireGBPerMillion := (float64(totalWireBytes) / float64(totalIngestedSpans) * 1_000_000.0) / (1024 * 1024 * 1024)
@@ -539,48 +618,129 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel string, totalSpans, 
 	realDirectUnitCostPerMillion := realEBSMonthlyCostPerMillion + wireCrossAZCostPerMillion
 
 	fmt.Println("\n================================================================================")
-	fmt.Println("EMPIRICAL CLICKHOUSE SYSTEM.PARTS STORAGE MEASUREMENTS (MERGED ACTIVE PARTS):")
+	fmt.Println("EMPIRICAL CLICKHOUSE SYSTEM.PARTS MULTI-TABLE ACCOUNTING & DISK MEASUREMENTS:")
 	fmt.Println("================================================================================")
 	fmt.Printf("Hardware Environment Label : %s\n", hardwareLabel)
-	fmt.Printf("Total Active Rows in Table : %d spans (in %d active merged parts)\n", activeRows, activeParts)
-	fmt.Printf("Total Data Compressed      : %d bytes (%.2f MB)\n", dataCompressedBytes, float64(dataCompressedBytes)/(1024*1024))
-	fmt.Printf("Total Data Uncompressed    : %d bytes (%.2f MB)\n", dataUncompressedBytes, float64(dataUncompressedBytes)/(1024*1024))
-	fmt.Printf("Measured Compressed/Span   : %.2f bytes / span\n", compressedBytesPerSpan)
-	fmt.Printf("Measured Uncompressed/Span : %.2f bytes / span\n", uncompressedBytesPerSpan)
-	fmt.Printf("ClickHouse Compression     : %.2fx ratio (LZ4/ZSTD columnar)\n", compressionRatio)
-	fmt.Printf("Measured Ingestion Rate    : %.0f spans / second\n", sustainedIngestRate)
+	fmt.Printf("Sustained Ingestion Rate   : %.0f spans / second (duration: %v)\n", sustainedIngestRate, ingestDuration)
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println("Top Column Storage Footprint (Disk Bytes):")
+	fmt.Println("Active Table Footprint Summary:")
+	for _, ts := range tableStats {
+		fmt.Printf("  • Table %-24s: %d parts, %d rows, %d compressed bytes, %d bytes on disk\n",
+			ts.Table, ts.ActiveParts, ts.TotalRows, ts.DataCompressedBytes, ts.BytesOnDisk)
+	}
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println("Data Skipping Indices (Bloom Filter):")
+	for _, si := range skippingIndices {
+		fmt.Printf("  • Index %-18s: type=%s, expr=%s, granularity=%d\n", si.Name, si.Type, si.Expr, si.Granularity)
+	}
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println("Top Column Compressed Footprint (otel_spans):")
 	for i, col := range colStats {
 		if i >= 8 {
 			break
 		}
-		cRatio := 1.0
-		if col.Compressed > 0 {
-			cRatio = float64(col.Uncompressed) / float64(col.Compressed)
-		}
 		fmt.Printf("  • %-18s : %8d bytes compressed (uncomp: %8d, %.1fx ratio)\n",
-			col.Name, col.Compressed, col.Uncompressed, cRatio)
+			col.Name, col.Compressed, col.Uncompressed, col.Ratio)
 	}
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println("Empirically Measured SaaS Unit Economics:")
+	fmt.Println("Empirically Measured SaaS Economics (All-Inclusive Disk Footprint):")
+	fmt.Printf("  • All-Inclusive Disk / Span        : %.2f bytes / span (columns + skipping indices + marks)\n", allInclusiveDiskPerSpan)
 	fmt.Printf("  • Real Disk Footprint / 1M Spans   : %.3f GB / million spans\n", realGBPerMillion)
-	fmt.Printf("  • Monthly Disk Cost (AWS EBS gp3)  : $%.4f / million spans ($0.08/GB-mo)\n", realEBSMonthlyCostPerMillion)
-	fmt.Printf("  • Monthly Disk Cost (AWS S3 Tier)  : $%.4f / million spans ($0.023/GB-mo)\n", realS3MonthlyCostPerMillion)
-	fmt.Printf("  • Network Cross-AZ Wire Ingress    : $%.4f / million spans (%.3f GB)\n", wireCrossAZCostPerMillion, wireGBPerMillion)
-	fmt.Printf("  • Real Measured Total Ingest Cost  : ~$%.4f / million spans (Direct Storage + Wire)\n", realDirectUnitCostPerMillion)
+	fmt.Printf("  • Monthly Storage (AWS EBS gp3)    : $%.4f / million spans ($0.08/GB-mo)\n", realEBSMonthlyCostPerMillion)
+	fmt.Printf("  • Monthly Storage (AWS S3 Tier)    : $%.4f / million spans ($0.023/GB-mo)\n", realS3MonthlyCostPerMillion)
+	fmt.Printf("  • Wire Ingress Transfer (Cross-AZ) : $%.4f / million spans (%.3f GB)\n", wireCrossAZCostPerMillion, wireGBPerMillion)
+	fmt.Printf("  • Measured Direct Unit Ingest Cost : ~$%.4f / million spans (EBS + Wire)\n", realDirectUnitCostPerMillion)
 	fmt.Println("--------------------------------------------------------------------------------")
-	fmt.Println("CRITICAL NOTICE: Final SaaS pricing tiers are held pending complete multi-environment validation.")
+	fmt.Println("CRITICAL NOTICE: Results are indicative of GitHub runner hardware (shared 2-4 vCPU).")
+	fmt.Println("Final SaaS pricing tiers are strictly held pending multi-million cloud VM production sizing.")
 	fmt.Println("================================================================================")
+
+	payload := BenchmarkReportPayload{
+		Timestamp:               time.Now().UTC().Format(time.RFC3339),
+		HardwareEnvironment:     hardwareLabel,
+		SpansSent:               totalSpans,
+		SpansPersisted:          int(currentCount - initialCount),
+		IngestionDurationSec:    ingestDuration.Seconds(),
+		SustainedSpansPerSec:    sustainedIngestRate,
+		Tables:                  tableStats,
+		SkippingIndices:         skippingIndices,
+		TopColumns:              colStats,
+		AllInclusiveDiskPerSpan: allInclusiveDiskPerSpan,
+		DiskFootprintGBPerM:     realGBPerMillion,
+		EBSMonthlyCostPerM:      realEBSMonthlyCostPerMillion,
+		S3MonthlyCostPerM:       realS3MonthlyCostPerMillion,
+		WireCrossAZCostPerM:     wireCrossAZCostPerMillion,
+		RealTotalIngestCostPerM: realDirectUnitCostPerMillion,
+		StatusNote:              "Indicative of runner hardware; SaaS pricing held pending cloud VM sizing.",
+	}
+
+	if outputJSON != "" {
+		jBytes, err := json.MarshalIndent(payload, "", "  ")
+		if err == nil {
+			_ = os.WriteFile(outputJSON, jBytes, 0644)
+			fmt.Printf("✔ Saved benchmark JSON artifact: %s\n", outputJSON)
+		}
+	}
+
+	if outputMD != "" {
+		var md strings.Builder
+		md.WriteString("# DistributedTrace Empirical Ingestion & Storage Benchmark Report\n\n")
+		md.WriteString(fmt.Sprintf("**Date:** %s  \n", payload.Timestamp))
+		md.WriteString(fmt.Sprintf("**Hardware Environment:** `%s`  \n", payload.HardwareEnvironment))
+		md.WriteString(fmt.Sprintf("**Dataset:** %d spans sent (%d persisted) in %d-span batches  \n", payload.SpansSent, payload.SpansPersisted, batchSize))
+		md.WriteString(fmt.Sprintf("**Sustained Throughput:** `%.0f spans/second` (duration: `%.2fs`)  \n\n", payload.SustainedSpansPerSec, payload.IngestionDurationSec))
+
+		md.WriteString("## 1. Multi-Table ClickHouse system.parts Accounting\n\n")
+		md.WriteString("| Table | Active Parts | Rows | Compressed Data | Uncompressed Data | Bytes on Disk | Comp Ratio |\n")
+		md.WriteString("|---|---|---|---|---|---|---|\n")
+		for _, ts := range payload.Tables {
+			md.WriteString(fmt.Sprintf("| `%s` | %d | %d | %d B | %d B | **%d B** | %.2fx |\n",
+				ts.Table, ts.ActiveParts, ts.TotalRows, ts.DataCompressedBytes, ts.DataUncompBytes, ts.BytesOnDisk, ts.CompressionRatio))
+		}
+
+		md.WriteString("\n## 2. Data Skipping Indices (Bloom Filter)\n\n")
+		md.WriteString("| Table | Index Name | Type | Expression | Granularity |\n")
+		md.WriteString("|---|---|---|---|---|\n")
+		for _, si := range payload.SkippingIndices {
+			md.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` | `%s` | %d |\n",
+				si.Table, si.Name, si.Type, si.Expr, si.Granularity))
+		}
+
+		md.WriteString("\n## 3. Top Column Compressed Footprint (otel_spans)\n\n")
+		md.WriteString("| Column | Compressed Bytes | Uncompressed Bytes | Compression Ratio |\n")
+		md.WriteString("|---|---|---|---|\n")
+		for i, c := range payload.TopColumns {
+			if i >= 10 {
+				break
+			}
+			md.WriteString(fmt.Sprintf("| `%s` | %d B | %d B | %.1fx |\n", c.Name, c.Compressed, c.Uncompressed, c.Ratio))
+		}
+
+		md.WriteString("\n## 4. Empirical SaaS Cost-Per-Million-Spans Economics\n\n")
+		md.WriteString(fmt.Sprintf("- **All-Inclusive Disk Footprint per Span:** `%.2f bytes` (columns + skipping indices + marks)\n", payload.AllInclusiveDiskPerSpan))
+		md.WriteString(fmt.Sprintf("- **Physical Disk Footprint per 1M Spans:** `%.3f GB`\n", payload.DiskFootprintGBPerM))
+		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS EBS gp3):** `$%.4f / million spans` ($0.08/GB-mo)\n", payload.EBSMonthlyCostPerM))
+		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS S3 Tiered):** `$%.4f / million spans` ($0.023/GB-mo)\n", payload.S3MonthlyCostPerM))
+		md.WriteString(fmt.Sprintf("- **Cross-AZ Network Wire Ingress:** `$%.4f / million spans`\n", payload.WireCrossAZCostPerM))
+		md.WriteString(fmt.Sprintf("- **Direct Measured Unit Cost:** `~$%.4f / million spans` (Direct Storage + Wire)\n\n", payload.RealTotalIngestCostPerM))
+
+		md.WriteString("> [!IMPORTANT]\n")
+		md.WriteString("> **Hardware Disclaimer & Pricing Guardrail:** Results are indicative of GitHub runner hardware (shared 2-4 vCPU box). Final SaaS pricing tiers are strictly held pending dedicated cloud VM production sizing.\n")
+
+		_ = os.WriteFile(outputMD, []byte(md.String()), 0644)
+		fmt.Printf("✔ Saved benchmark Markdown artifact: %s\n", outputMD)
+	}
 }
 
 func main() {
 	mode := flag.String("mode", "wire", "Benchmark mode: 'wire' (in-memory serialization) or 'live' (full-stack system.parts measurement)")
 	spanCount := flag.Int("spans", 5000, "Number of spans to generate for load test")
-	batchSize := flag.Int("batch-size", 5000, "Spans per HTTP request batch (for live mode)")
+	batchSize := flag.Int("batch-size", 8192, "Spans per HTTP request batch (for live mode)")
 	serverURL := flag.String("server", "http://127.0.0.1:8080", "Server base URL (for live mode)")
 	clickhouseURL := flag.String("clickhouse", "127.0.0.1:9000", "ClickHouse native connection address (for live mode)")
 	clickhouseDB := flag.String("clickhouse-db", "default", "ClickHouse database name")
+	outputJSON := flag.String("output-json", "", "Path to write JSON benchmark artifact")
+	outputMD := flag.String("output-md", "", "Path to write Markdown benchmark report")
 	customHardware := flag.String("hardware", "", "Override hardware label (e.g. 'Laptop' or 'Cloud VM')")
 	flag.Parse()
 
@@ -590,7 +750,7 @@ func main() {
 	}
 
 	if *mode == "live" {
-		runLiveBenchmark(*serverURL, *clickhouseURL, *clickhouseDB, hardwareLabel, *spanCount, *batchSize)
+		runLiveBenchmark(*serverURL, *clickhouseURL, *clickhouseDB, hardwareLabel, *outputJSON, *outputMD, *spanCount, *batchSize)
 	} else {
 		runWireBenchmark(*spanCount, hardwareLabel)
 	}
