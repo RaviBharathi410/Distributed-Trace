@@ -51,5 +51,6 @@ coverage/
 
 # Misc
 tmp/
+artifacts/
 *.sqlite
 *.sqlite3

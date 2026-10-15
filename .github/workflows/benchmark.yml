@@ -6,7 +6,7 @@ on:
       spans:
         description: 'Total number of spans to ingest'
         required: true
-        default: '100000'
+        default: '1000000'
         type: string
       batch_size:
         description: 'Spans per OTLP request batch'
@@ -16,8 +16,8 @@ on:
   push:
     branches:
       - 'benchmark*'
-  schedule:
-    - cron: '0 2 * * *' # Nightly at 2am UTC
+  # schedule:
+  #   - cron: '0 2 * * *' # Nightly at 2am UTC (temporarily disabled until manual run verified)
 
 jobs:
   benchmark:
@@ -122,15 +122,26 @@ jobs:
 
       - name: Run Empirical Ingestion Load with Continuous Resource Sampling
         run: |
-          SPANS="${{ inputs.spans || '100000' }}"
+          SPANS="${{ inputs.spans || (contains(github.ref, '100k') && '100000' || '1000000') }}"
           BATCH="${{ inputs.batch_size || '8192' }}"
           echo "Executing live empirical benchmark: $SPANS spans (batch size: $BATCH)..."
 
-          # 1. Start continuous background container stats sampler (samples every 2 seconds)
+          # 1. Start continuous background container and host server process stats sampler (every 2 seconds)
+          SERVER_PID=$(cat server.pid 2>/dev/null || echo "")
           echo "container,cpu_perc,mem_usage,mem_perc" > docker-stats-samples.csv
           (
             while true; do
+              # Sample docker containers
               docker stats --no-stream --format "{{.Name}},{{.CPUPerc}},{{.MemUsage}},{{.MemPerc}}" >> docker-stats-samples.csv 2>/dev/null || true
+
+              # Sample Go server host process (API, Kafka consumer, anomaly engine)
+              if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+                ps_out=$(ps -o %cpu,rss -p "$SERVER_PID" --no-headers 2>/dev/null || true)
+                if [ -n "$ps_out" ]; then
+                  read -r proc_cpu proc_rss <<< "$ps_out"
+                  echo "server-process-binary,${proc_cpu}%,${proc_rss}KiB,0.0%" >> docker-stats-samples.csv
+                fi
+              fi
               sleep 2
             done
           ) &
@@ -184,8 +195,8 @@ jobs:
               print(f"Error reading stats: {e}")
 
           if stats:
-              md_lines = ["\n## 6. Sustained Container Resource Utilization (Time-Series Sampled)\n\n"]
-              md_lines.append("| Container | Peak CPU % | Avg CPU % | Peak RAM (MB) | Avg RAM (MB) | Samples |\n")
+              md_lines = ["\n## 6. Sustained Host & Container Resource Utilization (Time-Series Sampled)\n\n"]
+              md_lines.append("| Process / Container | Peak CPU % | Avg CPU % | Peak RAM (MB) | Avg RAM (MB) | Samples |\n")
               md_lines.append("|---|---|---|---|---|---|\n")
               for c_name, d in sorted(stats.items()):
                   cpus = d['cpu']
@@ -196,8 +207,12 @@ jobs:
                   avg_cpu = sum(cpus) / len(cpus)
                   peak_mem = max(mems)
                   avg_mem = sum(mems) / len(mems)
-                  md_lines.append(f"| `{c_name}` | **{peak_cpu:.2f}%** | {avg_cpu:.2f}% | **{peak_mem:.1f} MB** | {avg_mem:.1f} MB | {len(cpus)} |\n")
-              md_lines.append("\n> [!NOTE]\n> Continuous background sampling captured every 2s during sustained ingestion load.\n\n")
+                  displayName = f"`{c_name}`"
+                  if c_name == 'server-process-binary':
+                      displayName = "`server-process` (Go Ingest/Consumer)"
+                  md_lines.append(f"| {displayName} | **{peak_cpu:.2f}%** | {avg_cpu:.2f}% | **{peak_mem:.1f} MB** | {avg_mem:.1f} MB | {len(cpus)} |\n")
+              md_lines.append("\n> [!NOTE]\n> Continuous background sampling captured every 2s during sustained ingestion load.\n")
+              md_lines.append("> **Process Sizing Disclaimer:** The server binary (`bin/server`) and the load generator (`bin/loadtest`) run directly on the host runner and share the runner's 2–4 vCPUs. The load generator's CPU footprint is co-located on the same box, so host resource readings are indicative of shared test-runner overhead, not dedicated production VM sizing.\n\n")
 
               with open('benchmark-report.md', 'a') as f:
                   f.writelines(md_lines)

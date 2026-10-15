@@ -81,12 +81,12 @@ func randomHex(bytesLen int) string {
 	return hex.EncodeToString(b)
 }
 
-func generateRealisticBatch(spanCount int, orgID string) []domain.Span {
-	r := mathrand.New(mathrand.NewSource(time.Now().UnixNano()))
+func generateRealisticBatch(startIndex int, spanCount int, orgID string, baseTime time.Time) []domain.Span {
+	r := mathrand.New(mathrand.NewSource(time.Now().UnixNano() + int64(startIndex)))
 	spans := make([]domain.Span, spanCount)
-	now := time.Now().UTC()
 
 	for i := 0; i < spanCount; i++ {
+		globalIdx := startIndex + i
 		svc := services[r.Intn(len(services))]
 		ops := endpoints[svc]
 		op := ops[r.Intn(len(ops))]
@@ -128,6 +128,12 @@ func generateRealisticBatch(spanCount int, orgID string) []domain.Span {
 				svc, r.Intn(250)+10, r.Intn(400)+50)
 		}
 
+		// Simulated rate: advance timestamps at 1,000 spans/sec (1 ms per span) with microsecond jitter.
+		// Spreads timestamps realistically across minutes/hours while staying strictly inside today's single partition.
+		simulatedOffset := time.Duration(globalIdx) * time.Millisecond
+		jitter := time.Duration(r.Intn(950)) * time.Microsecond
+		spanStartTime := baseTime.Add(simulatedOffset + jitter)
+
 		spans[i] = domain.Span{
 			TraceID:       randomHex(16),
 			SpanID:        randomHex(8),
@@ -138,7 +144,7 @@ func generateRealisticBatch(spanCount int, orgID string) []domain.Span {
 			StatusCode:    statusCode,
 			ErrorMessage:  errMsg,
 			Tags:          tags,
-			StartTime:     now.Add(-time.Duration(durationMs) * time.Millisecond),
+			StartTime:     spanStartTime,
 			OrgID:         orgID,
 		}
 	}
@@ -282,7 +288,8 @@ func runWireBenchmark(spanCount int, hardwareLabel string) {
 	orgID := "00000000-0000-0000-0000-000000000001"
 
 	t0 := time.Now()
-	spans := generateRealisticBatch(spanCount, orgID)
+	baseTime := time.Now().UTC().Truncate(24 * time.Hour).Add(1 * time.Hour)
+	spans := generateRealisticBatch(0, spanCount, orgID, baseTime)
 	genDuration := time.Since(t0)
 	fmt.Printf("✔ Generated %d realistic spans across %d distinct services in %v\n",
 		len(spans), len(services), genDuration)
@@ -449,8 +456,9 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		},
 	}
 
-	fmt.Printf("\n[Ingestion] Dispatching %d spans in batches of %d via OTLP Protobuf + Gzip...\n", totalSpans, batchSize)
+	fmt.Printf("\n[Ingestion] Dispatching %d spans in batches of %d via OTLP Protobuf + Gzip (simulated rate: 1,000 spans/sec)...\n", totalSpans, batchSize)
 	tIngestStart := time.Now()
+	baseTime := time.Now().UTC().Truncate(24 * time.Hour).Add(1 * time.Hour)
 	var totalWireBytes int64
 	var totalIngestedSpans int
 
@@ -463,7 +471,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		}
 		batchNum++
 
-		spans := generateRealisticBatch(curBatch, orgID)
+		spans := generateRealisticBatch(totalIngestedSpans, curBatch, orgID, baseTime)
 		protoBytes, err := buildOTLPProtobuf(spans)
 		if err != nil {
 			log.Fatalf("❌ Failed to marshal protobuf: %v", err)
