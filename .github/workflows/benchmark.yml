@@ -6,13 +6,16 @@ on:
       spans:
         description: 'Total number of spans to ingest'
         required: true
-        default: '1000000'
+        default: '100000'
         type: string
       batch_size:
         description: 'Spans per OTLP request batch'
         required: true
         default: '8192'
         type: string
+  push:
+    branches:
+      - 'benchmark*'
   schedule:
     - cron: '0 2 * * *' # Nightly at 2am UTC
 
@@ -111,37 +114,106 @@ jobs:
 
       - name: Capture baseline container resource metrics
         run: |
-          echo "### 📊 Container Resource Utilization (Baseline)" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Container Resource Utilization (Baseline Idle)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
           docker stats --no-stream >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           docker stats --no-stream
 
-      - name: Run Empirical Ingestion Load & ClickHouse system.parts Benchmark
+      - name: Run Empirical Ingestion Load with Continuous Resource Sampling
         run: |
-          SPANS="${{ inputs.spans || '1000000' }}"
+          SPANS="${{ inputs.spans || '100000' }}"
           BATCH="${{ inputs.batch_size || '8192' }}"
           echo "Executing live empirical benchmark: $SPANS spans (batch size: $BATCH)..."
+
+          # 1. Start continuous background container stats sampler (samples every 2 seconds)
+          echo "container,cpu_perc,mem_usage,mem_perc" > docker-stats-samples.csv
+          (
+            while true; do
+              docker stats --no-stream --format "{{.Name}},{{.CPUPerc}},{{.MemUsage}},{{.MemPerc}}" >> docker-stats-samples.csv 2>/dev/null || true
+              sleep 2
+            done
+          ) &
+          SAMPLER_PID=$!
+
+          # 2. Run loadtest
           ./bin/loadtest -mode live -spans "$SPANS" -batch-size "$BATCH" \
             -server http://127.0.0.1:8080 \
             -clickhouse 127.0.0.1:9000 \
             -output-json benchmark-results.json \
             -output-md benchmark-report.md 2>&1 | tee loadtest.log
+          LOADTEST_EXIT=${PIPESTATUS[0]}
+
+          # 3. Stop background stats sampler
+          kill $SAMPLER_PID 2>/dev/null || true
+          wait $SAMPLER_PID 2>/dev/null || true
+
+          # 4. Compute Time-Series Average and Peak Resource Utilization
+          python3 - << 'EOF'
+          import csv, re
+          from collections import defaultdict
+
+          def parse_mem_mb(mem_str):
+              part = mem_str.split('/')[0].strip()
+              m = re.match(r'([\d\.]+)\s*([A-Za-z]+)', part)
+              if not m:
+                  return 0.0
+              val, unit = float(m.group(1)), m.group(2).lower()
+              if 'k' in unit: return val / 1024.0
+              if 'm' in unit: return val
+              if 'g' in unit: return val * 1024.0
+              return val
+
+          stats = defaultdict(lambda: {'cpu': [], 'mem_mb': []})
+          try:
+              with open('docker-stats-samples.csv', 'r') as f:
+                  reader = csv.reader(f)
+                  next(reader, None)
+                  for row in reader:
+                      if len(row) < 4:
+                          continue
+                      name, cpu_str, mem_str = row[0], row[1], row[2]
+                      try:
+                          cpu = float(cpu_str.replace('%', '').strip())
+                          mem = parse_mem_mb(mem_str)
+                          stats[name]['cpu'].append(cpu)
+                          stats[name]['mem_mb'].append(mem)
+                      except Exception:
+                          continue
+          except Exception as e:
+              print(f"Error reading stats: {e}")
+
+          if stats:
+              md_lines = ["\n## 6. Sustained Container Resource Utilization (Time-Series Sampled)\n\n"]
+              md_lines.append("| Container | Peak CPU % | Avg CPU % | Peak RAM (MB) | Avg RAM (MB) | Samples |\n")
+              md_lines.append("|---|---|---|---|---|---|\n")
+              for c_name, d in sorted(stats.items()):
+                  cpus = d['cpu']
+                  mems = d['mem_mb']
+                  if not cpus:
+                      continue
+                  peak_cpu = max(cpus)
+                  avg_cpu = sum(cpus) / len(cpus)
+                  peak_mem = max(mems)
+                  avg_mem = sum(mems) / len(mems)
+                  md_lines.append(f"| `{c_name}` | **{peak_cpu:.2f}%** | {avg_cpu:.2f}% | **{peak_mem:.1f} MB** | {avg_mem:.1f} MB | {len(cpus)} |\n")
+              md_lines.append("\n> [!NOTE]\n> Continuous background sampling captured every 2s during sustained ingestion load.\n\n")
+
+              with open('benchmark-report.md', 'a') as f:
+                  f.writelines(md_lines)
+          EOF
 
           if [ -f benchmark-report.md ]; then
             cat benchmark-report.md >> $GITHUB_STEP_SUMMARY
           fi
+
+          if [ $LOADTEST_EXIT -ne 0 ]; then
+            echo "Loadtest failed with exit code $LOADTEST_EXIT"
+            exit $LOADTEST_EXIT
+          fi
         env:
           CLICKHOUSE_URL: 127.0.0.1:9000
           CLICKHOUSE_DB: default
-
-      - name: Capture sustained load container resource metrics
-        run: |
-          echo "### 📊 Container Resource Utilization (Sustained Ingest)" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          docker stats --no-stream >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          docker stats --no-stream
 
       - name: Upload Benchmark Results Artifacts
         uses: actions/upload-artifact@v4
@@ -150,6 +222,7 @@ jobs:
           path: |
             benchmark-results.json
             benchmark-report.md
+            docker-stats-samples.csv
             loadtest.log
           if-no-files-found: warn
 

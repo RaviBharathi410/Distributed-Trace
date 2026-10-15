@@ -33,7 +33,7 @@ func NewSpanProducerWithConfig(cfg ProducerConfig) *SpanProducer {
 		RequiredAcks:           kafka.RequireAll,
 		Async:                  false,
 		WriteTimeout:           30 * time.Second,
-		BatchBytes:             10 * 1024 * 1024, // 10MB to accommodate up to 10k span batches
+		BatchBytes:             1048576, // 1 MiB standard broker default (avoids MESSAGE_TOO_LARGE)
 		AllowAutoTopicCreation: cfg.AllowAutoTopicCreation,
 	}
 
@@ -68,10 +68,19 @@ func (p *SpanProducer) PublishSpans(ctx context.Context, spans []domain.Span) er
 		}
 	}
 
-	err := p.writer.WriteMessages(ctx, messages...)
-	if err != nil {
-		observability.KafkaMessagesProduced.WithLabelValues(p.writer.Topic, "error").Inc()
-		return fmt.Errorf("failed to write messages to kafka: %w", err)
+	// Chunk messages into sub-batches of 500 spans (~200-400 KB) so each produce call
+	// comfortably fits within Redpanda/Kafka's standard 1 MiB broker batch limit.
+	const chunkSize = 500
+	for i := 0; i < len(messages); i += chunkSize {
+		end := i + chunkSize
+		if end > len(messages) {
+			end = len(messages)
+		}
+
+		if err := p.writer.WriteMessages(ctx, messages[i:end]...); err != nil {
+			observability.KafkaMessagesProduced.WithLabelValues(p.writer.Topic, "error").Add(float64(end - i))
+			return fmt.Errorf("failed to write messages to kafka: %w", err)
+		}
 	}
 
 	observability.KafkaMessagesProduced.WithLabelValues(p.writer.Topic, "ok").Add(float64(len(spans)))
