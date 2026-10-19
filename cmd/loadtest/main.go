@@ -482,6 +482,8 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		_, _ = gzWriter.Write(protoBytes)
 		_ = gzWriter.Close()
 
+		wireBatchBytes := int64(gzBuf.Len())
+
 		req, err := http.NewRequest(http.MethodPost, serverURL+"/v1/traces", &gzBuf)
 		if err != nil {
 			log.Fatalf("❌ Failed to create request: %v", err)
@@ -499,7 +501,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 			log.Fatalf("❌ Server rejected batch %d with status %d", batchNum, bResp.StatusCode)
 		}
 
-		totalWireBytes += int64(gzBuf.Len())
+		totalWireBytes += wireBatchBytes
 		totalIngestedSpans += curBatch
 		remaining -= curBatch
 		if batchNum%10 == 0 || remaining == 0 {
@@ -666,12 +668,12 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		}
 	}
 
-	// 4. Top Columns Storage Footprint
+	// 4. Top Columns Storage Footprint (per-column data bytes)
 	colRows, err := chConn.Query(ctx, fmt.Sprintf(`
 		SELECT
 			column,
-			sum(data_compressed_bytes) AS col_comp,
-			sum(data_uncompressed_bytes) AS col_uncomp
+			sum(column_data_compressed_bytes) AS col_comp,
+			sum(column_data_uncompressed_bytes) AS col_uncomp
 		FROM system.parts_columns
 		WHERE database = '%s' AND table = 'otel_spans' AND active = 1
 		GROUP BY column
@@ -740,8 +742,8 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 	fmt.Printf("  • Real Disk Footprint / 1M Spans   : %.3f GB / million spans\n", realGBPerMillion)
 	fmt.Printf("  • Monthly Storage (AWS EBS gp3)    : $%.4f / million spans ($0.08/GB-mo)\n", realEBSMonthlyCostPerMillion)
 	fmt.Printf("  • Monthly Storage (AWS S3 Tier)    : $%.4f / million spans ($0.023/GB-mo)\n", realS3MonthlyCostPerMillion)
-	fmt.Printf("  • Wire Ingress Transfer (Cross-AZ) : $%.4f / million spans (%.3f GB)\n", wireCrossAZCostPerMillion, wireGBPerMillion)
-	fmt.Printf("  • Measured Direct Unit Ingest Cost : ~$%.4f / million spans (EBS + Wire)\n", realDirectUnitCostPerMillion)
+	fmt.Printf("  • Wire Ingress Transfer (Cross-AZ) : $%.5f / million spans (%.3f GB wire payload)\n", wireCrossAZCostPerMillion, wireGBPerMillion)
+	fmt.Printf("  • Measured Direct Unit Ingest Cost : ~$%.5f / million spans (EBS Storage + Wire)\n", realDirectUnitCostPerMillion)
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Println("CRITICAL NOTICE: Results are indicative of GitHub runner hardware (shared 2-4 vCPU).")
 	fmt.Println("Final SaaS pricing tiers are strictly held pending multi-million cloud VM production sizing.")
@@ -803,7 +805,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 				ts.Table, ts.Classification, ts.ActiveParts, ts.TotalRows, ts.DataCompressedBytes, ts.BytesOnDisk))
 		}
 		md.WriteString("\n> [!NOTE]\n")
-		md.WriteString("> Telemetry ingest storage is accounted for by `otel_spans` (columns + skipping indices + marks). `service_metrics_hourly` and `anomalies` are auxiliary analytical tables populated out-of-band or via separate rollup workers, not by raw span ingestion.\n\n")
+		md.WriteString("> Telemetry ingest storage is accounted for primarily by `otel_spans` (columns + skipping indices + marks). The `anomalies` table is populated asynchronously by the Go server's background anomaly detector evaluating spans against statistical thresholds; with an 8% injected error rate and latency jitter, the detector recorded ~1.8% of spans as anomalies (~1.4 B/span disk footprint). `service_metrics_hourly` is an analytical rollup table (0 B during raw ingest).\n\n")
 
 		md.WriteString("## 3. Data Skipping Indices (Bloom Filter)\n\n")
 		md.WriteString("| Table | Index Name | Type | Expression | Granularity |\n")
@@ -828,8 +830,8 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		md.WriteString(fmt.Sprintf("- **Physical Disk Footprint per 1M Spans:** `%.3f GB`\n", payload.DiskFootprintGBPerM))
 		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS EBS gp3):** `$%.4f / million spans` ($0.08/GB-mo)\n", payload.EBSMonthlyCostPerM))
 		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS S3 Tiered):** `$%.4f / million spans` ($0.023/GB-mo)\n", payload.S3MonthlyCostPerM))
-		md.WriteString(fmt.Sprintf("- **Cross-AZ Network Wire Ingress:** `$%.4f / million spans`\n", payload.WireCrossAZCostPerM))
-		md.WriteString(fmt.Sprintf("- **Direct Measured Unit Cost:** `~$%.4f / million spans` (Direct Storage + Wire)\n\n", payload.RealTotalIngestCostPerM))
+		md.WriteString(fmt.Sprintf("- **Cross-AZ Network Wire Ingress:** `$%.5f / million spans` (%.3f GB wire payload)\n", payload.WireCrossAZCostPerM, (float64(totalWireBytes) / float64(totalIngestedSpans) * 1_000_000.0) / (1024 * 1024 * 1024)))
+		md.WriteString(fmt.Sprintf("- **Direct Measured Unit Cost:** `~$%.5f / million spans` (Direct Storage + Wire)\n\n", payload.RealTotalIngestCostPerM))
 
 		md.WriteString("> [!IMPORTANT]\n")
 		md.WriteString("> **Hardware Disclaimer & Pricing Guardrail:** Results are indicative of GitHub runner hardware (shared 2-4 vCPU box). Final SaaS pricing tiers are strictly held pending dedicated cloud VM production sizing.\n")
