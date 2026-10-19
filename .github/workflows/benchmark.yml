@@ -23,6 +23,8 @@ jobs:
   benchmark:
     name: Full-Stack Ingest & system.parts Benchmark
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     services:
       postgres:
         image: postgres:16-alpine
@@ -240,6 +242,45 @@ jobs:
             docker-stats-samples.csv
             loadtest.log
           if-no-files-found: warn
+
+      - name: Publish benchmark report to benchmark-results branch
+        if: always() && hashFiles('benchmark-report.md') != ''
+        run: |
+          REPORT_DATE=$(date -u +"%Y-%m-%d")
+          RUN_NUM="${{ github.run_number }}"
+          BRANCH_NAME="benchmark-results"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          mkdir -p /tmp/bench-reports
+          cp benchmark-report.md /tmp/bench-reports/report.md
+          if [ -f benchmark-results.json ]; then
+            cp benchmark-results.json /tmp/bench-reports/results.json
+          fi
+
+          git fetch origin "$BRANCH_NAME" 2>/dev/null || true
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+            git checkout "$BRANCH_NAME"
+            git pull origin "$BRANCH_NAME" --ff-only || true
+          else
+            git checkout --orphan "$BRANCH_NAME"
+            git rm -rf . 2>/dev/null || true
+          fi
+
+          mkdir -p reports
+          cp /tmp/bench-reports/report.md "reports/${REPORT_DATE}-run-${RUN_NUM}.md"
+          cp /tmp/bench-reports/report.md "reports/latest.md"
+          if [ -f /tmp/bench-reports/results.json ]; then
+            cp /tmp/bench-reports/results.json "reports/${REPORT_DATE}-run-${RUN_NUM}.json"
+            cp /tmp/bench-reports/results.json "reports/latest.json"
+          fi
+
+          git add reports/
+          git commit -m "docs(benchmark): publish empirical results for run ${RUN_NUM} [skip ci]" || echo "No changes to commit"
+          git push origin "$BRANCH_NAME" || echo "Push to $BRANCH_NAME failed, continuing..."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Dump server logs on failure
         if: failure()
