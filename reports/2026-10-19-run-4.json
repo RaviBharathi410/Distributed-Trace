@@ -1,0 +1,144 @@
+{
+  "timestamp": "2026-10-19T11:29:03Z",
+  "hardware_environment": "Shared 2-4 vCPU box (GitHub Actions Runner / linux amd64) - INDICATIVE ONLY, NOT A SIZING GUIDE",
+  "spans_sent": 1000000,
+  "spans_persisted": 1000000,
+  "ingestion_duration_seconds": 174.218051399,
+  "sustained_spans_per_second": 5739.933330500676,
+  "partitions": [
+    {
+      "partition": "20261019",
+      "active_parts": 1,
+      "rows": 1000000,
+      "bytes_on_disk": 235052552
+    }
+  ],
+  "tables": [
+    {
+      "table": "otel_spans",
+      "classification": "Primary Ingest (Raw Spans + Indexes)",
+      "active_parts": 1,
+      "total_rows": 1000000,
+      "data_compressed_bytes": 235045296,
+      "data_uncompressed_bytes": 741922460,
+      "marks_bytes": 5244,
+      "bytes_on_disk": 235052552,
+      "compressed_bytes_per_span": 235.045296,
+      "total_bytes_on_disk_per_span": 235.052552,
+      "compression_ratio": 3.156508437420505,
+      "note": "Receives 100% of OTLP spans; accounts for primary physical storage footprint."
+    },
+    {
+      "table": "service_metrics_hourly",
+      "classification": "Auxiliary Aggregate Rollup (SummingMergeTree)",
+      "active_parts": 0,
+      "total_rows": 0,
+      "data_compressed_bytes": 0,
+      "data_uncompressed_bytes": 0,
+      "marks_bytes": 0,
+      "bytes_on_disk": 0,
+      "compressed_bytes_per_span": 0,
+      "total_bytes_on_disk_per_span": 0,
+      "compression_ratio": 0,
+      "note": "Analytical aggregate table; not written per span during ingestion."
+    },
+    {
+      "table": "anomalies",
+      "classification": "Auxiliary Incident Alerts (MergeTree)",
+      "active_parts": 6,
+      "total_rows": 18309,
+      "data_compressed_bytes": 1402719,
+      "data_uncompressed_bytes": 4090579,
+      "marks_bytes": 748,
+      "bytes_on_disk": 1409770,
+      "compressed_bytes_per_span": 76.6136326396854,
+      "total_bytes_on_disk_per_span": 76.99874378720848,
+      "compression_ratio": 2.916178507598457,
+      "note": "Written out-of-band by anomaly detector engine on threshold violation."
+    }
+  ],
+  "skipping_indices": [
+    {
+      "table": "otel_spans",
+      "name": "idx_service",
+      "type": "bloom_filter",
+      "expr": "service_name",
+      "granularity": 4
+    }
+  ],
+  "top_columns": [
+    {
+      "name": "tags",
+      "compressed_bytes": 157258612,
+      "uncompressed_bytes": 580567589,
+      "ratio": 3.6918015593320894
+    },
+    {
+      "name": "trace_id",
+      "compressed_bytes": 33110515,
+      "uncompressed_bytes": 33000000,
+      "ratio": 0.9966622385668118
+    },
+    {
+      "name": "span_id",
+      "compressed_bytes": 17061457,
+      "uncompressed_bytes": 17000000,
+      "ratio": 0.9963979043524829
+    },
+    {
+      "name": "parent_span_id",
+      "compressed_bytes": 17061418,
+      "uncompressed_bytes": 17000000,
+      "ratio": 0.9964001819778403
+    },
+    {
+      "name": "start_time",
+      "compressed_bytes": 4042600,
+      "uncompressed_bytes": 8000000,
+      "ratio": 1.9789244545589473
+    },
+    {
+      "name": "duration_ms",
+      "compressed_bytes": 2936779,
+      "uncompressed_bytes": 4000000,
+      "ratio": 1.3620364351556586
+    },
+    {
+      "name": "operation_name",
+      "compressed_bytes": 2630201,
+      "uncompressed_bytes": 21229848,
+      "ratio": 8.071568674789493
+    },
+    {
+      "name": "error_message",
+      "compressed_bytes": 437257,
+      "uncompressed_bytes": 6021633,
+      "ratio": 13.771381590231831
+    },
+    {
+      "name": "status_code",
+      "compressed_bytes": 278777,
+      "uncompressed_bytes": 1000000,
+      "ratio": 3.587096496482852
+    },
+    {
+      "name": "org_id",
+      "compressed_bytes": 153998,
+      "uncompressed_bytes": 37000000,
+      "ratio": 240.2628605566306
+    },
+    {
+      "name": "service_name",
+      "compressed_bytes": 73682,
+      "uncompressed_bytes": 17103390,
+      "ratio": 232.1243994462691
+    }
+  ],
+  "all_inclusive_disk_bytes_per_span": 236.462322,
+  "disk_footprint_gb_per_million": 0.2202226985245943,
+  "aws_ebs_monthly_cost_per_million": 0.017617815881967546,
+  "aws_s3_monthly_cost_per_million": 0.005065122066065669,
+  "network_cross_az_cost_per_million": 0.001422376185655594,
+  "real_total_ingest_cost_per_million": 0.01904019206762314,
+  "status_note": "Indicative of runner hardware; SaaS pricing held pending cloud VM sizing."
+}
