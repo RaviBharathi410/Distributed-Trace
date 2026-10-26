@@ -153,6 +153,7 @@ jobs:
           ./bin/loadtest -mode live -spans "$SPANS" -batch-size "$BATCH" \
             -server http://127.0.0.1:8080 \
             -clickhouse 127.0.0.1:9000 \
+            -query-bench-rows 20000000 \
             -output-json benchmark-results.json \
             -output-md benchmark-report.md 2>&1 | tee loadtest.log
           LOADTEST_EXIT=${PIPESTATUS[0]}
@@ -197,7 +198,7 @@ jobs:
               print(f"Error reading stats: {e}")
 
           if stats:
-              md_lines = ["\n## 6. Sustained Host & Container Resource Utilization (Time-Series Sampled)\n\n"]
+              md_lines = ["\n## 7. Sustained Host & Container Resource Utilization (Time-Series Sampled)\n\n"]
               md_lines.append("| Process / Container | Peak CPU % | Avg CPU % | Peak RAM (MB) | Avg RAM (MB) | Samples |\n")
               md_lines.append("|---|---|---|---|---|---|\n")
               for c_name, d in sorted(stats.items()):
