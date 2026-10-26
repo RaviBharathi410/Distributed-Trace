@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-10-19T11:29:03Z",
+  "timestamp": "2026-10-26T14:31:13Z",
   "hardware_environment": "Shared 2-4 vCPU box (GitHub Actions Runner / linux amd64) - INDICATIVE ONLY, NOT A SIZING GUIDE",
   "spans_sent": 1000000,
   "spans_persisted": 1000000,
-  "ingestion_duration_seconds": 174.218051399,
-  "sustained_spans_per_second": 5739.933330500676,
+  "ingestion_duration_seconds": 162.793193673,
+  "sustained_spans_per_second": 6142.762958558842,
   "partitions": [
     {
-      "partition": "20261019",
+      "partition": "20261026",
       "active_parts": 1,
       "rows": 1000000,
-      "bytes_on_disk": 235052552
+      "bytes_on_disk": 235132053
     }
   ],
   "tables": [
@@ -19,13 +19,13 @@
       "classification": "Primary Ingest (Raw Spans + Indexes)",
       "active_parts": 1,
       "total_rows": 1000000,
-      "data_compressed_bytes": 235045296,
-      "data_uncompressed_bytes": 741922460,
-      "marks_bytes": 5244,
-      "bytes_on_disk": 235052552,
-      "compressed_bytes_per_span": 235.045296,
-      "total_bytes_on_disk_per_span": 235.052552,
-      "compression_ratio": 3.156508437420505,
+      "data_compressed_bytes": 235124807,
+      "data_uncompressed_bytes": 742309220,
+      "marks_bytes": 5234,
+      "bytes_on_disk": 235132053,
+      "compressed_bytes_per_span": 235.124807,
+      "total_bytes_on_disk_per_span": 235.132053,
+      "compression_ratio": 3.157085930112002,
       "note": "Receives 100% of OTLP spans; accounts for primary physical storage footprint."
     },
     {
@@ -45,15 +45,15 @@
     {
       "table": "anomalies",
       "classification": "Auxiliary Incident Alerts (MergeTree)",
-      "active_parts": 6,
-      "total_rows": 18309,
-      "data_compressed_bytes": 1402719,
-      "data_uncompressed_bytes": 4090579,
-      "marks_bytes": 748,
-      "bytes_on_disk": 1409770,
-      "compressed_bytes_per_span": 76.6136326396854,
-      "total_bytes_on_disk_per_span": 76.99874378720848,
-      "compression_ratio": 2.916178507598457,
+      "active_parts": 3,
+      "total_rows": 18613,
+      "data_compressed_bytes": 1424454,
+      "data_uncompressed_bytes": 4158595,
+      "marks_bytes": 438,
+      "bytes_on_disk": 1428082,
+      "compressed_bytes_per_span": 76.53005963573847,
+      "total_bytes_on_disk_per_span": 76.72497716649653,
+      "compression_ratio": 2.91943088369298,
       "note": "Written out-of-band by anomaly detector engine on threshold violation."
     }
   ],
@@ -69,57 +69,57 @@
   "top_columns": [
     {
       "name": "tags",
-      "compressed_bytes": 157258612,
-      "uncompressed_bytes": 580567589,
-      "ratio": 3.6918015593320894
+      "compressed_bytes": 157332935,
+      "uncompressed_bytes": 580914173,
+      "ratio": 3.6922604475661753
     },
     {
       "name": "trace_id",
-      "compressed_bytes": 33110515,
+      "compressed_bytes": 33111874,
       "uncompressed_bytes": 33000000,
-      "ratio": 0.9966622385668118
+      "ratio": 0.9966213328789545
     },
     {
       "name": "span_id",
-      "compressed_bytes": 17061457,
+      "compressed_bytes": 17062611,
       "uncompressed_bytes": 17000000,
-      "ratio": 0.9963979043524829
+      "ratio": 0.9963305147143072
     },
     {
       "name": "parent_span_id",
-      "compressed_bytes": 17061418,
+      "compressed_bytes": 17061789,
       "uncompressed_bytes": 17000000,
-      "ratio": 0.9964001819778403
+      "ratio": 0.9963785157582244
     },
     {
       "name": "start_time",
-      "compressed_bytes": 4042600,
+      "compressed_bytes": 4042636,
       "uncompressed_bytes": 8000000,
-      "ratio": 1.9789244545589473
+      "ratio": 1.9789068320768923
     },
     {
       "name": "duration_ms",
-      "compressed_bytes": 2936779,
+      "compressed_bytes": 2935833,
       "uncompressed_bytes": 4000000,
-      "ratio": 1.3620364351556586
+      "ratio": 1.362475317908069
     },
     {
       "name": "operation_name",
-      "compressed_bytes": 2630201,
-      "uncompressed_bytes": 21229848,
-      "ratio": 8.071568674789493
+      "compressed_bytes": 2630809,
+      "uncompressed_bytes": 21230374,
+      "ratio": 8.069903212281849
     },
     {
       "name": "error_message",
-      "compressed_bytes": 437257,
-      "uncompressed_bytes": 6021633,
-      "ratio": 13.771381590231831
+      "compressed_bytes": 439608,
+      "uncompressed_bytes": 6062292,
+      "ratio": 13.790222197958181
     },
     {
       "name": "status_code",
-      "compressed_bytes": 278777,
+      "compressed_bytes": 279034,
       "uncompressed_bytes": 1000000,
-      "ratio": 3.587096496482852
+      "ratio": 3.583792656092089
     },
     {
       "name": "org_id",
@@ -129,16 +129,543 @@
     },
     {
       "name": "service_name",
-      "compressed_bytes": 73682,
-      "uncompressed_bytes": 17103390,
-      "ratio": 232.1243994462691
+      "compressed_bytes": 73680,
+      "uncompressed_bytes": 17102381,
+      "ratio": 232.11700597176983
     }
   ],
-  "all_inclusive_disk_bytes_per_span": 236.462322,
-  "disk_footprint_gb_per_million": 0.2202226985245943,
-  "aws_ebs_monthly_cost_per_million": 0.017617815881967546,
-  "aws_s3_monthly_cost_per_million": 0.005065122066065669,
-  "network_cross_az_cost_per_million": 0.001422376185655594,
-  "real_total_ingest_cost_per_million": 0.01904019206762314,
-  "status_note": "Indicative of runner hardware; SaaS pricing held pending cloud VM sizing."
+  "all_inclusive_disk_bytes_per_span": 236.560135,
+  "disk_footprint_gb_per_million": 0.22031379397958517,
+  "aws_ebs_monthly_cost_per_million": 0.017625103518366814,
+  "aws_s3_monthly_cost_per_million": 0.0050672172615304585,
+  "network_cross_az_cost_per_million": 0.00142314906232059,
+  "real_total_ingest_cost_per_million": 0.019048252580687403,
+  "status_note": "Indicative of runner hardware; SaaS pricing held pending cloud VM sizing.",
+  "query_benchmarks": [
+    {
+      "query_name": "GetTraceWithSpans (Point Lookup)",
+      "target_scale_rows": 20000000,
+      "first_run_duration_ms": 213,
+      "first_run_read_rows": 20000000,
+      "first_run_read_bytes": 1720652696,
+      "p50_duration_ms": 209,
+      "p95_duration_ms": 237,
+      "avg_read_rows": 20000000,
+      "avg_read_bytes": 1722082692.3157895,
+      "status_note": "⚠️ Scans full partition (no bloom filter index on trace_id yet)",
+      "measurements": [
+        {
+          "iteration": 1,
+          "label": "first run (cache dropped)",
+          "duration_ms": 213,
+          "read_rows": 20000000,
+          "read_bytes": 1720652696,
+          "memory_usage": 12893332
+        },
+        {
+          "iteration": 2,
+          "label": "iteration 2",
+          "duration_ms": 209,
+          "read_rows": 20000000,
+          "read_bytes": 1723358894,
+          "memory_usage": 8747708
+        },
+        {
+          "iteration": 3,
+          "label": "iteration 3",
+          "duration_ms": 213,
+          "read_rows": 20000000,
+          "read_bytes": 1720654322,
+          "memory_usage": 12951266
+        },
+        {
+          "iteration": 4,
+          "label": "iteration 4",
+          "duration_ms": 211,
+          "read_rows": 20000000,
+          "read_bytes": 1723359688,
+          "memory_usage": 8746524
+        },
+        {
+          "iteration": 5,
+          "label": "iteration 5",
+          "duration_ms": 211,
+          "read_rows": 20000000,
+          "read_bytes": 1720655910,
+          "memory_usage": 12946772
+        },
+        {
+          "iteration": 6,
+          "label": "iteration 6",
+          "duration_ms": 207,
+          "read_rows": 20000000,
+          "read_bytes": 1723360482,
+          "memory_usage": 8746524
+        },
+        {
+          "iteration": 7,
+          "label": "iteration 7",
+          "duration_ms": 223,
+          "read_rows": 20000000,
+          "read_bytes": 1720657498,
+          "memory_usage": 12947860
+        },
+        {
+          "iteration": 8,
+          "label": "iteration 8",
+          "duration_ms": 216,
+          "read_rows": 20000000,
+          "read_bytes": 1723361276,
+          "memory_usage": 8746028
+        },
+        {
+          "iteration": 9,
+          "label": "iteration 9",
+          "duration_ms": 208,
+          "read_rows": 20000000,
+          "read_bytes": 1720659124,
+          "memory_usage": 12948452
+        },
+        {
+          "iteration": 10,
+          "label": "iteration 10",
+          "duration_ms": 208,
+          "read_rows": 20000000,
+          "read_bytes": 1723362070,
+          "memory_usage": 8747116
+        },
+        {
+          "iteration": 11,
+          "label": "iteration 11",
+          "duration_ms": 211,
+          "read_rows": 20000000,
+          "read_bytes": 1720660712,
+          "memory_usage": 12947268
+        },
+        {
+          "iteration": 12,
+          "label": "iteration 12",
+          "duration_ms": 207,
+          "read_rows": 20000000,
+          "read_bytes": 1723362864,
+          "memory_usage": 8746524
+        },
+        {
+          "iteration": 13,
+          "label": "iteration 13",
+          "duration_ms": 207,
+          "read_rows": 20000000,
+          "read_bytes": 1720662338,
+          "memory_usage": 12951858
+        },
+        {
+          "iteration": 14,
+          "label": "iteration 14",
+          "duration_ms": 207,
+          "read_rows": 20000000,
+          "read_bytes": 1723363658,
+          "memory_usage": 8746524
+        },
+        {
+          "iteration": 15,
+          "label": "iteration 15",
+          "duration_ms": 207,
+          "read_rows": 20000000,
+          "read_bytes": 1720663926,
+          "memory_usage": 12946772
+        },
+        {
+          "iteration": 16,
+          "label": "iteration 16",
+          "duration_ms": 208,
+          "read_rows": 20000000,
+          "read_bytes": 1723364452,
+          "memory_usage": 8747708
+        },
+        {
+          "iteration": 17,
+          "label": "iteration 17",
+          "duration_ms": 219,
+          "read_rows": 20000000,
+          "read_bytes": 1720665514,
+          "memory_usage": 12947268
+        },
+        {
+          "iteration": 18,
+          "label": "iteration 18",
+          "duration_ms": 209,
+          "read_rows": 20000000,
+          "read_bytes": 1723365246,
+          "memory_usage": 8746956
+        },
+        {
+          "iteration": 19,
+          "label": "iteration 19",
+          "duration_ms": 237,
+          "read_rows": 20000000,
+          "read_bytes": 1720667140,
+          "memory_usage": 12947268
+        },
+        {
+          "iteration": 20,
+          "label": "iteration 20",
+          "duration_ms": 209,
+          "read_rows": 20000000,
+          "read_bytes": 1723366040,
+          "memory_usage": 8746524
+        }
+      ],
+      "explain_plan": "Expression ((Project names + Projection))\n  Expression\n    ReadFromMergeTree (default.otel_spans)\n    Indexes:\n      MinMax\n        Condition: true\n        Parts: 2/2\n        Granules: 2443/2443\n      Partition\n        Condition: true\n        Parts: 2/2\n        Granules: 2443/2443\n      PrimaryKey\n        Keys: \n          org_id\n        Condition: (org_id in ['55634cd8-1562-4f74-ba7e-ab95c6b94bbf', '55634cd8-1562-4f74-ba7e-ab95c6b94bbf'])\n        Parts: 2/2\n        Granules: 2443/2443"
+    },
+    {
+      "query_name": "SearchTraces (Filter \u0026 Sort)",
+      "target_scale_rows": 20000000,
+      "first_run_duration_ms": 9,
+      "first_run_read_rows": 41599,
+      "first_run_read_bytes": 9475205,
+      "p50_duration_ms": 7,
+      "p95_duration_ms": 9,
+      "avg_read_rows": 41689,
+      "avg_read_bytes": 9493590.05263158,
+      "status_note": "✅ Primary key pruned via (org_id, service_name, start_time)",
+      "measurements": [
+        {
+          "iteration": 1,
+          "label": "first run (cache dropped)",
+          "duration_ms": 9,
+          "read_rows": 41599,
+          "read_bytes": 9475205,
+          "memory_usage": 4668745
+        },
+        {
+          "iteration": 2,
+          "label": "iteration 2",
+          "duration_ms": 7,
+          "read_rows": 41608,
+          "read_bytes": 9477042,
+          "memory_usage": 4657121
+        },
+        {
+          "iteration": 3,
+          "label": "iteration 3",
+          "duration_ms": 7,
+          "read_rows": 41617,
+          "read_bytes": 9478879,
+          "memory_usage": 4666465
+        },
+        {
+          "iteration": 4,
+          "label": "iteration 4",
+          "duration_ms": 7,
+          "read_rows": 41626,
+          "read_bytes": 9480716,
+          "memory_usage": 4674769
+        },
+        {
+          "iteration": 5,
+          "label": "iteration 5",
+          "duration_ms": 5,
+          "read_rows": 41635,
+          "read_bytes": 9482553,
+          "memory_usage": 4662537
+        },
+        {
+          "iteration": 6,
+          "label": "iteration 6",
+          "duration_ms": 7,
+          "read_rows": 41644,
+          "read_bytes": 9484390,
+          "memory_usage": 4669897
+        },
+        {
+          "iteration": 7,
+          "label": "iteration 7",
+          "duration_ms": 6,
+          "read_rows": 41653,
+          "read_bytes": 9486227,
+          "memory_usage": 4657121
+        },
+        {
+          "iteration": 8,
+          "label": "iteration 8",
+          "duration_ms": 5,
+          "read_rows": 41662,
+          "read_bytes": 9488064,
+          "memory_usage": 4665969
+        },
+        {
+          "iteration": 9,
+          "label": "iteration 9",
+          "duration_ms": 9,
+          "read_rows": 41671,
+          "read_bytes": 9489901,
+          "memory_usage": 4674769
+        },
+        {
+          "iteration": 10,
+          "label": "iteration 10",
+          "duration_ms": 9,
+          "read_rows": 41680,
+          "read_bytes": 9491739,
+          "memory_usage": 4662041
+        },
+        {
+          "iteration": 11,
+          "label": "iteration 11",
+          "duration_ms": 7,
+          "read_rows": 41689,
+          "read_bytes": 9493581,
+          "memory_usage": 4666785
+        },
+        {
+          "iteration": 12,
+          "label": "iteration 12",
+          "duration_ms": 6,
+          "read_rows": 41698,
+          "read_bytes": 9495423,
+          "memory_usage": 4657617
+        },
+        {
+          "iteration": 13,
+          "label": "iteration 13",
+          "duration_ms": 7,
+          "read_rows": 41707,
+          "read_bytes": 9497265,
+          "memory_usage": 4661865
+        },
+        {
+          "iteration": 14,
+          "label": "iteration 14",
+          "duration_ms": 7,
+          "read_rows": 41716,
+          "read_bytes": 9499107,
+          "memory_usage": 4658737
+        },
+        {
+          "iteration": 15,
+          "label": "iteration 15",
+          "duration_ms": 6,
+          "read_rows": 41725,
+          "read_bytes": 9500949,
+          "memory_usage": 4661545
+        },
+        {
+          "iteration": 16,
+          "label": "iteration 16",
+          "duration_ms": 7,
+          "read_rows": 41734,
+          "read_bytes": 9502791,
+          "memory_usage": 4670889
+        },
+        {
+          "iteration": 17,
+          "label": "iteration 17",
+          "duration_ms": 6,
+          "read_rows": 41743,
+          "read_bytes": 9504633,
+          "memory_usage": 4657121
+        },
+        {
+          "iteration": 18,
+          "label": "iteration 18",
+          "duration_ms": 7,
+          "read_rows": 41752,
+          "read_bytes": 9506475,
+          "memory_usage": 4666465
+        },
+        {
+          "iteration": 19,
+          "label": "iteration 19",
+          "duration_ms": 7,
+          "read_rows": 41761,
+          "read_bytes": 9508317,
+          "memory_usage": 4666561
+        },
+        {
+          "iteration": 20,
+          "label": "iteration 20",
+          "duration_ms": 6,
+          "read_rows": 41770,
+          "read_bytes": 9510159,
+          "memory_usage": 4661545
+        }
+      ],
+      "explain_plan": "EXPLAIN failed: code: 184, message: Aggregate function min(start_time) AS start_time is found in WHERE in query"
+    },
+    {
+      "query_name": "GetServiceGraph (Self-Join)",
+      "target_scale_rows": 20000000,
+      "first_run_duration_ms": 28,
+      "first_run_read_rows": 892928,
+      "first_run_read_bytes": 67203808,
+      "p50_duration_ms": 36,
+      "p95_duration_ms": 56,
+      "avg_read_rows": 1931156.2105263157,
+      "avg_read_bytes": 144463894.21052632,
+      "status_note": "⚠️ Self-join scan across time window",
+      "measurements": [
+        {
+          "iteration": 1,
+          "label": "first run (cache dropped)",
+          "duration_ms": 28,
+          "read_rows": 892928,
+          "read_bytes": 67203808,
+          "memory_usage": 2270315
+        },
+        {
+          "iteration": 2,
+          "label": "iteration 2",
+          "duration_ms": 28,
+          "read_rows": 1482752,
+          "read_bytes": 112238007,
+          "memory_usage": 1521009
+        },
+        {
+          "iteration": 3,
+          "label": "iteration 3",
+          "duration_ms": 36,
+          "read_rows": 1957888,
+          "read_bytes": 146068215,
+          "memory_usage": 863605
+        },
+        {
+          "iteration": 4,
+          "label": "iteration 4",
+          "duration_ms": 56,
+          "read_rows": 1957888,
+          "read_bytes": 146319904,
+          "memory_usage": 1766671
+        },
+        {
+          "iteration": 5,
+          "label": "iteration 5",
+          "duration_ms": 36,
+          "read_rows": 1949696,
+          "read_bytes": 146203703,
+          "memory_usage": 1426346
+        },
+        {
+          "iteration": 6,
+          "label": "iteration 6",
+          "duration_ms": 36,
+          "read_rows": 1949696,
+          "read_bytes": 145600183,
+          "memory_usage": 1675282
+        },
+        {
+          "iteration": 7,
+          "label": "iteration 7",
+          "duration_ms": 36,
+          "read_rows": 1957888,
+          "read_bytes": 146288992,
+          "memory_usage": 2156867
+        },
+        {
+          "iteration": 8,
+          "label": "iteration 8",
+          "duration_ms": 38,
+          "read_rows": 1957888,
+          "read_bytes": 146815991,
+          "memory_usage": 1864554
+        },
+        {
+          "iteration": 9,
+          "label": "iteration 9",
+          "duration_ms": 36,
+          "read_rows": 1957888,
+          "read_bytes": 146191863,
+          "memory_usage": 2323483
+        },
+        {
+          "iteration": 10,
+          "label": "iteration 10",
+          "duration_ms": 43,
+          "read_rows": 1957888,
+          "read_bytes": 146160928,
+          "memory_usage": 2641004
+        },
+        {
+          "iteration": 11,
+          "label": "iteration 11",
+          "duration_ms": 36,
+          "read_rows": 1957888,
+          "read_bytes": 146707063,
+          "memory_usage": 2221603
+        },
+        {
+          "iteration": 12,
+          "label": "iteration 12",
+          "duration_ms": 36,
+          "read_rows": 1949696,
+          "read_bytes": 145726775,
+          "memory_usage": 877608
+        },
+        {
+          "iteration": 13,
+          "label": "iteration 13",
+          "duration_ms": 35,
+          "read_rows": 1957888,
+          "read_bytes": 146124864,
+          "memory_usage": 2407532
+        },
+        {
+          "iteration": 14,
+          "label": "iteration 14",
+          "duration_ms": 35,
+          "read_rows": 1949696,
+          "read_bytes": 146261088,
+          "memory_usage": 718839
+        },
+        {
+          "iteration": 15,
+          "label": "iteration 15",
+          "duration_ms": 37,
+          "read_rows": 1957888,
+          "read_bytes": 146323607,
+          "memory_usage": 845232
+        },
+        {
+          "iteration": 16,
+          "label": "iteration 16",
+          "duration_ms": 42,
+          "read_rows": 1957888,
+          "read_bytes": 145993856,
+          "memory_usage": 2731580
+        },
+        {
+          "iteration": 17,
+          "label": "iteration 17",
+          "duration_ms": 38,
+          "read_rows": 1957888,
+          "read_bytes": 146776960,
+          "memory_usage": 824865
+        },
+        {
+          "iteration": 18,
+          "label": "iteration 18",
+          "duration_ms": 38,
+          "read_rows": 1957888,
+          "read_bytes": 146297847,
+          "memory_usage": 878064
+        },
+        {
+          "iteration": 19,
+          "label": "iteration 19",
+          "duration_ms": 36,
+          "read_rows": 1957888,
+          "read_bytes": 145952640,
+          "memory_usage": 648792
+        },
+        {
+          "iteration": 20,
+          "label": "iteration 20",
+          "duration_ms": 40,
+          "read_rows": 1957888,
+          "read_bytes": 146761504,
+          "memory_usage": 989696
+        }
+      ],
+      "explain_plan": "Expression ((Project names + Projection))\n  Aggregating\n    Expression (Before GROUP BY)\n      Filter ((WHERE + DROP unused columns after JOIN))\n        Join (JOIN FillRightFirst)\n          Expression\n            ReadFromMergeTree (default.otel_spans)\n            Indexes:\n              MinMax\n                Keys: \n                  start_time\n                Condition: and((start_time in (-Inf, '1792369800']), (start_time in ['1792368000', +Inf)))\n                Parts: 1/2\n                Granules: 2320/2443\n              Partition\n                Keys: \n                  toYYYYMMDD(start_time)\n                Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))\n                Parts: 1/1\n                Granules: 2320/2320\n              PrimaryKey\n                Keys: \n                  org_id\n                  start_time\n                Condition: and((start_time in (-Inf, '1792369800']), and((start_time in ['1792368000', +Inf)), (org_id in ['55634cd8-1562-4f74-ba7e-ab95c6b94bbf', '55634cd8-1562-4f74-ba7e-ab95c6b94bbf'])))\n                Parts: 1/1\n                Granules: 109/2320\n          Expression ((JOIN actions + Change column names to column identifiers))\n            ReadFromMergeTree (default.otel_spans)\n            Indexes:\n              MinMax\n                Condition: true\n                Parts: 2/2\n                Granules: 2443/2443\n              Partition\n                Condition: true\n                Parts: 2/2\n                Granules: 2443/2443\n              PrimaryKey\n                Condition: true\n                Parts: 2/2\n                Granules: 2443/2443"
+    }
+  ]
 }
