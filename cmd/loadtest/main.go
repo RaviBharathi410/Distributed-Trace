@@ -260,6 +260,15 @@ type ColumnStorageStat struct {
 	Ratio        float64 `json:"ratio"`
 }
 
+type CodecComparisonStat struct {
+	Codec             string  `json:"codec"`
+	CompressedBytes   uint64  `json:"compressed_bytes"`
+	UncompressedBytes uint64  `json:"uncompressed_bytes"`
+	CompressionRatio  float64 `json:"compression_ratio"`
+	BytesPerSpan      float64 `json:"bytes_per_span"`
+	CompressionMs     uint64  `json:"compression_duration_ms"`
+}
+
 type SingleQueryMeasurement struct {
 	Iteration   int    `json:"iteration"`
 	Label       string `json:"label"`
@@ -304,8 +313,9 @@ type BenchmarkReportPayload struct {
 	S3MonthlyCostPerM       float64             `json:"aws_s3_monthly_cost_per_million"`
 	WireCrossAZCostPerM     float64             `json:"network_cross_az_cost_per_million"`
 	RealTotalIngestCostPerM float64             `json:"real_total_ingest_cost_per_million"`
-	StatusNote              string              `json:"status_note"`
-	QueryBenchmarks         []QueryBenchResult  `json:"query_benchmarks,omitempty"`
+	StatusNote              string                 `json:"status_note"`
+	CodecComparisons        []CodecComparisonStat  `json:"codec_comparisons,omitempty"`
+	QueryBenchmarks         []QueryBenchResult     `json:"query_benchmarks,omitempty"`
 }
 
 func runWireBenchmark(spanCount int, hardwareLabel string) {
@@ -724,6 +734,8 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		}
 	}
 
+	codecComparisons := benchmarkTagsCodecs(ctx, chConn, chDB, totalIngestedSpans)
+
 	allInclusiveDiskPerSpan := 0.0
 	if totalIngestedSpans > 0 {
 		allInclusiveDiskPerSpan = float64(grandTotalBytesOnDisk) / float64(totalIngestedSpans)
@@ -767,6 +779,14 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		fmt.Printf("  • %-18s : %8d bytes compressed (uncomp: %8d, %.1fx ratio)\n",
 			col.Name, col.Compressed, col.Uncompressed, col.Ratio)
 	}
+	if len(codecComparisons) > 0 {
+		fmt.Println("--------------------------------------------------------------------------------")
+		fmt.Println("Tags Column Codec Empirical Comparison (1M Spans: LZ4 vs ZSTD(1) vs ZSTD(3)):")
+		for _, cc := range codecComparisons {
+			fmt.Printf("  • %-22s : %9d bytes (uncomp: %9d, %.1fx, %.2f B/span, %d ms)\n",
+				cc.Codec, cc.CompressedBytes, cc.UncompressedBytes, cc.CompressionRatio, cc.BytesPerSpan, cc.CompressionMs)
+		}
+	}
 	fmt.Println("--------------------------------------------------------------------------------")
 	fmt.Println("Empirically Measured SaaS Economics (All-Inclusive Disk Footprint):")
 	fmt.Printf("  • All-Inclusive Disk / Span        : %.2f bytes / span (columns + skipping indices + marks)\n", allInclusiveDiskPerSpan)
@@ -809,6 +829,7 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		WireCrossAZCostPerM:     wireCrossAZCostPerMillion,
 		RealTotalIngestCostPerM: realDirectUnitCostPerMillion,
 		StatusNote:              "Indicative of runner hardware; SaaS pricing held pending cloud VM sizing.",
+		CodecComparisons:        codecComparisons,
 		QueryBenchmarks:         queryResults,
 	}
 
@@ -868,6 +889,30 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 			md.WriteString(fmt.Sprintf("| `%s` | %d B | %d B | %.1fx |\n", c.Name, c.Compressed, c.Uncompressed, c.Ratio))
 		}
 
+		if len(payload.CodecComparisons) > 0 {
+			md.WriteString("\n### 4.1 Tags Column Codec Empirical Comparison (1M Spans: LZ4 vs ZSTD(1) vs ZSTD(3))\n\n")
+			md.WriteString("| Codec | Compressed Bytes | Uncompressed Bytes | Compression Ratio | Tags B/Span | Compression Time (1M Spans) | Storage Savings vs LZ4 |\n")
+			md.WriteString("|---|---|---|---|---|---|---|\n")
+			var lz4Comp uint64
+			for _, cc := range payload.CodecComparisons {
+				if strings.Contains(cc.Codec, "LZ4") {
+					lz4Comp = cc.CompressedBytes
+					break
+				}
+			}
+			for _, cc := range payload.CodecComparisons {
+				savingsStr := "Baseline (0.0%)"
+				if lz4Comp > 0 && !strings.Contains(cc.Codec, "LZ4") && cc.CompressedBytes < lz4Comp {
+					pct := (1.0 - float64(cc.CompressedBytes)/float64(lz4Comp)) * 100.0
+					savingsStr = fmt.Sprintf("✅ **-%.1f%%**", pct)
+				}
+				md.WriteString(fmt.Sprintf("| `%s` | %d B | %d B | %.2fx | %.2f B | %d ms | %s |\n",
+					cc.Codec, cc.CompressedBytes, cc.UncompressedBytes, cc.CompressionRatio, cc.BytesPerSpan, cc.CompressionMs, savingsStr))
+			}
+			md.WriteString("\n> [!NOTE]\n")
+			md.WriteString("> Empirical codec comparison executed directly on the 1,000,000 live ingested span tags dataset in ClickHouse, isolating data density vs compression CPU throughput.\n\n")
+		}
+
 		md.WriteString("\n## 5. Empirical SaaS Cost-Per-Million-Spans Economics\n\n")
 		md.WriteString(fmt.Sprintf("- **Physical Disk Footprint per Span:** `%.2f bytes` (columns + skipping indices + marks)\n", payload.AllInclusiveDiskPerSpan))
 		md.WriteString(fmt.Sprintf("- **Physical Disk Footprint per 1M Spans:** `%.3f GB`\n", payload.DiskFootprintGBPerM))
@@ -914,6 +959,75 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		_ = os.WriteFile(outputMD, []byte(md.String()), 0644)
 		fmt.Printf("✔ Saved benchmark Markdown artifact: %s\n", outputMD)
 	}
+}
+
+func benchmarkTagsCodecs(ctx context.Context, chConn clickhousedriver.Conn, chDB string, totalSpans int) []CodecComparisonStat {
+	codecs := []struct {
+		name  string
+		codec string
+	}{
+		{"LZ4 (Default Baseline)", "LZ4"},
+		{"ZSTD(1)", "ZSTD(1)"},
+		{"ZSTD(3)", "ZSTD(3)"},
+	}
+
+	var results []CodecComparisonStat
+	for _, c := range codecs {
+		tblName := fmt.Sprintf("bench_codec_%s", strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(c.name, "(", ""), ")", ""), " ", "_")))
+		_ = chConn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tblName))
+
+		createSQL := fmt.Sprintf(`
+			CREATE TABLE %s (
+				tags Map(String, String) CODEC(%s)
+			) ENGINE = MergeTree()
+			ORDER BY tuple()
+		`, tblName, c.codec)
+		if err := chConn.Exec(ctx, createSQL); err != nil {
+			fmt.Printf("⚠️ Failed to create codec benchmark table %s: %v\n", tblName, err)
+			continue
+		}
+
+		tStart := time.Now()
+		insertSQL := fmt.Sprintf("INSERT INTO %s SELECT tags FROM otel_spans", tblName)
+		if err := chConn.Exec(ctx, insertSQL); err != nil {
+			fmt.Printf("⚠️ Failed to insert into %s: %v\n", tblName, err)
+			_ = chConn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tblName))
+			continue
+		}
+		_ = chConn.Exec(ctx, fmt.Sprintf("OPTIMIZE TABLE %s FINAL", tblName))
+		durationMs := uint64(time.Since(tStart).Milliseconds())
+
+		var compBytes, uncompBytes uint64
+		q := fmt.Sprintf(`
+			SELECT
+				sum(column_data_compressed_bytes),
+				sum(column_data_uncompressed_bytes)
+			FROM system.parts_columns
+			WHERE database = '%s' AND table = '%s' AND column = 'tags' AND active = 1
+		`, chDB, tblName)
+		_ = chConn.QueryRow(ctx, q).Scan(&compBytes, &uncompBytes)
+
+		_ = chConn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tblName))
+
+		ratio := 0.0
+		if compBytes > 0 {
+			ratio = float64(uncompBytes) / float64(compBytes)
+		}
+		bPerSpan := 0.0
+		if totalSpans > 0 {
+			bPerSpan = float64(compBytes) / float64(totalSpans)
+		}
+
+		results = append(results, CodecComparisonStat{
+			Codec:             c.name,
+			CompressedBytes:   compBytes,
+			UncompressedBytes: uncompBytes,
+			CompressionRatio:  ratio,
+			BytesPerSpan:      bPerSpan,
+			CompressionMs:     durationMs,
+		})
+	}
+	return results
 }
 
 func seedBulkQueryDataset(_ context.Context, chConn clickhousedriver.Conn, orgID string, targetRows int, baseTime time.Time) error {

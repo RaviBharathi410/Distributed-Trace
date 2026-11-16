@@ -346,12 +346,17 @@
      - Labeled iterations 2–20 "warm OS page cache" following cold iteration 1 (`SYSTEM DROP MARK CACHE` + `SYSTEM DROP UNCOMPRESSED CACHE`).
      - Added cross-service 15-minute search benchmark to isolate primary-key pruning vs partition scans.
 - **Verification Evidence:**
-  - GitHub Actions Benchmark Run 6: [Run 43839452522](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/43839452522)
-  - `origin/benchmark-results:reports/2026-11-16-run-6.md` and `reports/latest.md`
+  - GitHub Actions Benchmark Run 7: [Run 43842246938](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/43842246938)
+  - Benchmark Results Commit: `a2ceb67` (`origin/benchmark-results:reports/2026-11-16-run-7.md` and `reports/latest.md`)
+  - Deterministic 20M Query Scaling:
+    - `GetTraceWithSpans`: 20,000,000 read_rows, 1,723,817,340 read_bytes, 4 result_rows (100% full partition scan without index)
+    - `SearchTraces (Single Service)`: 8,192 cold read_rows (pruned to 1 granule, 0.04% of table), p50 6.0 ms, 23.7 avg result_rows
+    - `SearchTraces (All Services)`: 999,424 cold read_rows (122 granules across 15 min window), p50 7.0 ms, 50 result_rows
+    - `GetServiceGraph (Self-Join)`: 999,424 cold read_rows, 81,443,751 read_bytes, 15m fixed window width, p50 5.0 ms
   - Local `go test ./...` and `go build ./cmd/...` cleanly passing (Code 0).
 - **Next Checkpoint's Exit Criteria (Phase 2 — ZSTD Compression Evaluation):**
   1. Branch `benchmark-zstd` created with `tags Map(String, String) CODEC(ZSTD(3))`.
-  2. Re-run benchmark to measure `tags` column bytes vs 157,273,954 B baseline, total B/span vs 236.47 B baseline, sustained spans/s, and ClickHouse CPU %.
+  2. Re-run benchmark to measure `tags` column bytes vs 157,380,660 B baseline, total B/span vs 236.59 B baseline, sustained spans/s, and ClickHouse CPU %.
 
 
 

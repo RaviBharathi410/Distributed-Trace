@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS otel_spans (
     duration_ms UInt32,
     status_code UInt8,
     error_message String,
-    tags Map(String, String),
+    tags Map(String, String) CODEC(ZSTD(3)),
     start_time DateTime64(3, 'UTC'),
     INDEX idx_service service_name TYPE bloom_filter GRANULARITY 4
 ) Engine = MergeTree()
