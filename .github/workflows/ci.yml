@@ -76,6 +76,13 @@ jobs:
           CLICKHOUSE_URL: 127.0.0.1:9000
           KAFKA_BROKERS: 127.0.0.1:9092
 
+      - name: Upload Go Test Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-test-failure-log
+          path: test_output.log
+
   frontend:
     name: Frontend (Node 20 / Vite)
     runs-on: ubuntu-latest

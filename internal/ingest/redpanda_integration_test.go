@@ -129,10 +129,13 @@ func TestSpanConsumer_RealRedpanda_OffsetSafetyAndRestart(t *testing.T) {
 
 	var testSpans []domain.Span
 	for i := 0; i < 6; i++ {
+		traceHex := fmt.Sprintf("%030x%02x", nanos, i)
+		spanHex := fmt.Sprintf("%014x%02x", nanos, i)
 		testSpans = append(testSpans, domain.Span{
 			OrgID:         testOrgID,
-			TraceID:       fmt.Sprintf("trace-rp-%d", i),
-			SpanID:        fmt.Sprintf("span-rp-%d", i),
+			TraceID:       traceHex,
+			SpanID:        spanHex,
+			ParentSpanID:  "",
 			ServiceName:   "order-service",
 			OperationName: "ProcessOrder",
 			DurationMs:    uint32(100 + i*10),
