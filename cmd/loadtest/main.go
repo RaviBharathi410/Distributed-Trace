@@ -782,12 +782,12 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 
 	var queryResults []QueryBenchResult
 	if queryBenchRows > 0 {
-		if err := seedBulkQueryDataset(ctx, chConn, orgID, queryBenchRows); err != nil {
+		if err := seedBulkQueryDataset(ctx, chConn, orgID, queryBenchRows, baseTime); err != nil {
 			fmt.Printf("⚠️ Bulk query dataset seeding error: %v\n", err)
 		} else {
 			var actualTotalRows uint64
 			_ = chConn.QueryRow(ctx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&actualTotalRows)
-			queryResults = runQueryBenchmarks(ctx, chConn, chDB, orgID, actualTotalRows)
+			queryResults = runQueryBenchmarks(ctx, chConn, chDB, orgID, actualTotalRows, baseTime)
 		}
 	}
 
@@ -916,9 +916,12 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 	}
 }
 
-func seedBulkQueryDataset(ctx context.Context, chConn clickhousedriver.Conn, orgID string, targetRows int) error {
+func seedBulkQueryDataset(_ context.Context, chConn clickhousedriver.Conn, orgID string, targetRows int, baseTime time.Time) error {
+	seedCtx, seedCancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer seedCancel()
+
 	var currentCount uint64
-	err := chConn.QueryRow(ctx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&currentCount)
+	err := chConn.QueryRow(seedCtx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&currentCount)
 	if err != nil {
 		return fmt.Errorf("failed to check existing row count: %w", err)
 	}
@@ -935,6 +938,7 @@ func seedBulkQueryDataset(ctx context.Context, chConn clickhousedriver.Conn, org
 	tStart := time.Now()
 	// Vectorized generation directly in ClickHouse engine.
 	// Group every 4 spans into the same trace_id (MD5 of intDiv) so traces form complete 4-span chains across distinct services.
+	// We anchor start_time to baseTime (dynamic today) so rows remain well within the 14-day ClickHouse MergeTree TTL.
 	seedQuery := fmt.Sprintf(`
 		INSERT INTO otel_spans (
 			org_id, trace_id, span_id, parent_span_id, service_name, operation_name,
@@ -947,29 +951,29 @@ func seedBulkQueryDataset(ctx context.Context, chConn clickhousedriver.Conn, org
 			if((number + %d) %% 4 = 0, '', lower(hex(substr(MD5(concat('span-', toString(number + %d - 1))), 1, 8)))) AS parent_span_id,
 			concat('service-', toString((number + %d) %% 4)) AS service_name,
 			concat('op-', toString((number + %d) %% 4)) AS operation_name,
-			toUInt32(if((number + %d) %% 4 = 0, 250, if((number + %d) %% 4 = 1, 180, if((number + %d) %% 4 = 2, 120, 60)))) AS duration_ms,
+			toUInt32(multiIf((number + %d) %% 4 = 0, 250, (number + %d) %% 4 = 1, 180, (number + %d) %% 4 = 2, 120, 60)) AS duration_ms,
 			toUInt8(if((number + %d) %% 40 = 0, 2, 1)) AS status_code,
 			if((number + %d) %% 40 = 0, 'Internal Server Error', '') AS error_message,
 			map('http.method', 'GET', 'http.status_code', '200', 'env', 'production') AS tags,
-			addMilliseconds(toDateTime64('2026-10-19 00:00:00', 3, 'UTC'), CAST(intDiv(number + %d, 4) * 40 + ((number + %d) %% 4) * 5 AS Int64)) AS start_time
+			addMilliseconds(toDateTime64('%s', 3, 'UTC'), CAST(intDiv(number + %d, 4) * 40 + ((number + %d) %% 4) * 5 AS Int64)) AS start_time
 		FROM numbers(%d)
-	`, orgID, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, toGenerate)
+	`, orgID, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, baseTime.Format("2006-01-02 15:04:05"), currentCount, currentCount, toGenerate)
 
-	if err := chConn.Exec(ctx, seedQuery); err != nil {
+	if err := chConn.Exec(seedCtx, seedQuery); err != nil {
 		return fmt.Errorf("failed to bulk generate rows: %w", err)
 	}
 	fmt.Printf("✔ Generated and inserted %d rows in %v.\n", toGenerate, time.Since(tStart))
 
 	fmt.Println("  • Running OPTIMIZE TABLE otel_spans FINAL on 20M dataset...")
 	tOpt := time.Now()
-	if err := chConn.Exec(ctx, "OPTIMIZE TABLE otel_spans FINAL"); err != nil {
+	if err := chConn.Exec(seedCtx, "OPTIMIZE TABLE otel_spans FINAL"); err != nil {
 		fmt.Printf("⚠️ OPTIMIZE TABLE notice: %v\n", err)
 	} else {
 		fmt.Printf("✔ Consolidated parts in %v.\n", time.Since(tOpt))
 	}
 
 	var verifiedCount uint64
-	_ = chConn.QueryRow(ctx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&verifiedCount)
+	_ = chConn.QueryRow(seedCtx, "SELECT count() FROM otel_spans WHERE org_id = ?", orgID).Scan(&verifiedCount)
 	fmt.Printf("✔ Verified table row count: %d rows.\n", verifiedCount)
 
 	return nil
@@ -1112,7 +1116,10 @@ func summarizeBenchResult(name string, totalRows uint64, m []SingleQueryMeasurem
 	}
 }
 
-func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB, orgID string, totalScaleRows uint64) []QueryBenchResult {
+func runQueryBenchmarks(_ context.Context, chConn clickhousedriver.Conn, chDB, orgID string, totalScaleRows uint64, baseTime time.Time) []QueryBenchResult {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
 	fmt.Println("\n================================================================================")
 	fmt.Printf("Phase 1: Deterministic Query Latency & I/O Baseline (%d Rows Scale)\n", totalScaleRows)
 	fmt.Println("================================================================================")
@@ -1129,7 +1136,6 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 		}
 	}
 
-	baseTime := time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)
 	var results []QueryBenchResult
 
 	// 1. GetTraceWithSpans (Point Lookup)

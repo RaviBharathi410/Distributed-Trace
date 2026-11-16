@@ -321,10 +321,38 @@
   - `go test -v -run 8192Batch ./internal/api/...` -> Exited 0 (**PASS: 0.07s, 8,192 spans ingested and persisted to ClickHouse mock with strict org isolation**).
   - `go test ./...` -> Exited 0 (**All packages compile and pass cleanly**).
   - `npm run build` -> Exited 0 (`dist/` built in 710ms).
-- **Next Checkpoint's Exit Criteria (Phase 5B — Closed-Loop Remediation & Final SaaS Pricing):**
+- **Next Checkpoint's Exit Criteria (Phase 1 Baseline & Phase 2 ZSTD Compression):**
   1. Live empirical ClickHouse `system.parts` measurements (`data_compressed_bytes`, `data_uncompressed_bytes`, `compression_ratio`) on merged parts under sustained ingestion load with container CPU/RAM recording.
   2. Final SaaS pricing tiers calibrated directly from empirical disk storage and network wire numbers.
   3. Closed-loop remediation playbooks with human-in-the-loop approval gates.
+
+---
+
+## Checkpoint: 2026-11-16 — Phase 1 Complete: 20M Scale Query Baseline & Empirical Ingestion Suite Hardening
+
+- **Status:** Complete (Baseline Suite Hardened & Verified)
+- **What Was Built & Proven:**
+  1. **Full-Stack Empirical Ingestion & Storage Suite:**
+     - 1,000,000 spans ingested at 6,285 spans/s sustained throughput on shared GitHub Actions runner hardware.
+     - Single merged ClickHouse part verified (`20261116`, 235,061,614 B on disk, 236.47 B/span physical all-inclusive footprint).
+     - Column compression measured: `tags` Map(String, String) at 157,273,954 B LZ4 (3.7x compression ratio), `trace_id` String at 33,110,919 B (1.0x), `span_id` String at 17,061,770 B (1.0x), `parent_span_id` String at 17,061,527 B (1.0x).
+  2. **Production Query EXPLAIN Parity:**
+     - Derived `ExplainSearchTraces`, `ExplainGetTraceWithSpans`, and `ExplainGetServiceGraph` directly from production ClickHouse repository methods with table qualification (`otel_spans.start_time`) to eliminate parser ambiguity (Code 184).
+  3. **Hierarchical 20M Dataset Seeding with TTL Immunity:**
+     - Deterministic 4-span call trees (`service-0` -> `service-1` -> `service-2` -> `service-3`) with valid parent-child span IDs and nested durations.
+     - Anchored `start_time` dynamically to `baseTime` (today) to prevent ClickHouse's 14-day MergeTree TTL policy (`TTL toDateTime(start_time) + INTERVAL 14 DAY WHERE status_code != 2`) from purging non-error rows on `OPTIMIZE TABLE otel_spans FINAL`.
+  4. **Query Performance & Result Verification:**
+     - Verified all 4 queries record result row counts alongside deterministic `read_rows` and `read_bytes` from `system.query_log`.
+     - Labeled iterations 2–20 "warm OS page cache" following cold iteration 1 (`SYSTEM DROP MARK CACHE` + `SYSTEM DROP UNCOMPRESSED CACHE`).
+     - Added cross-service 15-minute search benchmark to isolate primary-key pruning vs partition scans.
+- **Verification Evidence:**
+  - GitHub Actions Benchmark Run 6: [Run 43839452522](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/43839452522)
+  - `origin/benchmark-results:reports/2026-11-16-run-6.md` and `reports/latest.md`
+  - Local `go test ./...` and `go build ./cmd/...` cleanly passing (Code 0).
+- **Next Checkpoint's Exit Criteria (Phase 2 — ZSTD Compression Evaluation):**
+  1. Branch `benchmark-zstd` created with `tags Map(String, String) CODEC(ZSTD(3))`.
+  2. Re-run benchmark to measure `tags` column bytes vs 157,273,954 B baseline, total B/span vs 236.47 B baseline, sustained spans/s, and ClickHouse CPU %.
+
 
 
 
