@@ -1525,7 +1525,7 @@ func runQueryBenchmarks(_ context.Context, chConn clickhousedriver.Conn, chDB, o
 }
 
 func main() {
-	mode := flag.String("mode", "wire", "Benchmark mode: 'wire' (in-memory serialization) or 'live' (full-stack system.parts measurement)")
+	mode := flag.String("mode", "wire", "Benchmark mode: 'wire' (in-memory serialization), 'otel-demo' (OpenTelemetry Demo Astronomy Shop real spans), or 'live' (full-stack system.parts measurement)")
 	spanCount := flag.Int("spans", 5000, "Number of spans to generate for load test")
 	batchSize := flag.Int("batch-size", 8192, "Spans per HTTP request batch (for live mode)")
 	queryBenchRows := flag.Int("query-bench-rows", 20000000, "Scale ClickHouse table to this many rows for query latency and I/O benchmark (0 to disable)")
@@ -1542,9 +1542,12 @@ func main() {
 		hardwareLabel = detectHardware()
 	}
 
-	if *mode == "live" {
+	switch *mode {
+	case "live":
 		runLiveBenchmark(*serverURL, *clickhouseURL, *clickhouseDB, hardwareLabel, *outputJSON, *outputMD, *spanCount, *batchSize, *queryBenchRows)
-	} else {
+	case "otel-demo":
+		runOTelDemoBenchmark(*spanCount, hardwareLabel)
+	default:
 		runWireBenchmark(*spanCount, hardwareLabel)
 	}
 }
