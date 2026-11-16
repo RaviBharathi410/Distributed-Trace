@@ -413,11 +413,45 @@
 - **Verification Evidence (Commands Run):**
   - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
   - `npm run build`: Clean with code 0 (`dist/` generated with bundled fonts in 1.43s).
-  - `go test ./internal/...`: All backend suites passing (code 0).
-- **Next Checkpoint's Exit Criteria (Phase 1 — Shared Design-System Primitives):**
-  - Implement standalone shared primitives in `src/components/common/`:
-    `Card`, `StatCard`, `SeverityBadge`, `StatusPill`, `DataTable`, `Select`, `Tabs`, `Pagination`, `Sparkline`, `DonutChart`, `Waterfall`, `BarChart`, `HorizontalBars`, `Skeleton`, `EmptyState`, `ErrorBanner`.
-  - Preview all states and variants on `/_kit`.
+  - CI Pipeline: Run #44 ([43900419882](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/43900419882)) — Frontend build & lint 100% SUCCESS.
+
+---
+
+## Checkpoint: 2026-11-16 — Frontend Phase 1: Shared Design-System Primitives & Component Kit Gallery
+- **Status:** ✅ **Frontend Phase 1 Complete — All 15 Primitives Implemented & Previewed**.
+- **What Changed Since Last Checkpoint:**
+  1. **Built All 15 Shared Design-System Components in `src/components/common/`:**
+     - `Card.tsx`: Dark panel `#10121f` with 14px radius, `rgba(255,255,255,0.07)` border, optional title, subtitle, header action, and hover elevation.
+     - `StatCard.tsx`: Metric tile with icon block, label, 28px bold value, directional delta pill (with `invertDelta` support for latency/errors), and comparison subtext.
+     - `SeverityBadge.tsx`: Exact mockup severity badges: CRITICAL (`#9b5cf6`), HIGH (`#f5b942`), MEDIUM (`#b4a7f5`), LOW (`#60a5fa`).
+     - `StatusPill.tsx`: Status pills with glowing dot for healthy (`#22c7d6`), degraded (`#f5b942`), critical (`#9b5cf6`), ok (`#34d399`), error (`#f87171`), open, investigating, resolved.
+     - `DataTable.tsx`: Accessible generic typed table `<T>` with column alignments, monospaced trace links, custom cells, skeleton loader, and empty state.
+     - `Select.tsx`: Custom dark select dropdown with chevron icon and focus rings.
+     - `Tabs.tsx`: Pill and underline navigation tabs with badge counts and active violet indicator.
+     - `Pagination.tsx`: Multi-page navigation with active page fill, start/end count indicators, and ellipsis windowing.
+     - `Sparkline.tsx`: SVG mini trend sparklines with area gradient fill.
+     - `DonutChart.tsx`: Radial SVG donut chart with center metric and color-coded legend breakdown (healthy teal, degraded amber, critical violet).
+     - `Waterfall.tsx`: Hierarchical trace timeline waterfall with indented child spans, time axis grid markers, and hot-path violet gradient highlighting.
+     - `BarChart.tsx`: Vertical violet gradient bars with hover tooltips and x-axis labels.
+     - `HorizontalBars.tsx`: Service cost/duration distribution bars with values and percentages.
+     - `Skeleton.tsx`: Pulse animation placeholders for cards, text, and rows.
+     - `EmptyState.tsx`: Dashed border fallback container with icon, title, description, and action button.
+     - `ErrorBanner.tsx`: Error alert banner with retry button callback.
+     - `index.ts`: Barrel export for all 15 components.
+  2. **Interactive Component Gallery (`src/pages/ComponentKitPage.tsx` at `/_kit`):**
+     - Full interactive preview of all 15 components, interactive tabs, select dropdown, pagination, sample data table, live waterfall, donut chart, bar chart, horizontal bars, and error/empty states.
+  3. **Backend CI Test Fix (`internal/analysis/integration_test.go`):**
+     - Root-cause fix for live ClickHouse integration test: upgraded legacy synthetic string trace IDs (`trace-anom-...`, `span-front`) to valid 32-character and 16-character hexadecimal representations (`%032x` and valid hex literals), restoring 100% compliance with Phase 3 `FixedString(16)` and `FixedString(8)` schema.
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated in 944ms).
+  - `go build ./...`: Clean with code 0.
+  - `go test ./internal/analysis/...`: Clean with code 0.
+- **Next Checkpoint's Exit Criteria (Phase 2 — Overview & Traces Screens):**
+  - Rebuild Overview screen matching mockup tile: 4 KPI cards (Total Traces, p99 Latency, Active Services, Active Anomalies), Live Trace Stream (4 rows, 5s polling, deep links to `/traces?trace=<id>`), Anomaly Feed (3 newest items, severity badge, operation, delta), Trace Waterfall (Checkout Flow with hot service), and Service Health Donut.
+  - Rebuild Traces screen matching mockup tile: search bar + filters (Service, Status, Time Range, Refresh), Left panel Traces list table (mono blue trace ID, root service, duration, spans count, status pill, pagination), Right panel Trace Detail (large mono trace ID, chips, Timeline/Spans/Attributes tabs).
+  - Render at 1440x900 and document side-by-side comparison.
+
 
 
 

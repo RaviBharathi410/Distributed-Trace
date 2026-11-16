@@ -96,7 +96,10 @@ func TestAnomalyDetector_RealClickHouse_EndToEndCausalAnalysis(t *testing.T) {
 	nanos := time.Now().UnixNano()
 	testOrgA := fmt.Sprintf("org-causal-a-%d", nanos)
 	testOrgB := fmt.Sprintf("org-causal-b-%d", nanos)
-	traceID := fmt.Sprintf("trace-anom-%d", nanos)
+	traceID := fmt.Sprintf("%032x", nanos)
+	spanFront := "1122334455667788"
+	spanCart := "2233445566778899"
+	spanDb := "33445566778899aa"
 	now := time.Now().UTC()
 
 	// 2. Pre-train baseline for Org A's web-frontend: 70ms normal duration
@@ -110,7 +113,7 @@ func TestAnomalyDetector_RealClickHouse_EndToEndCausalAnalysis(t *testing.T) {
 		{
 			OrgID:         testOrgA,
 			TraceID:       traceID,
-			SpanID:        "span-front",
+			SpanID:        spanFront,
 			ParentSpanID:  "",
 			ServiceName:   "web-frontend",
 			OperationName: "GET /checkout",
@@ -121,8 +124,8 @@ func TestAnomalyDetector_RealClickHouse_EndToEndCausalAnalysis(t *testing.T) {
 		{
 			OrgID:         testOrgA,
 			TraceID:       traceID,
-			SpanID:        "span-cart",
-			ParentSpanID:  "span-front",
+			SpanID:        spanCart,
+			ParentSpanID:  spanFront,
 			ServiceName:   "cart-service",
 			OperationName: "CalculateTotals",
 			DurationMs:    1820,
@@ -132,8 +135,8 @@ func TestAnomalyDetector_RealClickHouse_EndToEndCausalAnalysis(t *testing.T) {
 		{
 			OrgID:         testOrgA,
 			TraceID:       traceID,
-			SpanID:        "span-db",
-			ParentSpanID:  "span-cart",
+			SpanID:        spanDb,
+			ParentSpanID:  spanCart,
 			ServiceName:   "pricing-db",
 			OperationName: "SELECT prices_bulk",
 			DurationMs:    1800,
