@@ -457,3 +457,50 @@
 
 
 
+
+---
+
+## Checkpoint: 2026-11-16 — Frontend Phase 2: Overview & Traces Tabs Rebuild
+- **Status:** ✅ **Frontend Phase 2 Complete — All Mockup Components & Reactive Two-Pane Wired**.
+- **What Changed Since Last Checkpoint:**
+  1. **Overview Screen (`src/pages/OverviewPage.tsx`):**
+     - Header block with "System Observability", subtitle, and decorative violet wave line (`aria-hidden="true"`).
+     - Full-width `GlobalSearch` with `Ctrl+K` keyboard shortcut and hex trace ID routing.
+     - 4 KPI metric cards (`StatCard`):
+       - **Total Traces**: `12,438` with `+14.2%` green positive delta.
+       - **p99 Latency**: `67 ms` with `-12.4%` green downward delta (`invertDelta: true`, lower latency is better).
+       - **Active Services**: `7` active microservices.
+       - **Active Anomalies**: `3` open anomalies.
+     - **Row 2 (2/3 + 1/3 Split):**
+       - **Live Trace Stream**: 4 rows with 5s auto-polling, hover pause indicator, Trace ID (mono blue link), Root Service, Operation, relative Duration progress bar, and StatusPill. Clicking any row deep-links to `/traces?trace=<id>`.
+       - **Anomaly Feed**: 3 newest open anomalies with SeverityBadge (CRITICAL, HIGH, MEDIUM), service name, operation, latency delta badge (`p95 +340%`), and direct navigation to `/anomalies?selected=<id>`.
+     - **Row 3 (2/3 + 1/3 Split):**
+       - **Trace Waterfall (Live Example)**: Mini-waterfall showing Checkout Flow across 5 spans (`frontend`, `payment-svc` [highlighted `--bar-hot`], `inventory-svc`, `notification-svc`, `database-svc`), timeline grid markers, and critical bottleneck latency breakdown.
+       - **Service Health**: Radial DonutChart with 5 Healthy (teal `#22c7d6`), 1 Degraded (amber `#f5b942`), 1 Unhealthy (violet `#9b5cf6`), center counter (`7`), and legend.
+  2. **Traces Screen (`src/components/dashboard/TracesTab.tsx`):**
+     - Filter & Control Bar: Service dropdown (`Select`), Status dropdown (`Select`), Time Range pills (`15m`, `1h`, `24h`), search query input, spinning Refresh button, and test span ingestion trigger.
+     - **Two-Pane Main Layout:**
+       - **Left Pane (~55%)**: DataTable of traces with mono blue trace IDs (`#4d8dff`), Root Service, Operation, relative Duration progress bar, Spans count, Status pill, relative timestamp (`Xm ago`), and Pagination. Synchronized bidirectionally with URL query parameters (`?trace=<id>`).
+       - **Right Pane (~45%)**: Trace Detail view:
+         - Unselected state: Accessible `EmptyState` prompting trace selection.
+         - Header card: Monospaced Trace ID with 1-click Copy button, Service pill, Total Duration, Spans count, and Status pill.
+         - Interactive Waterfall: Span timeline hierarchy indented by depth, status-coded duration bars, with click-to-select for the inspector.
+         - 3-Tab Inspector (`Tabs` with `variant="underline"`):
+           - `Spans`: List view of all individual spans with timing and status.
+           - `Tags & Attributes`: Key-value table of the selected span's metadata.
+           - `Raw JSON`: Syntax-formatted code block with 1-click Copy JSON button.
+  3. **High-Fidelity Fixtures (`src/lib/fixtures.ts`):**
+     - Structured realistic mock data matching the source of truth tiles for demo mode and empty-database states, ensuring zero broken or unstyled states while preserving live TanStack Query hooks.
+  4. **Headless Chrome 1440x900 Verification:**
+     - Captured and validated 1440x900 screenshots:
+       - `docs/screenshots/overview.png` (129 KB)
+       - `docs/screenshots/traces.png` (56 KB)
+       - `docs/screenshots/traces-selected.png` (98 KB)
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated in 888ms).
+  - `go test ./...`: Clean with code 0 across all packages.
+  - CI Pipeline: Run #48 ([43911596177](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/43911596177)) — Backend (Go 1.22), Frontend (Node 20 / Vite), and E2E Smoke ALL GREEN.
+- **Next Checkpoint's Exit Criteria (Phase 3 — Service Map & Anomalies Screens):**
+  - Rebuild Service Map (`/service-map`): Interactive D3/SVG topology graph, dotted background, curved edges with moving particles, service node cards with p99/health/active anomalies, edge labels (RPS, error rate, p95).
+  - Rebuild Anomalies (`/anomalies`): Top KPI stats cards, severity filtering tabs, anomaly list table, and slide-over / side inspection drawer with 3-state deterministic/AI explanation.
