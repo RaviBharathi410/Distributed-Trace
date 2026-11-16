@@ -70,6 +70,12 @@ jobs:
             echo '```text' >> $GITHUB_STEP_SUMMARY
             tail -n 60 test_output.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -E 'FAIL:|--- FAIL:|panic:|WARNING: DATA RACE' test_output.log | while IFS= read -r line; do
+              echo "::error title=Go Test Failure::$line"
+            done
+            tail -n 30 test_output.log | while IFS= read -r line; do
+              echo "::error title=Log Tail::$line"
+            done
             exit $status
           }
         env:
