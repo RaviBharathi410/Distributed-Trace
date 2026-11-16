@@ -57,53 +57,51 @@ func (r *TraceRepository) InsertSpansBatch(ctx context.Context, spans []domain.S
 	return nil
 }
 
-func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filters domain.TraceFilter) ([]domain.TraceRow, error) {
-	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "SearchTraces")
-	defer timer.ObserveDuration()
-
+// BuildSearchTracesQuery constructs the production SQL query and arguments for SearchTraces.
+func (r *TraceRepository) BuildSearchTracesQuery(orgID string, filters domain.TraceFilter, reqID string) (string, []interface{}) {
 	var queryParts []string
 	var args []interface{}
 
-	// Query comments for Request ID propagation
-	reqID := observability.GetRequestID(ctx)
 	comment := ""
 	if reqID != "" {
 		comment = "/* request_id=" + reqID + " */"
 	}
 
 	// Filter by Org ID for strict tenant isolation
-	queryParts = append(queryParts, "org_id = ?")
+	queryParts = append(queryParts, "otel_spans.org_id = ?")
 	args = append(args, orgID)
 
 	if filters.Service != "" && filters.Service != "all" {
-		queryParts = append(queryParts, "service_name = ?")
+		queryParts = append(queryParts, "otel_spans.service_name = ?")
 		args = append(args, filters.Service)
 	}
 
 	if !filters.From.IsZero() {
-		queryParts = append(queryParts, "start_time >= ?")
+		queryParts = append(queryParts, "otel_spans.start_time >= ?")
 		args = append(args, filters.From)
 	}
 
 	if !filters.To.IsZero() {
-		queryParts = append(queryParts, "start_time <= ?")
+		queryParts = append(queryParts, "otel_spans.start_time <= ?")
 		args = append(args, filters.To)
 	}
 
 	if filters.MinDurationMs > 0 {
-		queryParts = append(queryParts, "duration_ms >= ?")
+		queryParts = append(queryParts, "otel_spans.duration_ms >= ?")
 		args = append(args, uint32(filters.MinDurationMs))
 	}
 
 	if filters.MaxDurationMs > 0 {
-		queryParts = append(queryParts, "duration_ms <= ?")
+		queryParts = append(queryParts, "otel_spans.duration_ms <= ?")
 		args = append(args, uint32(filters.MaxDurationMs))
 	}
 
 	if filters.Status == "error" {
-		queryParts = append(queryParts, "status_code = 2")
+		queryParts = append(queryParts, "otel_spans.status_code = ?")
+		args = append(args, uint8(2))
 	} else if filters.Status == "success" {
-		queryParts = append(queryParts, "status_code = 1")
+		queryParts = append(queryParts, "otel_spans.status_code = ?")
+		args = append(args, uint8(1))
 	}
 
 	whereClause := strings.Join(queryParts, " AND ")
@@ -116,11 +114,11 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 			max(duration_ms) as duration_ms,
 			count() as span_count,
 			sum(status_code = 2) as error_count,
-			min(start_time) as start_time
+			min(start_time) as min_start_time
 		FROM otel_spans
 		WHERE %s
 		GROUP BY trace_id
-		ORDER BY start_time DESC
+		ORDER BY min_start_time DESC
 		LIMIT ? OFFSET ? %s`, whereClause, comment)
 
 	limit := filters.Limit
@@ -128,6 +126,22 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 		limit = 50
 	}
 	args = append(args, limit, filters.Offset)
+
+	return sql, args
+}
+
+// ExplainSearchTraces derives the EXPLAIN plan directly from the production query path.
+func (r *TraceRepository) ExplainSearchTraces(ctx context.Context, orgID string, filters domain.TraceFilter) (string, error) {
+	sql, args := r.BuildSearchTracesQuery(orgID, filters, "")
+	return explainQuery(ctx, r.conn, sql, args)
+}
+
+func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filters domain.TraceFilter) ([]domain.TraceRow, error) {
+	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "SearchTraces")
+	defer timer.ObserveDuration()
+
+	reqID := observability.GetRequestID(ctx)
+	sql, args := r.BuildSearchTracesQuery(orgID, filters, reqID)
 
 	rows, err := r.conn.Query(ctx, sql, args...)
 	if err != nil {
@@ -162,11 +176,8 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 	return traces, nil
 }
 
-func (r *TraceRepository) GetTraceWithSpans(ctx context.Context, orgID string, traceID string) (*domain.TraceDetail, error) {
-	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "GetTraceWithSpans")
-	defer timer.ObserveDuration()
-
-	reqID := observability.GetRequestID(ctx)
+// BuildGetTraceWithSpansQuery constructs the production SQL query and arguments for GetTraceWithSpans.
+func (r *TraceRepository) BuildGetTraceWithSpansQuery(orgID, traceID, reqID string) (string, []interface{}) {
 	comment := ""
 	if reqID != "" {
 		comment = "/* request_id=" + reqID + " */"
@@ -187,7 +198,23 @@ func (r *TraceRepository) GetTraceWithSpans(ctx context.Context, orgID string, t
 		FROM otel_spans
 		WHERE org_id = ? AND trace_id = ? %s`, comment)
 
-	rows, err := r.conn.Query(ctx, sql, orgID, traceID)
+	return sql, []interface{}{orgID, traceID}
+}
+
+// ExplainGetTraceWithSpans derives the EXPLAIN plan directly from the production query path.
+func (r *TraceRepository) ExplainGetTraceWithSpans(ctx context.Context, orgID, traceID string) (string, error) {
+	sql, args := r.BuildGetTraceWithSpansQuery(orgID, traceID, "")
+	return explainQuery(ctx, r.conn, sql, args)
+}
+
+func (r *TraceRepository) GetTraceWithSpans(ctx context.Context, orgID string, traceID string) (*domain.TraceDetail, error) {
+	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "GetTraceWithSpans")
+	defer timer.ObserveDuration()
+
+	reqID := observability.GetRequestID(ctx)
+	sql, args := r.BuildGetTraceWithSpansQuery(orgID, traceID, reqID)
+
+	rows, err := r.conn.Query(ctx, sql, args...)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "GetTraceWithSpans").Inc()
 		return nil, fmt.Errorf("failed to get trace with spans: %w", err)

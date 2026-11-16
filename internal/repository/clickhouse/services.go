@@ -89,17 +89,13 @@ func (r *ServiceRepository) GetServiceStats(ctx context.Context, orgID string, s
 	return &stats, nil
 }
 
-func (r *ServiceRepository) GetServiceGraph(ctx context.Context, orgID string, from, to time.Time) (*domain.ServiceGraph, error) {
-	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "GetServiceGraph")
-	defer timer.ObserveDuration()
-
-	reqID := observability.GetRequestID(ctx)
+// BuildGetServiceGraphQuery constructs the production SQL query and arguments for GetServiceGraph edges.
+func (r *ServiceRepository) BuildGetServiceGraphQuery(orgID string, from, to time.Time, reqID string) (string, []interface{}) {
 	comment := ""
 	if reqID != "" {
 		comment = "/* request_id=" + reqID + " */"
 	}
 
-	// 1. Build edges by matching parent_span_id with span_id of other services within the same org
 	edgesSQL := fmt.Sprintf(`
 		SELECT 
 			p.service_name as source,
@@ -113,7 +109,28 @@ func (r *ServiceRepository) GetServiceGraph(ctx context.Context, orgID string, f
 		GROUP BY source, target
 		%s`, comment)
 
-	rows, err := r.conn.Query(ctx, edgesSQL, to, from, orgID, from, to)
+	return edgesSQL, []interface{}{to, from, orgID, from, to}
+}
+
+// ExplainGetServiceGraph derives the EXPLAIN plan directly from the production query path.
+func (r *ServiceRepository) ExplainGetServiceGraph(ctx context.Context, orgID string, from, to time.Time) (string, error) {
+	sql, args := r.BuildGetServiceGraphQuery(orgID, from, to, "")
+	return explainQuery(ctx, r.conn, sql, args)
+}
+
+func (r *ServiceRepository) GetServiceGraph(ctx context.Context, orgID string, from, to time.Time) (*domain.ServiceGraph, error) {
+	timer := observability.DbQueryDuration.WithLabelValues("clickhouse", "GetServiceGraph")
+	defer timer.ObserveDuration()
+
+	reqID := observability.GetRequestID(ctx)
+	comment := ""
+	if reqID != "" {
+		comment = "/* request_id=" + reqID + " */"
+	}
+
+	edgesSQL, args := r.BuildGetServiceGraphQuery(orgID, from, to, reqID)
+
+	rows, err := r.conn.Query(ctx, edgesSQL, args...)
 	if err != nil {
 		observability.DbErrorsTotal.WithLabelValues("clickhouse", "GetServiceGraphEdges").Inc()
 		return nil, fmt.Errorf("failed to query service graph edges: %w", err)

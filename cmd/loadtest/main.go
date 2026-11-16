@@ -266,22 +266,25 @@ type SingleQueryMeasurement struct {
 	DurationMs  uint64 `json:"duration_ms"`
 	ReadRows    uint64 `json:"read_rows"`
 	ReadBytes   uint64 `json:"read_bytes"`
+	ResultRows  uint64 `json:"result_rows"`
 	MemoryUsage uint64 `json:"memory_usage"`
 }
 
 type QueryBenchResult struct {
-	QueryName         string                   `json:"query_name"`
-	TargetScaleRows   uint64                   `json:"target_scale_rows"`
-	FirstRunDuration  uint64                   `json:"first_run_duration_ms"`
-	FirstRunReadRows  uint64                   `json:"first_run_read_rows"`
-	FirstRunReadBytes uint64                   `json:"first_run_read_bytes"`
-	P50Duration       float64                  `json:"p50_duration_ms"`
-	P95Duration       float64                  `json:"p95_duration_ms"`
-	AvgReadRows       float64                  `json:"avg_read_rows"`
-	AvgReadBytes      float64                  `json:"avg_read_bytes"`
-	StatusNote        string                   `json:"status_note"`
-	Measurements      []SingleQueryMeasurement `json:"measurements"`
-	ExplainPlan       string                   `json:"explain_plan"`
+	QueryName          string                   `json:"query_name"`
+	TargetScaleRows    uint64                   `json:"target_scale_rows"`
+	FirstRunDuration   uint64                   `json:"first_run_duration_ms"`
+	FirstRunReadRows   uint64                   `json:"first_run_read_rows"`
+	FirstRunReadBytes  uint64                   `json:"first_run_read_bytes"`
+	FirstRunResultRows uint64                   `json:"first_run_result_rows"`
+	P50Duration        float64                  `json:"p50_duration_ms"`
+	P95Duration        float64                  `json:"p95_duration_ms"`
+	AvgReadRows        float64                  `json:"avg_read_rows"`
+	AvgReadBytes       float64                  `json:"avg_read_bytes"`
+	AvgResultRows      float64                  `json:"avg_result_rows"`
+	StatusNote         string                   `json:"status_note"`
+	Measurements       []SingleQueryMeasurement `json:"measurements"`
+	ExplainPlan        string                   `json:"explain_plan"`
 }
 
 type BenchmarkReportPayload struct {
@@ -866,12 +869,15 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		}
 
 		md.WriteString("\n## 5. Empirical SaaS Cost-Per-Million-Spans Economics\n\n")
-		md.WriteString(fmt.Sprintf("- **All-Inclusive Disk Footprint per Span:** `%.2f bytes` (columns + skipping indices + marks)\n", payload.AllInclusiveDiskPerSpan))
+		md.WriteString(fmt.Sprintf("- **Physical Disk Footprint per Span:** `%.2f bytes` (columns + skipping indices + marks)\n", payload.AllInclusiveDiskPerSpan))
 		md.WriteString(fmt.Sprintf("- **Physical Disk Footprint per 1M Spans:** `%.3f GB`\n", payload.DiskFootprintGBPerM))
-		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS EBS gp3):** `$%.4f / million spans` ($0.08/GB-mo)\n", payload.EBSMonthlyCostPerM))
-		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS S3 Tiered):** `$%.4f / million spans` ($0.023/GB-mo)\n", payload.S3MonthlyCostPerM))
-		md.WriteString(fmt.Sprintf("- **Cross-AZ Network Wire Ingress:** `$%.5f / million spans` (%.3f GB wire payload)\n", payload.WireCrossAZCostPerM, (float64(totalWireBytes) / float64(totalIngestedSpans) * 1_000_000.0) / (1024 * 1024 * 1024)))
-		md.WriteString(fmt.Sprintf("- **Direct Measured Unit Cost:** `~$%.5f / million spans` (Direct Storage + Wire)\n\n", payload.RealTotalIngestCostPerM))
+		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS EBS gp3):** `$%.4f / million spans / month` ($0.08/GB-mo)\n", payload.EBSMonthlyCostPerM))
+		md.WriteString(fmt.Sprintf("- **Monthly Storage Cost (AWS S3 Tiered):** `$%.4f / million spans / month` ($0.023/GB-mo)\n", payload.S3MonthlyCostPerM))
+		md.WriteString(fmt.Sprintf("- **One-Time Network Wire Ingress:** `$%.5f / million spans` (%.3f GB wire payload at $0.01/GB)\n", payload.WireCrossAZCostPerM, (float64(totalWireBytes)/float64(totalIngestedSpans)*1_000_000.0)/(1024*1024*1024)))
+		md.WriteString(fmt.Sprintf("- **Initial Month Combined Unit Cost (EBS + Ingress):** `~$%.5f / million spans`\n", payload.EBSMonthlyCostPerM+payload.WireCrossAZCostPerM))
+		md.WriteString(fmt.Sprintf("- **Initial Month Combined Unit Cost (S3 Tiered + Ingress):** `~$%.5f / million spans`\n\n", payload.S3MonthlyCostPerM+payload.WireCrossAZCostPerM))
+		md.WriteString("> [!NOTE]\n")
+		md.WriteString("> Recurring monthly physical storage fees and one-time cross-AZ network wire ingress costs are distinct economic line items and are accounted for separately above.\n\n")
 
 		md.WriteString("> [!IMPORTANT]\n")
 		md.WriteString("> **Hardware Disclaimer & Pricing Guardrail:** Results are indicative of GitHub runner hardware (shared 2-4 vCPU box). Final SaaS pricing tiers are strictly held pending dedicated cloud VM production sizing.\n")
@@ -879,19 +885,20 @@ func runLiveBenchmark(serverURL, chURL, chDB, hardwareLabel, outputJSON, outputM
 		if len(payload.QueryBenchmarks) > 0 {
 			md.WriteString(fmt.Sprintf("\n## 6. Baseline Query Latency & Deterministic I/O (%d Rows Scale)\n\n", queryBenchRows))
 			md.WriteString("### 6.1 Query Performance & Deterministic I/O Summary (20 Iterations)\n\n")
-			md.WriteString("| Query Operation | Scale | First Run (Cache Dropped) | P50 Latency | P95 Latency | Cold Read Rows | Avg Read Rows | Cold Read Bytes | Avg Read Bytes | Status / Analysis |\n")
-			md.WriteString("|---|---|---|---|---|---|---|---|---|---|\n")
+			md.WriteString("| Query Operation | Scale | First Run (Cache Dropped) | P50 Latency | P95 Latency | Cold Read Rows | Avg Read Rows | Cold Read Bytes | Avg Read Bytes | Result Rows | Status / Analysis |\n")
+			md.WriteString("|---|---|---|---|---|---|---|---|---|---|---|\n")
 			for _, qb := range payload.QueryBenchmarks {
-				md.WriteString(fmt.Sprintf("| `%s` | %dM rows | **%d ms** | **%.1f ms** | **%.1f ms** | %d | %.0f | %d B | %.0f B | %s |\n",
+				md.WriteString(fmt.Sprintf("| `%s` | %dM rows | **%d ms** | **%.1f ms** | **%.1f ms** | %d | %.0f | %d B | %.0f B | %d (avg %.1f) | %s |\n",
 					qb.QueryName, qb.TargetScaleRows/1_000_000,
 					qb.FirstRunDuration, qb.P50Duration, qb.P95Duration,
 					qb.FirstRunReadRows, qb.AvgReadRows,
 					qb.FirstRunReadBytes, qb.AvgReadBytes,
+					qb.FirstRunResultRows, qb.AvgResultRows,
 					qb.StatusNote))
 			}
 			md.WriteString("\n> [!NOTE]\n")
 			md.WriteString("> **Deterministic Metrics:** `read_rows` and `read_bytes` are recorded directly from ClickHouse `system.query_log` after `SYSTEM FLUSH LOGS`. Wall-clock latency on shared 2–4 vCPU GitHub Actions runners exhibits jitter, whereas read rows and read bytes are deterministic proof of part pruning and index skipping.\n")
-			md.WriteString("> **Cold Cache Protocol:** `SYSTEM DROP MARK CACHE` and `SYSTEM DROP UNCOMPRESSED CACHE` were executed immediately prior to iteration 1 (\"first run, cache dropped\"). On every subsequent iteration, target `trace_id`, `service_name`, and timestamp windows were dynamically varied across the 20M dataset to prevent reading cached blocks.\n\n")
+			md.WriteString("> **Cold Cache Protocol & Warm OS Cache:** `SYSTEM DROP MARK CACHE` and `SYSTEM DROP UNCOMPRESSED CACHE` were executed immediately prior to iteration 1 (\"first run, cache dropped\"). Iterations 2–20 operate with warm OS page cache and dynamically rotating parameters across the 20M dataset.\n\n")
 
 			md.WriteString("### 6.2 Query Execution Plans (EXPLAIN)\n\n")
 			for _, qb := range payload.QueryBenchmarks {
@@ -935,18 +942,18 @@ func seedBulkQueryDataset(ctx context.Context, chConn clickhousedriver.Conn, org
 		)
 		SELECT
 			'%s' AS org_id,
-			lower(hex(MD5(concat(toString(intDiv(number + %d, 4)), '-trace')))) AS trace_id,
-			lower(hex(substr(MD5(concat(toString(number + %d), '-span')), 1, 8))) AS span_id,
-			if((number + %d) %% 4 = 0, '', lower(hex(substr(MD5(concat(toString(number + %d - 1), '-span')), 1, 8)))) AS parent_span_id,
-			concat('service-', toString((number + %d) %% 10)) AS service_name,
-			concat('op-', toString((number + %d) %% 20)) AS operation_name,
-			toUInt32(10 + ((number + %d) %% 500)) AS duration_ms,
-			toUInt8(if((number + %d) %% 25 = 0, 2, 1)) AS status_code,
-			if((number + %d) %% 25 = 0, 'Internal Server Error', '') AS error_message,
+			lower(hex(MD5(concat('trace-', toString(intDiv(number + %d, 4)))))) AS trace_id,
+			lower(hex(substr(MD5(concat('span-', toString(number + %d))), 1, 8))) AS span_id,
+			if((number + %d) %% 4 = 0, '', lower(hex(substr(MD5(concat('span-', toString(number + %d - 1))), 1, 8)))) AS parent_span_id,
+			concat('service-', toString((number + %d) %% 4)) AS service_name,
+			concat('op-', toString((number + %d) %% 4)) AS operation_name,
+			toUInt32(if((number + %d) %% 4 = 0, 250, if((number + %d) %% 4 = 1, 180, if((number + %d) %% 4 = 2, 120, 60)))) AS duration_ms,
+			toUInt8(if((number + %d) %% 40 = 0, 2, 1)) AS status_code,
+			if((number + %d) %% 40 = 0, 'Internal Server Error', '') AS error_message,
 			map('http.method', 'GET', 'http.status_code', '200', 'env', 'production') AS tags,
-			addMilliseconds(toDateTime64('2026-10-19 00:00:00', 3, 'UTC'), CAST((number + %d) AS Int64)) AS start_time
+			addMilliseconds(toDateTime64('2026-10-19 00:00:00', 3, 'UTC'), CAST(intDiv(number + %d, 4) * 40 + ((number + %d) %% 4) * 5 AS Int64)) AS start_time
 		FROM numbers(%d)
-	`, orgID, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, toGenerate)
+	`, orgID, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, currentCount, toGenerate)
 
 	if err := chConn.Exec(ctx, seedQuery); err != nil {
 		return fmt.Errorf("failed to bulk generate rows: %w", err)
@@ -969,7 +976,14 @@ func seedBulkQueryDataset(ctx context.Context, chConn clickhousedriver.Conn, org
 }
 
 func sampleTraceIDs(ctx context.Context, chConn clickhousedriver.Conn, orgID string, count int) ([]string, error) {
-	query := fmt.Sprintf("SELECT DISTINCT trace_id FROM otel_spans WHERE org_id = '%s' AND length(trace_id) = 32 LIMIT %d", orgID, count)
+	query := fmt.Sprintf(`
+		SELECT trace_id 
+		FROM otel_spans 
+		WHERE org_id = '%s'
+		GROUP BY trace_id 
+		HAVING count() >= 4 
+		LIMIT %d
+	`, orgID, count)
 	rows, err := chConn.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -981,6 +995,22 @@ func sampleTraceIDs(ctx context.Context, chConn clickhousedriver.Conn, orgID str
 		var id string
 		if err := rows.Scan(&id); err == nil && id != "" {
 			traceIDs = append(traceIDs, id)
+		}
+	}
+	if len(traceIDs) < count {
+		qFallback := fmt.Sprintf("SELECT DISTINCT trace_id FROM otel_spans WHERE org_id = '%s' LIMIT %d", orgID, count)
+		fRows, err := chConn.Query(ctx, qFallback)
+		if err == nil {
+			defer fRows.Close()
+			for fRows.Next() {
+				var id string
+				if err := fRows.Scan(&id); err == nil && id != "" {
+					traceIDs = append(traceIDs, id)
+					if len(traceIDs) >= count {
+						break
+					}
+				}
+			}
 		}
 	}
 	return traceIDs, nil
@@ -1016,28 +1046,6 @@ func getQueryMetrics(ctx context.Context, chConn clickhousedriver.Conn, chDB, re
 	return 0, 0, 0, 0, fmt.Errorf("metrics not found in system.query_log for %s", reqID)
 }
 
-func getExplainPlan(ctx context.Context, chConn clickhousedriver.Conn, sqlQuery string) string {
-	explainQuery := "EXPLAIN indexes = 1 " + sqlQuery
-	rows, err := chConn.Query(ctx, explainQuery)
-	if err != nil {
-		explainQuery = "EXPLAIN " + sqlQuery
-		rows, err = chConn.Query(ctx, explainQuery)
-		if err != nil {
-			return fmt.Sprintf("EXPLAIN failed: %v", err)
-		}
-	}
-	defer rows.Close()
-
-	var lines []string
-	for rows.Next() {
-		var line string
-		if err := rows.Scan(&line); err == nil {
-			lines = append(lines, line)
-		}
-	}
-	return strings.Join(lines, "\n")
-}
-
 func computePercentiles(vals []uint64) (float64, float64) {
 	if len(vals) == 0 {
 		return 0, 0
@@ -1065,37 +1073,42 @@ func summarizeBenchResult(name string, totalRows uint64, m []SingleQueryMeasurem
 
 	firstRun := m[0]
 	var durations []uint64
-	var sumRows, sumBytes uint64
+	var sumRows, sumBytes, sumResultRows uint64
 
 	for i := 1; i < len(m); i++ {
 		durations = append(durations, m[i].DurationMs)
 		sumRows += m[i].ReadRows
 		sumBytes += m[i].ReadBytes
+		sumResultRows += m[i].ResultRows
 	}
 
 	if len(durations) == 0 {
 		durations = append(durations, firstRun.DurationMs)
 		sumRows = firstRun.ReadRows
 		sumBytes = firstRun.ReadBytes
+		sumResultRows = firstRun.ResultRows
 	}
 
 	p50, p95 := computePercentiles(durations)
 	avgRows := float64(sumRows) / float64(len(durations))
 	avgBytes := float64(sumBytes) / float64(len(durations))
+	avgResultRows := float64(sumResultRows) / float64(len(durations))
 
 	return QueryBenchResult{
-		QueryName:         name,
-		TargetScaleRows:   totalRows,
-		FirstRunDuration:  firstRun.DurationMs,
-		FirstRunReadRows:  firstRun.ReadRows,
-		FirstRunReadBytes: firstRun.ReadBytes,
-		P50Duration:       p50,
-		P95Duration:       p95,
-		AvgReadRows:       avgRows,
-		AvgReadBytes:      avgBytes,
-		StatusNote:        statusNote,
-		Measurements:      m,
-		ExplainPlan:       explain,
+		QueryName:          name,
+		TargetScaleRows:    totalRows,
+		FirstRunDuration:   firstRun.DurationMs,
+		FirstRunReadRows:   firstRun.ReadRows,
+		FirstRunReadBytes:  firstRun.ReadBytes,
+		FirstRunResultRows: firstRun.ResultRows,
+		P50Duration:        p50,
+		P95Duration:        p95,
+		AvgReadRows:        avgRows,
+		AvgReadBytes:       avgBytes,
+		AvgResultRows:      avgResultRows,
+		StatusNote:         statusNote,
+		Measurements:       m,
+		ExplainPlan:        explain,
 	}
 }
 
@@ -1120,10 +1133,10 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 	var results []QueryBenchResult
 
 	// 1. GetTraceWithSpans (Point Lookup)
-	fmt.Println("\n[Benchmark 1/3] Benchmarking GetTraceWithSpans (20 iterations, rotating trace IDs)...")
+	fmt.Println("\n[Benchmark 1/4] Benchmarking GetTraceWithSpans (20 iterations, rotating trace IDs)...")
 	var traceMeasurements []SingleQueryMeasurement
 	for i := 1; i <= 20; i++ {
-		label := fmt.Sprintf("iteration %d", i)
+		label := fmt.Sprintf("iteration %d (warm OS page cache)", i)
 		if i == 1 {
 			_ = chConn.Exec(ctx, "SYSTEM DROP MARK CACHE")
 			_ = chConn.Exec(ctx, "SYSTEM DROP UNCOMPRESSED CACHE")
@@ -1135,10 +1148,13 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 		targetTraceID := traceIDs[i-1]
 
 		tStart := time.Now()
-		_, err := traceRepo.GetTraceWithSpans(qCtx, orgID, targetTraceID)
+		detail, err := traceRepo.GetTraceWithSpans(qCtx, orgID, targetTraceID)
 		wallMs := uint64(time.Since(tStart).Milliseconds())
+		resultRows := uint64(0)
 		if err != nil {
 			fmt.Printf("  ⚠️ Iteration %d error: %v\n", i, err)
+		} else if detail != nil {
+			resultRows = uint64(len(detail.Spans))
 		}
 
 		durationMs, readRows, readBytes, memUsage, qErr := getQueryMetrics(ctx, chConn, chDB, reqID)
@@ -1152,18 +1168,20 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 			DurationMs:  durationMs,
 			ReadRows:    readRows,
 			ReadBytes:   readBytes,
+			ResultRows:  resultRows,
 			MemoryUsage: memUsage,
 		})
 
 		if i == 1 || i%5 == 0 {
-			fmt.Printf("  • %-26s: %3d ms | read_rows: %8d | read_bytes: %8d B\n",
-				label, durationMs, readRows, readBytes)
+			fmt.Printf("  • %-34s: %3d ms | read_rows: %8d | read_bytes: %8d B | results: %2d\n",
+				label, durationMs, readRows, readBytes, resultRows)
 		}
 	}
 
-	explainTrace := getExplainPlan(ctx, chConn, fmt.Sprintf(
-		"SELECT trace_id, span_id, parent_span_id, service_name, operation_name, duration_ms, status_code, error_message, tags, start_time FROM otel_spans WHERE org_id = '%s' AND trace_id = '%s'",
-		orgID, traceIDs[0]))
+	explainTrace, err := traceRepo.ExplainGetTraceWithSpans(ctx, orgID, traceIDs[0])
+	if err != nil {
+		explainTrace = fmt.Sprintf("EXPLAIN failed: %v", err)
+	}
 
 	results = append(results, summarizeBenchResult(
 		"GetTraceWithSpans (Point Lookup)",
@@ -1173,11 +1191,11 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 		"⚠️ Scans full partition (no bloom filter index on trace_id yet)",
 	))
 
-	// 2. SearchTraces (Primary Key Filter & Group By)
-	fmt.Println("\n[Benchmark 2/3] Benchmarking SearchTraces (20 iterations, rotating service & time windows)...")
+	// 2. SearchTraces (Primary Key Filter & Group By - Single Service)
+	fmt.Println("\n[Benchmark 2/4] Benchmarking SearchTraces (Single Service, 20 iterations, rotating service & time windows)...")
 	var searchMeasurements []SingleQueryMeasurement
 	for i := 1; i <= 20; i++ {
-		label := fmt.Sprintf("iteration %d", i)
+		label := fmt.Sprintf("iteration %d (warm OS page cache)", i)
 		if i == 1 {
 			_ = chConn.Exec(ctx, "SYSTEM DROP MARK CACHE")
 			_ = chConn.Exec(ctx, "SYSTEM DROP UNCOMPRESSED CACHE")
@@ -1187,7 +1205,7 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 		reqID := fmt.Sprintf("bench-search-%d-%d", i, time.Now().UnixNano())
 		qCtx := observability.WithRequestID(ctx, reqID)
 
-		svcName := fmt.Sprintf("service-%d", (i-1)%10)
+		svcName := fmt.Sprintf("service-%d", (i-1)%4)
 		from := baseTime.Add(time.Duration((i-1)*15) * time.Minute)
 		to := from.Add(10 * time.Minute)
 
@@ -1199,10 +1217,13 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 		}
 
 		tStart := time.Now()
-		_, err := traceRepo.SearchTraces(qCtx, orgID, filters)
+		traces, err := traceRepo.SearchTraces(qCtx, orgID, filters)
 		wallMs := uint64(time.Since(tStart).Milliseconds())
+		resultRows := uint64(0)
 		if err != nil {
 			fmt.Printf("  ⚠️ Iteration %d error: %v\n", i, err)
+		} else {
+			resultRows = uint64(len(traces))
 		}
 
 		durationMs, readRows, readBytes, memUsage, qErr := getQueryMetrics(ctx, chConn, chDB, reqID)
@@ -1216,32 +1237,112 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 			DurationMs:  durationMs,
 			ReadRows:    readRows,
 			ReadBytes:   readBytes,
+			ResultRows:  resultRows,
 			MemoryUsage: memUsage,
 		})
 
 		if i == 1 || i%5 == 0 {
-			fmt.Printf("  • %-26s: %3d ms | read_rows: %8d | read_bytes: %8d B\n",
-				label, durationMs, readRows, readBytes)
+			fmt.Printf("  • %-34s: %3d ms | read_rows: %8d | read_bytes: %8d B | results: %2d\n",
+				label, durationMs, readRows, readBytes, resultRows)
 		}
 	}
 
-	explainSearch := getExplainPlan(ctx, chConn, fmt.Sprintf(
-		"SELECT trace_id, any(service_name) as root_service, any(operation_name) as root_operation, max(duration_ms) as duration_ms, count() as span_count, sum(status_code = 2) as error_count, min(start_time) as start_time FROM otel_spans WHERE org_id = '%s' AND service_name = 'service-0' AND start_time >= '2026-10-19 00:00:00' AND start_time <= '2026-10-19 00:10:00' GROUP BY trace_id ORDER BY start_time DESC LIMIT 50",
-		orgID))
+	explainSearch, err := traceRepo.ExplainSearchTraces(ctx, orgID, domain.TraceFilter{
+		Service: "service-0",
+		From:    baseTime,
+		To:      baseTime.Add(10 * time.Minute),
+		Limit:   50,
+	})
+	if err != nil {
+		explainSearch = fmt.Sprintf("EXPLAIN failed: %v", err)
+	}
 
 	results = append(results, summarizeBenchResult(
-		"SearchTraces (Filter & Sort)",
+		"SearchTraces (Single Service, Primary Key Pruned)",
 		totalScaleRows,
 		searchMeasurements,
 		explainSearch,
 		"✅ Primary key pruned via (org_id, service_name, start_time)",
 	))
 
-	// 3. GetServiceGraph (Self-Join Dependency Graph)
-	fmt.Println("\n[Benchmark 3/3] Benchmarking GetServiceGraph (20 iterations, rotating time windows)...")
+	// 3. SearchTraces (All Services, Last 15 Min, No Service Filter)
+	fmt.Println("\n[Benchmark 3/4] Benchmarking SearchTraces (All Services, Last 15 Min, 20 iterations)...")
+	var allSearchMeasurements []SingleQueryMeasurement
+	for i := 1; i <= 20; i++ {
+		label := fmt.Sprintf("iteration %d (warm OS page cache)", i)
+		if i == 1 {
+			_ = chConn.Exec(ctx, "SYSTEM DROP MARK CACHE")
+			_ = chConn.Exec(ctx, "SYSTEM DROP UNCOMPRESSED CACHE")
+			label = "first run (cache dropped)"
+		}
+
+		reqID := fmt.Sprintf("bench-search-all-%d-%d", i, time.Now().UnixNano())
+		qCtx := observability.WithRequestID(ctx, reqID)
+
+		from := baseTime.Add(time.Duration((i-1)*5) * time.Minute)
+		to := from.Add(15 * time.Minute)
+
+		filters := domain.TraceFilter{
+			Service: "", // no service filter -> all services
+			From:    from,
+			To:      to,
+			Limit:   50,
+		}
+
+		tStart := time.Now()
+		traces, err := traceRepo.SearchTraces(qCtx, orgID, filters)
+		wallMs := uint64(time.Since(tStart).Milliseconds())
+		resultRows := uint64(0)
+		if err != nil {
+			fmt.Printf("  ⚠️ Iteration %d error: %v\n", i, err)
+		} else {
+			resultRows = uint64(len(traces))
+		}
+
+		durationMs, readRows, readBytes, memUsage, qErr := getQueryMetrics(ctx, chConn, chDB, reqID)
+		if qErr != nil {
+			durationMs = wallMs
+		}
+
+		allSearchMeasurements = append(allSearchMeasurements, SingleQueryMeasurement{
+			Iteration:   i,
+			Label:       label,
+			DurationMs:  durationMs,
+			ReadRows:    readRows,
+			ReadBytes:   readBytes,
+			ResultRows:  resultRows,
+			MemoryUsage: memUsage,
+		})
+
+		if i == 1 || i%5 == 0 {
+			fmt.Printf("  • %-34s: %3d ms | read_rows: %8d | read_bytes: %8d B | results: %2d\n",
+				label, durationMs, readRows, readBytes, resultRows)
+		}
+	}
+
+	explainAllSearch, err := traceRepo.ExplainSearchTraces(ctx, orgID, domain.TraceFilter{
+		Service: "",
+		From:    baseTime,
+		To:      baseTime.Add(15 * time.Minute),
+		Limit:   50,
+	})
+	if err != nil {
+		explainAllSearch = fmt.Sprintf("EXPLAIN failed: %v", err)
+	}
+
+	results = append(results, summarizeBenchResult(
+		"SearchTraces (All Services, Last 15 Min)",
+		totalScaleRows,
+		allSearchMeasurements,
+		explainAllSearch,
+		"⚠️ Cross-service scan over 15 min window (no service filter)",
+	))
+
+	// 4. GetServiceGraph (Self-Join Dependency Graph with Fixed 15m Window Width)
+	fmt.Println("\n[Benchmark 4/4] Benchmarking GetServiceGraph (20 iterations, fixed 15m window width)...")
 	var graphMeasurements []SingleQueryMeasurement
 	for i := 1; i <= 20; i++ {
-		label := fmt.Sprintf("iteration %d", i)
+		label := fmt.Sprintf("iteration %d (warm OS page cache)", i)
 		if i == 1 {
 			_ = chConn.Exec(ctx, "SYSTEM DROP MARK CACHE")
 			_ = chConn.Exec(ctx, "SYSTEM DROP UNCOMPRESSED CACHE")
@@ -1251,14 +1352,18 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 		reqID := fmt.Sprintf("bench-graph-%d-%d", i, time.Now().UnixNano())
 		qCtx := observability.WithRequestID(ctx, reqID)
 
-		from := baseTime.Add(time.Duration((i-1)*10) * time.Minute)
-		to := from.Add(30 * time.Minute)
+		// Fixed 15-minute window width
+		from := baseTime.Add(time.Duration((i-1)*5) * time.Minute)
+		to := from.Add(15 * time.Minute)
 
 		tStart := time.Now()
-		_, err := serviceRepo.GetServiceGraph(qCtx, orgID, from, to)
+		graph, err := serviceRepo.GetServiceGraph(qCtx, orgID, from, to)
 		wallMs := uint64(time.Since(tStart).Milliseconds())
+		resultRows := uint64(0)
 		if err != nil {
 			fmt.Printf("  ⚠️ Iteration %d error: %v\n", i, err)
+		} else if graph != nil {
+			resultRows = uint64(len(graph.Edges))
 		}
 
 		durationMs, readRows, readBytes, memUsage, qErr := getQueryMetrics(ctx, chConn, chDB, reqID)
@@ -1272,25 +1377,27 @@ func runQueryBenchmarks(ctx context.Context, chConn clickhousedriver.Conn, chDB,
 			DurationMs:  durationMs,
 			ReadRows:    readRows,
 			ReadBytes:   readBytes,
+			ResultRows:  resultRows,
 			MemoryUsage: memUsage,
 		})
 
 		if i == 1 || i%5 == 0 {
-			fmt.Printf("  • %-26s: %3d ms | read_rows: %8d | read_bytes: %8d B\n",
-				label, durationMs, readRows, readBytes)
+			fmt.Printf("  • %-34s: %3d ms | read_rows: %8d | read_bytes: %8d B | results: %2d\n",
+				label, durationMs, readRows, readBytes, resultRows)
 		}
 	}
 
-	explainGraph := getExplainPlan(ctx, chConn, fmt.Sprintf(
-		"SELECT p.service_name as source, c.service_name as target, count() / 1800 as rps, sum(c.status_code = 2) * 100.0 / count() as error_rate, quantile(0.95)(c.duration_ms) as p95_ms FROM otel_spans c JOIN otel_spans p ON c.parent_span_id = p.span_id AND c.trace_id = p.trace_id AND c.org_id = p.org_id WHERE c.org_id = '%s' AND c.start_time >= '2026-10-19 00:00:00' AND c.start_time <= '2026-10-19 00:30:00' AND c.service_name != p.service_name GROUP BY source, target",
-		orgID))
+	explainGraph, err := serviceRepo.ExplainGetServiceGraph(ctx, orgID, baseTime, baseTime.Add(15*time.Minute))
+	if err != nil {
+		explainGraph = fmt.Sprintf("EXPLAIN failed: %v", err)
+	}
 
 	results = append(results, summarizeBenchResult(
 		"GetServiceGraph (Self-Join)",
 		totalScaleRows,
 		graphMeasurements,
 		explainGraph,
-		"⚠️ Self-join scan across time window",
+		"⚠️ Self-join scan across 15 min fixed window",
 	))
 
 	fmt.Println("================================================================================")
