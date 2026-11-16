@@ -1,0 +1,76 @@
+/**
+ * DistributedTrace Design Tokens
+ * Source of truth: DistributedTrace_Dark-Mode_Dashboard_Suite.png
+ * Eyedropped color values & typography definitions
+ */
+
+:root {
+  /* Surfaces */
+  --bg: #0a0b14;
+  --bg-radial-1: rgba(124, 92, 255, 0.12);
+  --bg-radial-2: rgba(90, 60, 200, 0.08);
+  --card: #10121f;
+  --card-hover: #141727;
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-border-hover: rgba(255, 255, 255, 0.14);
+
+  /* Typography & Hierarchy */
+  --text: #f3f4f8;
+  --text-2: #9aa0b5;
+  --text-3: #6b7188;
+
+  /* Brand Accent & Active States */
+  --accent: #7c6cf0;
+  --accent-hover: #8e7ff7;
+  --accent-pill: rgba(124, 108, 240, 0.22);
+  --accent-pill-border: rgba(124, 108, 240, 0.38);
+
+  /* Links & Mono Trace Identifiers */
+  --link: #4d8dff;
+  --link-hover: #70a5ff;
+
+  /* Positive & Negative Indicators */
+  --good: #34d399;
+  --good-subtle: rgba(52, 211, 153, 0.15);
+  --bad: #f87171;
+  --bad-subtle: rgba(248, 113, 113, 0.15);
+  --warn: #f5b942;
+  --warn-subtle: rgba(245, 185, 66, 0.15);
+
+  /* Visualization Bars */
+  --bar-start: #3b6cf0;
+  --bar-end: #5b8cff;
+  --bar: linear-gradient(180deg, #5b8cff 0%, #3b6cf0 100%);
+  --bar-hot-start: #9b6bf2;
+  --bar-hot-end: #b08cff;
+  --bar-hot: linear-gradient(180deg, #b08cff 0%, #9b6bf2 100%);
+  --bar-solid: #4d8dff;
+  --bar-hot-solid: #9b6bf2;
+
+  /* Severity Badges (Mockup Exact) */
+  --sev-critical: #9b5cf6;
+  --sev-critical-text: #ffffff;
+  --sev-high: #f5b942;
+  --sev-high-text: #0a0b14;
+  --sev-medium: #b4a7f5;
+  --sev-medium-text: #0a0b14;
+  --sev-low: #60a5fa;
+  --sev-low-text: #0a0b14;
+
+  /* Service Health / Donut Chart */
+  --donut-healthy: #22c7d6;
+  --donut-degraded: #f5b942;
+  --donut-unhealthy: #9b5cf6;
+
+  /* Component Radii */
+  --radius-card: 14px;
+  --radius-input: 8px;
+  --radius-button: 8px;
+  --radius-badge: 6px;
+  --radius-pill: 9999px;
+
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+

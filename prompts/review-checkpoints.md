@@ -363,23 +363,62 @@
   - Ingestion Throughput: 6,051 spans/s sustained (minimal ~3.7% delta vs 6,286 LZ4).
   - Merged cleanly to `main` at commit `e5fea2b`.
 
-- **Review Checkpoint 3 (2026-11-16) — Phase 3 Binary IDs & Bloom Filter Indexing [IN PROGRESS]:**
-  - Branch: `benchmark-binary-ids`
-  - Implementation:
-    - `trace_id FixedString(16)`, `span_id FixedString(8)`, `parent_span_id FixedString(8)`
-    - Skipping index: `INDEX idx_trace trace_id TYPE bloom_filter GRANULARITY 1`
-    - REST `/api/v1/spans` rejects malformed or all-zero IDs with HTTP 400
-    - OTLP `/v1/traces` drops invalid spans into `partialSuccess.rejected_spans` without failing the batch
-    - Root spans store 8 zero bytes and decode to `""` in Go domain models
-    - `GetServiceGraph` filters out zero parents (`c.parent_span_id != toFixedString('', 8)`)
-    - Migration runner automatically drops and recreates legacy table schema
-    - Live ClickHouse round-trip test `TestBinaryIDs_ClickHouse_RoundTrip_ZeroLiteral` added
-    - Full test suite passing locally (`go test ./...` 100% green)
-  - Exit Criteria:
-    - Push `benchmark-binary-ids` to trigger GitHub Actions Run 9.
-    - Measure `trace_id` bytes vs 33.1 MB baseline, `span_id`/`parent_span_id` bytes vs 17.1 MB baselines.
-    - Measure `GetTraceWithSpans` read_rows and read_bytes proving bloom filter pruning vs 20M full scan.
-    - Report total B/span on disk. Merge to `main`.
+- **Review Checkpoint 3 (2026-11-16) — Phase 3 Binary IDs & Bloom Filter Indexing [VERIFIED]:**
+  - Commit: `1c5c0b0` on branch `benchmark-binary-ids` (merged to `main` at `49b899d`)
+  - Run Evidence: Benchmark Run #9 (`1c5c0b0` on `origin/benchmark-results:reports/2026-11-16-run-9.md`)
+  - `trace_id` Column Footprint: 16.07 MB (-51.5% reduction vs 33.1 MB baseline)
+  - `span_id` & `parent_span_id` Footprint: 8.03 MB each (-52.9% reduction vs 17.1 MB each baseline)
+  - `GetTraceWithSpans` Pruning: Read rows pruned from 20,000,000 to 41,191 (**99.79% pruned** via `idx_trace` bloom filter), duration dropped from 298.5 ms to 7.0 ms (**42.6x speedup**)
+  - Total Storage Footprint: Reduced to **139.30 B/span** (-41.1% total reduction vs 236.59 B/span LZ4 baseline)
+  - Code Quality: 100% test coverage for binary round-trips, zero-byte root literals, and OTLP partialSuccess error handling.
+
+- **Review Checkpoint 4 (2026-11-16) — Phase 4 Storage & Latency Comparison [VERIFIED]:**
+  - Full before/after matrix published in `prompts/final-audit.md` comparing LZ4 baseline (Run 7), ZSTD(3) (Run 8), and Binary IDs + Bloom Filter (Run 9).
+
+- **Review Checkpoint 5 (2026-11-16) — Phase 5 Real OTel Demo Ingestion [VERIFIED]:**
+  - Ingestion tool `cmd/loadtest/otel_demo.go` ingested 10,000 real microservice spans from OpenTelemetry Astronomy Shop.
+  - Wire size measured at 60.0 B/span; disk footprint projected at 91.84 B/span (-34% vs synthetic).
+
+- **Review Checkpoint 6 (2026-11-16) — Phase 6 Market Pricing Analysis [VERIFIED]:**
+  - Cited live vendor rates on November 16, 2026: SigNoz ($0.30/GB = $0.045/M spans), Grafana Cloud ($0.45/GB = $0.068/M spans), Honeycomb ($1.50–$3.00/M spans).
+  - Calculated DistributedTrace unit costs: $0.0104/M spans/mo on AWS EBS gp3 storage; $40–$60/mo 8 GB ClickHouse node floor.
+
+---
+
+## Checkpoint: 2026-11-16 — Frontend Phase 0: Design Tokens, Self-Hosted Fonts, App Shell, Routing, & Component Kit Scaffold
+- **Status:** ✅ **Frontend Phase 0 Complete — All Exit Criteria Satisfied**.
+- **What Changed Since Last Checkpoint:**
+  1. **Self-Hosted Typography Installed & Bundled:**
+     - Installed `@fontsource/inter` (weights 400, 500, 600, 700) and `@fontsource/jetbrains-mono` (weights 400, 500, 600).
+     - Imported in `src/index.css`, eliminating all external Google Fonts HTTP CDN requests.
+  2. **Design System Tokens (`src/styles/tokens.css`):**
+     - Eyedropped exact hex and alpha values from source of truth `DistributedTrace_Dark-Mode_Dashboard_Suite.png`.
+     - Recorded CSS variables: `--bg: #0a0b14` (with violet radial glows), `--card: #10121f`, `--card-border: rgba(255,255,255,0.07)`, `--text: #f3f4f8`, `--text-2: #9aa0b5`, `--text-3: #6b7188`, `--accent: #7c6cf0`, `--link: #4d8dff`, `--good: #34d399`, `--bar: linear-gradient(180deg, #5b8cff, #3b6cf0)`, `--bar-hot: linear-gradient(180deg, #b08cff, #9b6bf2)`, `--sev-critical: #9b5cf6`, `--sev-high: #f5b942`, `--sev-medium: #b4a7f5`, `--donut-healthy: #22c7d6`, `--donut-degraded: #f5b942`, `--donut-unhealthy: #9b5cf6`.
+  3. **Real Routing Architecture:**
+     - Replaced internal single-state tab machine with React Router DOM v7 routes:
+       - `/overview` -> `OverviewPage` (System Observability header, decorative wave SVG, global search, KPI cards scaffold)
+       - `/traces` -> `TracesPage`
+       - `/service-map` -> `ServiceMapPage`
+       - `/anomalies` -> `AnomaliesPage`
+       - `/costs` -> `CostsPage`
+       - `/settings` -> `SettingsPage`
+       - `/_kit` -> `ComponentKitPage` (design tokens and shared primitives gallery)
+  4. **Top Navigation AppShell & Global Search:**
+     - Implemented `AppShell` with custom SVG logo mark, brand typography, pill navigation tabs with icons, and conditional `VITE_DEMO_MODE` badge.
+     - Implemented `GlobalSearch` supporting `Ctrl+K` keyboard shortcut, hex trace ID detection navigating to `/traces?trace=<id>`, and text queries.
+     - Enforced Decision #42: omitted static cloud region pills from the top bar in adherence to Rule #2 (No phantom UI).
+  5. **Cleaned Dead Files & Boilerplate:**
+     - Removed empty `.gitkeep` placeholder directories, dead `src/App.css`, unreferenced `src/styles/theme.css.ts`, and monolithic `src/DistributedTraceApp.tsx`.
+     - Output bundle size dropped from 885 kB to 709 kB.
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated with bundled fonts in 1.43s).
+  - `go test ./internal/...`: All backend suites passing (code 0).
+- **Next Checkpoint's Exit Criteria (Phase 1 — Shared Design-System Primitives):**
+  - Implement standalone shared primitives in `src/components/common/`:
+    `Card`, `StatCard`, `SeverityBadge`, `StatusPill`, `DataTable`, `Select`, `Tabs`, `Pagination`, `Sparkline`, `DonutChart`, `Waterfall`, `BarChart`, `HorizontalBars`, `Skeleton`, `EmptyState`, `ErrorBanner`.
+  - Preview all states and variants on `/_kit`.
+
 
 
 

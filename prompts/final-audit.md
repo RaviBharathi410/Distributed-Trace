@@ -219,3 +219,4 @@ Vendor rates accessed and verified on **November 16, 2026**:
 ---
 
 **Audit Certification:** All empirical metrics reported above are directly reproducible from git commit `577f3ca` and the cited GitHub Actions runs. No synthetic numbers or competitor claims were fabricated.
+
