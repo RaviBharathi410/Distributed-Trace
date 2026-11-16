@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-10-26T14:31:13Z",
+  "timestamp": "2026-11-16T09:30:06Z",
   "hardware_environment": "Shared 2-4 vCPU box (GitHub Actions Runner / linux amd64) - INDICATIVE ONLY, NOT A SIZING GUIDE",
   "spans_sent": 1000000,
   "spans_persisted": 1000000,
-  "ingestion_duration_seconds": 162.793193673,
-  "sustained_spans_per_second": 6142.762958558842,
+  "ingestion_duration_seconds": 159.10833658,
+  "sustained_spans_per_second": 6285.025797483577,
   "partitions": [
     {
-      "partition": "20261026",
+      "partition": "20261116",
       "active_parts": 1,
       "rows": 1000000,
-      "bytes_on_disk": 235132053
+      "bytes_on_disk": 235061614
     }
   ],
   "tables": [
@@ -19,13 +19,13 @@
       "classification": "Primary Ingest (Raw Spans + Indexes)",
       "active_parts": 1,
       "total_rows": 1000000,
-      "data_compressed_bytes": 235124807,
-      "data_uncompressed_bytes": 742309220,
-      "marks_bytes": 5234,
-      "bytes_on_disk": 235132053,
-      "compressed_bytes_per_span": 235.124807,
-      "total_bytes_on_disk_per_span": 235.132053,
-      "compression_ratio": 3.157085930112002,
+      "data_compressed_bytes": 235054362,
+      "data_uncompressed_bytes": 741893036,
+      "marks_bytes": 5229,
+      "bytes_on_disk": 235061614,
+      "compressed_bytes_per_span": 235.054362,
+      "total_bytes_on_disk_per_span": 235.061614,
+      "compression_ratio": 3.156261511964624,
       "note": "Receives 100% of OTLP spans; accounts for primary physical storage footprint."
     },
     {
@@ -45,15 +45,15 @@
     {
       "table": "anomalies",
       "classification": "Auxiliary Incident Alerts (MergeTree)",
-      "active_parts": 3,
-      "total_rows": 18613,
-      "data_compressed_bytes": 1424454,
-      "data_uncompressed_bytes": 4158595,
-      "marks_bytes": 438,
-      "bytes_on_disk": 1428082,
-      "compressed_bytes_per_span": 76.53005963573847,
-      "total_bytes_on_disk_per_span": 76.72497716649653,
-      "compression_ratio": 2.91943088369298,
+      "active_parts": 5,
+      "total_rows": 18303,
+      "data_compressed_bytes": 1401546,
+      "data_uncompressed_bytes": 4091564,
+      "marks_bytes": 645,
+      "bytes_on_disk": 1407455,
+      "compressed_bytes_per_span": 76.57465989182101,
+      "total_bytes_on_disk_per_span": 76.89750314156149,
+      "compression_ratio": 2.9193219487622954,
       "note": "Written out-of-band by anomaly detector engine on threshold violation."
     }
   ],
@@ -69,57 +69,57 @@
   "top_columns": [
     {
       "name": "tags",
-      "compressed_bytes": 157332935,
-      "uncompressed_bytes": 580914173,
-      "ratio": 3.6922604475661753
+      "compressed_bytes": 157273954,
+      "uncompressed_bytes": 580559685,
+      "ratio": 3.691391169576623
     },
     {
       "name": "trace_id",
-      "compressed_bytes": 33111874,
+      "compressed_bytes": 33110919,
       "uncompressed_bytes": 33000000,
-      "ratio": 0.9966213328789545
+      "ratio": 0.9966500778791432
     },
     {
       "name": "span_id",
-      "compressed_bytes": 17062611,
+      "compressed_bytes": 17061770,
       "uncompressed_bytes": 17000000,
-      "ratio": 0.9963305147143072
+      "ratio": 0.9963796253260946
     },
     {
       "name": "parent_span_id",
-      "compressed_bytes": 17061789,
+      "compressed_bytes": 17061527,
       "uncompressed_bytes": 17000000,
-      "ratio": 0.9963785157582244
+      "ratio": 0.9963938163330868
     },
     {
       "name": "start_time",
-      "compressed_bytes": 4042636,
+      "compressed_bytes": 4042536,
       "uncompressed_bytes": 8000000,
-      "ratio": 1.9789068320768923
+      "ratio": 1.9789557841909138
     },
     {
       "name": "duration_ms",
-      "compressed_bytes": 2935833,
+      "compressed_bytes": 2936648,
       "uncompressed_bytes": 4000000,
-      "ratio": 1.362475317908069
+      "ratio": 1.3620971938073614
     },
     {
       "name": "operation_name",
-      "compressed_bytes": 2630809,
-      "uncompressed_bytes": 21230374,
-      "ratio": 8.069903212281849
+      "compressed_bytes": 2626416,
+      "uncompressed_bytes": 21230462,
+      "ratio": 8.083434612034042
     },
     {
       "name": "error_message",
-      "compressed_bytes": 439608,
-      "uncompressed_bytes": 6062292,
-      "ratio": 13.790222197958181
+      "compressed_bytes": 435572,
+      "uncompressed_bytes": 6001550,
+      "ratio": 13.778548667040122
     },
     {
       "name": "status_code",
-      "compressed_bytes": 279034,
+      "compressed_bytes": 277344,
       "uncompressed_bytes": 1000000,
-      "ratio": 3.583792656092089
+      "ratio": 3.6056305526710513
     },
     {
       "name": "org_id",
@@ -129,543 +129,806 @@
     },
     {
       "name": "service_name",
-      "compressed_bytes": 73680,
-      "uncompressed_bytes": 17102381,
-      "ratio": 232.11700597176983
+      "compressed_bytes": 73678,
+      "uncompressed_bytes": 17101339,
+      "ratio": 232.10916420098266
     }
   ],
-  "all_inclusive_disk_bytes_per_span": 236.560135,
-  "disk_footprint_gb_per_million": 0.22031379397958517,
-  "aws_ebs_monthly_cost_per_million": 0.017625103518366814,
-  "aws_s3_monthly_cost_per_million": 0.0050672172615304585,
-  "network_cross_az_cost_per_million": 0.00142314906232059,
-  "real_total_ingest_cost_per_million": 0.019048252580687403,
+  "all_inclusive_disk_bytes_per_span": 236.469069,
+  "disk_footprint_gb_per_million": 0.22022898215800524,
+  "aws_ebs_monthly_cost_per_million": 0.01761831857264042,
+  "aws_s3_monthly_cost_per_million": 0.005065266589634121,
+  "network_cross_az_cost_per_million": 0.0014223417546600104,
+  "real_total_ingest_cost_per_million": 0.01904066032730043,
   "status_note": "Indicative of runner hardware; SaaS pricing held pending cloud VM sizing.",
   "query_benchmarks": [
     {
       "query_name": "GetTraceWithSpans (Point Lookup)",
-      "target_scale_rows": 20000000,
-      "first_run_duration_ms": 213,
-      "first_run_read_rows": 20000000,
-      "first_run_read_bytes": 1720652696,
-      "p50_duration_ms": 209,
-      "p95_duration_ms": 237,
-      "avg_read_rows": 20000000,
-      "avg_read_bytes": 1722082692.3157895,
+      "target_scale_rows": 1475000,
+      "first_run_duration_ms": 22,
+      "first_run_read_rows": 1475000,
+      "first_run_read_bytes": 126850216,
+      "first_run_result_rows": 1,
+      "p50_duration_ms": 27,
+      "p95_duration_ms": 32,
+      "avg_read_rows": 1475000,
+      "avg_read_bytes": 126852376,
+      "avg_result_rows": 1,
       "status_note": "⚠️ Scans full partition (no bloom filter index on trace_id yet)",
       "measurements": [
         {
           "iteration": 1,
           "label": "first run (cache dropped)",
-          "duration_ms": 213,
-          "read_rows": 20000000,
-          "read_bytes": 1720652696,
-          "memory_usage": 12893332
+          "duration_ms": 22,
+          "read_rows": 1475000,
+          "read_bytes": 126850216,
+          "result_rows": 1,
+          "memory_usage": 4455134
         },
         {
           "iteration": 2,
-          "label": "iteration 2",
-          "duration_ms": 209,
-          "read_rows": 20000000,
-          "read_bytes": 1723358894,
-          "memory_usage": 8747708
+          "label": "iteration 2 (warm OS page cache)",
+          "duration_ms": 26,
+          "read_rows": 1475000,
+          "read_bytes": 126850432,
+          "result_rows": 1,
+          "memory_usage": 4451118
         },
         {
           "iteration": 3,
-          "label": "iteration 3",
-          "duration_ms": 213,
-          "read_rows": 20000000,
-          "read_bytes": 1720654322,
-          "memory_usage": 12951266
+          "label": "iteration 3 (warm OS page cache)",
+          "duration_ms": 27,
+          "read_rows": 1475000,
+          "read_bytes": 126850648,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 4,
-          "label": "iteration 4",
-          "duration_ms": 211,
-          "read_rows": 20000000,
-          "read_bytes": 1723359688,
-          "memory_usage": 8746524
+          "label": "iteration 4 (warm OS page cache)",
+          "duration_ms": 25,
+          "read_rows": 1475000,
+          "read_bytes": 126850864,
+          "result_rows": 1,
+          "memory_usage": 4450126
         },
         {
           "iteration": 5,
-          "label": "iteration 5",
-          "duration_ms": 211,
-          "read_rows": 20000000,
-          "read_bytes": 1720655910,
-          "memory_usage": 12946772
+          "label": "iteration 5 (warm OS page cache)",
+          "duration_ms": 30,
+          "read_rows": 1475000,
+          "read_bytes": 126851080,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 6,
-          "label": "iteration 6",
-          "duration_ms": 207,
-          "read_rows": 20000000,
-          "read_bytes": 1723360482,
-          "memory_usage": 8746524
+          "label": "iteration 6 (warm OS page cache)",
+          "duration_ms": 28,
+          "read_rows": 1475000,
+          "read_bytes": 126851296,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 7,
-          "label": "iteration 7",
-          "duration_ms": 223,
-          "read_rows": 20000000,
-          "read_bytes": 1720657498,
-          "memory_usage": 12947860
+          "label": "iteration 7 (warm OS page cache)",
+          "duration_ms": 27,
+          "read_rows": 1475000,
+          "read_bytes": 126851512,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 8,
-          "label": "iteration 8",
-          "duration_ms": 216,
-          "read_rows": 20000000,
-          "read_bytes": 1723361276,
-          "memory_usage": 8746028
+          "label": "iteration 8 (warm OS page cache)",
+          "duration_ms": 27,
+          "read_rows": 1475000,
+          "read_bytes": 126851728,
+          "result_rows": 1,
+          "memory_usage": 4451118
         },
         {
           "iteration": 9,
-          "label": "iteration 9",
-          "duration_ms": 208,
-          "read_rows": 20000000,
-          "read_bytes": 1720659124,
-          "memory_usage": 12948452
+          "label": "iteration 9 (warm OS page cache)",
+          "duration_ms": 23,
+          "read_rows": 1475000,
+          "read_bytes": 126851944,
+          "result_rows": 1,
+          "memory_usage": 4450126
         },
         {
           "iteration": 10,
-          "label": "iteration 10",
-          "duration_ms": 208,
-          "read_rows": 20000000,
-          "read_bytes": 1723362070,
-          "memory_usage": 8747116
+          "label": "iteration 10 (warm OS page cache)",
+          "duration_ms": 29,
+          "read_rows": 1475000,
+          "read_bytes": 126852160,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 11,
-          "label": "iteration 11",
-          "duration_ms": 211,
-          "read_rows": 20000000,
-          "read_bytes": 1720660712,
-          "memory_usage": 12947268
+          "label": "iteration 11 (warm OS page cache)",
+          "duration_ms": 25,
+          "read_rows": 1475000,
+          "read_bytes": 126852376,
+          "result_rows": 1,
+          "memory_usage": 4451118
         },
         {
           "iteration": 12,
-          "label": "iteration 12",
-          "duration_ms": 207,
-          "read_rows": 20000000,
-          "read_bytes": 1723362864,
-          "memory_usage": 8746524
+          "label": "iteration 12 (warm OS page cache)",
+          "duration_ms": 26,
+          "read_rows": 1475000,
+          "read_bytes": 126852592,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 13,
-          "label": "iteration 13",
-          "duration_ms": 207,
-          "read_rows": 20000000,
-          "read_bytes": 1720662338,
-          "memory_usage": 12951858
+          "label": "iteration 13 (warm OS page cache)",
+          "duration_ms": 32,
+          "read_rows": 1475000,
+          "read_bytes": 126852808,
+          "result_rows": 1,
+          "memory_usage": 4449630
         },
         {
           "iteration": 14,
-          "label": "iteration 14",
-          "duration_ms": 207,
-          "read_rows": 20000000,
-          "read_bytes": 1723363658,
-          "memory_usage": 8746524
+          "label": "iteration 14 (warm OS page cache)",
+          "duration_ms": 31,
+          "read_rows": 1475000,
+          "read_bytes": 126853024,
+          "result_rows": 1,
+          "memory_usage": 4449630
         },
         {
           "iteration": 15,
-          "label": "iteration 15",
-          "duration_ms": 207,
-          "read_rows": 20000000,
-          "read_bytes": 1720663926,
-          "memory_usage": 12946772
+          "label": "iteration 15 (warm OS page cache)",
+          "duration_ms": 29,
+          "read_rows": 1475000,
+          "read_bytes": 126853240,
+          "result_rows": 1,
+          "memory_usage": 4450126
         },
         {
           "iteration": 16,
-          "label": "iteration 16",
-          "duration_ms": 208,
-          "read_rows": 20000000,
-          "read_bytes": 1723364452,
-          "memory_usage": 8747708
+          "label": "iteration 16 (warm OS page cache)",
+          "duration_ms": 29,
+          "read_rows": 1475000,
+          "read_bytes": 126853456,
+          "result_rows": 1,
+          "memory_usage": 4449630
         },
         {
           "iteration": 17,
-          "label": "iteration 17",
-          "duration_ms": 219,
-          "read_rows": 20000000,
-          "read_bytes": 1720665514,
-          "memory_usage": 12947268
+          "label": "iteration 17 (warm OS page cache)",
+          "duration_ms": 27,
+          "read_rows": 1475000,
+          "read_bytes": 126853672,
+          "result_rows": 1,
+          "memory_usage": 4449630
         },
         {
           "iteration": 18,
-          "label": "iteration 18",
-          "duration_ms": 209,
-          "read_rows": 20000000,
-          "read_bytes": 1723365246,
-          "memory_usage": 8746956
+          "label": "iteration 18 (warm OS page cache)",
+          "duration_ms": 28,
+          "read_rows": 1475000,
+          "read_bytes": 126853888,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 19,
-          "label": "iteration 19",
-          "duration_ms": 237,
-          "read_rows": 20000000,
-          "read_bytes": 1720667140,
-          "memory_usage": 12947268
+          "label": "iteration 19 (warm OS page cache)",
+          "duration_ms": 24,
+          "read_rows": 1475000,
+          "read_bytes": 126854104,
+          "result_rows": 1,
+          "memory_usage": 4450622
         },
         {
           "iteration": 20,
-          "label": "iteration 20",
-          "duration_ms": 209,
-          "read_rows": 20000000,
-          "read_bytes": 1723366040,
-          "memory_usage": 8746524
+          "label": "iteration 20 (warm OS page cache)",
+          "duration_ms": 25,
+          "read_rows": 1475000,
+          "read_bytes": 126854320,
+          "result_rows": 1,
+          "memory_usage": 4451118
         }
       ],
-      "explain_plan": "Expression ((Project names + Projection))\n  Expression\n    ReadFromMergeTree (default.otel_spans)\n    Indexes:\n      MinMax\n        Condition: true\n        Parts: 2/2\n        Granules: 2443/2443\n      Partition\n        Condition: true\n        Parts: 2/2\n        Granules: 2443/2443\n      PrimaryKey\n        Keys: \n          org_id\n        Condition: (org_id in ['55634cd8-1562-4f74-ba7e-ab95c6b94bbf', '55634cd8-1562-4f74-ba7e-ab95c6b94bbf'])\n        Parts: 2/2\n        Granules: 2443/2443"
+      "explain_plan": "Expression ((Project names + Projection))\n  Expression\n    ReadFromMergeTree (default.otel_spans)\n    Indexes:\n      MinMax\n        Condition: true\n        Parts: 4/4\n        Granules: 183/183\n      Partition\n        Condition: true\n        Parts: 4/4\n        Granules: 183/183\n      PrimaryKey\n        Keys: \n          org_id\n        Condition: (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4'])\n        Parts: 4/4\n        Granules: 183/183"
     },
     {
-      "query_name": "SearchTraces (Filter \u0026 Sort)",
-      "target_scale_rows": 20000000,
-      "first_run_duration_ms": 9,
-      "first_run_read_rows": 41599,
-      "first_run_read_bytes": 9475205,
-      "p50_duration_ms": 7,
-      "p95_duration_ms": 9,
-      "avg_read_rows": 41689,
-      "avg_read_bytes": 9493590.05263158,
+      "query_name": "SearchTraces (Single Service, Primary Key Pruned)",
+      "target_scale_rows": 1475000,
+      "first_run_duration_ms": 2,
+      "first_run_read_rows": 0,
+      "first_run_read_bytes": 0,
+      "first_run_result_rows": 0,
+      "p50_duration_ms": 2,
+      "p95_duration_ms": 18,
+      "avg_read_rows": 862.3157894736842,
+      "avg_read_bytes": 97534.26315789473,
+      "avg_result_rows": 5.2631578947368425,
       "status_note": "✅ Primary key pruned via (org_id, service_name, start_time)",
       "measurements": [
         {
           "iteration": 1,
           "label": "first run (cache dropped)",
-          "duration_ms": 9,
-          "read_rows": 41599,
-          "read_bytes": 9475205,
-          "memory_usage": 4668745
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 2,
-          "label": "iteration 2",
-          "duration_ms": 7,
-          "read_rows": 41608,
-          "read_bytes": 9477042,
-          "memory_usage": 4657121
+          "label": "iteration 2 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 3,
-          "label": "iteration 3",
-          "duration_ms": 7,
-          "read_rows": 41617,
-          "read_bytes": 9478879,
-          "memory_usage": 4666465
+          "label": "iteration 3 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 4,
-          "label": "iteration 4",
-          "duration_ms": 7,
-          "read_rows": 41626,
-          "read_bytes": 9480716,
-          "memory_usage": 4674769
+          "label": "iteration 4 (warm OS page cache)",
+          "duration_ms": 18,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 5,
-          "label": "iteration 5",
-          "duration_ms": 5,
-          "read_rows": 41635,
-          "read_bytes": 9482553,
-          "memory_usage": 4662537
+          "label": "iteration 5 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36288
         },
         {
           "iteration": 6,
-          "label": "iteration 6",
-          "duration_ms": 7,
-          "read_rows": 41644,
-          "read_bytes": 9484390,
-          "memory_usage": 4669897
+          "label": "iteration 6 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 7,
-          "label": "iteration 7",
-          "duration_ms": 6,
-          "read_rows": 41653,
-          "read_bytes": 9486227,
-          "memory_usage": 4657121
+          "label": "iteration 7 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 8,
-          "label": "iteration 8",
-          "duration_ms": 5,
-          "read_rows": 41662,
-          "read_bytes": 9488064,
-          "memory_usage": 4665969
+          "label": "iteration 8 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 9,
-          "label": "iteration 9",
-          "duration_ms": 9,
-          "read_rows": 41671,
-          "read_bytes": 9489901,
-          "memory_usage": 4674769
+          "label": "iteration 9 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 10,
-          "label": "iteration 10",
-          "duration_ms": 9,
-          "read_rows": 41680,
-          "read_bytes": 9491739,
-          "memory_usage": 4662041
+          "label": "iteration 10 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 11,
-          "label": "iteration 11",
-          "duration_ms": 7,
-          "read_rows": 41689,
-          "read_bytes": 9493581,
-          "memory_usage": 4666785
+          "label": "iteration 11 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 12,
-          "label": "iteration 12",
-          "duration_ms": 6,
-          "read_rows": 41698,
-          "read_bytes": 9495423,
-          "memory_usage": 4657617
+          "label": "iteration 12 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 13,
-          "label": "iteration 13",
-          "duration_ms": 7,
-          "read_rows": 41707,
-          "read_bytes": 9497265,
-          "memory_usage": 4661865
+          "label": "iteration 13 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 8192,
+          "read_bytes": 788191,
+          "result_rows": 50,
+          "memory_usage": 53248
         },
         {
           "iteration": 14,
-          "label": "iteration 14",
-          "duration_ms": 7,
-          "read_rows": 41716,
-          "read_bytes": 9499107,
-          "memory_usage": 4658737
+          "label": "iteration 14 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 15,
-          "label": "iteration 15",
-          "duration_ms": 6,
-          "read_rows": 41725,
-          "read_bytes": 9500949,
-          "memory_usage": 4661545
+          "label": "iteration 15 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 16,
-          "label": "iteration 16",
-          "duration_ms": 7,
-          "read_rows": 41734,
-          "read_bytes": 9502791,
-          "memory_usage": 4670889
+          "label": "iteration 16 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 17,
-          "label": "iteration 17",
-          "duration_ms": 6,
-          "read_rows": 41743,
-          "read_bytes": 9504633,
-          "memory_usage": 4657121
+          "label": "iteration 17 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 8192,
+          "read_bytes": 1064960,
+          "result_rows": 50,
+          "memory_usage": 55080
         },
         {
           "iteration": 18,
-          "label": "iteration 18",
-          "duration_ms": 7,
-          "read_rows": 41752,
-          "read_bytes": 9506475,
-          "memory_usage": 4666465
+          "label": "iteration 18 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 19,
-          "label": "iteration 19",
-          "duration_ms": 7,
-          "read_rows": 41761,
-          "read_bytes": 9508317,
-          "memory_usage": 4666561
+          "label": "iteration 19 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 20,
-          "label": "iteration 20",
-          "duration_ms": 6,
-          "read_rows": 41770,
-          "read_bytes": 9510159,
-          "memory_usage": 4661545
+          "label": "iteration 20 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         }
       ],
-      "explain_plan": "EXPLAIN failed: code: 184, message: Aggregate function min(start_time) AS start_time is found in WHERE in query"
+      "explain_plan": "Expression (Project names)\n  Limit (preliminary LIMIT (without OFFSET))\n    Sorting (Sorting for ORDER BY)\n      Expression ((Before ORDER BY + Projection))\n        Aggregating\n          Expression (Before GROUP BY)\n            Expression\n              ReadFromMergeTree (default.otel_spans)\n              Indexes:\n                MinMax\n                  Keys: \n                    start_time\n                  Condition: and((start_time in (-Inf, '1792368600']), (start_time in ['1792368000', +Inf)))\n                  Parts: 0/4\n                  Granules: 0/183\n                Partition\n                  Keys: \n                    toYYYYMMDD(start_time)\n                  Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))\n                  Parts: 0/0\n                  Granules: 0/0\n                PrimaryKey\n                  Keys: \n                    org_id\n                    service_name\n                    start_time\n                  Condition: and((start_time in (-Inf, '1792368600']), and((start_time in ['1792368000', +Inf)), and((service_name in ['service-0', 'service-0']), (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4']))))\n                  Parts: 0/0\n                  Granules: 0/0\n                Skip\n                  Name: idx_service\n                  Description: bloom_filter GRANULARITY 4\n                  Parts: 0/0\n                  Granules: 0/0"
     },
     {
-      "query_name": "GetServiceGraph (Self-Join)",
-      "target_scale_rows": 20000000,
-      "first_run_duration_ms": 28,
-      "first_run_read_rows": 892928,
-      "first_run_read_bytes": 67203808,
-      "p50_duration_ms": 36,
-      "p95_duration_ms": 56,
-      "avg_read_rows": 1931156.2105263157,
-      "avg_read_bytes": 144463894.21052632,
-      "status_note": "⚠️ Self-join scan across time window",
+      "query_name": "SearchTraces (All Services, Last 15 Min)",
+      "target_scale_rows": 1475000,
+      "first_run_duration_ms": 2,
+      "first_run_read_rows": 0,
+      "first_run_read_bytes": 0,
+      "first_run_result_rows": 0,
+      "p50_duration_ms": 2,
+      "p95_duration_ms": 3,
+      "avg_read_rows": 0,
+      "avg_read_bytes": 0,
+      "avg_result_rows": 0,
+      "status_note": "⚠️ Cross-service scan over 15 min window (no service filter)",
       "measurements": [
         {
           "iteration": 1,
           "label": "first run (cache dropped)",
-          "duration_ms": 28,
-          "read_rows": 892928,
-          "read_bytes": 67203808,
-          "memory_usage": 2270315
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 2,
-          "label": "iteration 2",
-          "duration_ms": 28,
-          "read_rows": 1482752,
-          "read_bytes": 112238007,
-          "memory_usage": 1521009
+          "label": "iteration 2 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 3,
-          "label": "iteration 3",
-          "duration_ms": 36,
-          "read_rows": 1957888,
-          "read_bytes": 146068215,
-          "memory_usage": 863605
+          "label": "iteration 3 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 4,
-          "label": "iteration 4",
-          "duration_ms": 56,
-          "read_rows": 1957888,
-          "read_bytes": 146319904,
-          "memory_usage": 1766671
+          "label": "iteration 4 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 5,
-          "label": "iteration 5",
-          "duration_ms": 36,
-          "read_rows": 1949696,
-          "read_bytes": 146203703,
-          "memory_usage": 1426346
+          "label": "iteration 5 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 6,
-          "label": "iteration 6",
-          "duration_ms": 36,
-          "read_rows": 1949696,
-          "read_bytes": 145600183,
-          "memory_usage": 1675282
+          "label": "iteration 6 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 7,
-          "label": "iteration 7",
-          "duration_ms": 36,
-          "read_rows": 1957888,
-          "read_bytes": 146288992,
-          "memory_usage": 2156867
+          "label": "iteration 7 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 8,
-          "label": "iteration 8",
-          "duration_ms": 38,
-          "read_rows": 1957888,
-          "read_bytes": 146815991,
-          "memory_usage": 1864554
+          "label": "iteration 8 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 9,
-          "label": "iteration 9",
-          "duration_ms": 36,
-          "read_rows": 1957888,
-          "read_bytes": 146191863,
-          "memory_usage": 2323483
+          "label": "iteration 9 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 10,
-          "label": "iteration 10",
-          "duration_ms": 43,
-          "read_rows": 1957888,
-          "read_bytes": 146160928,
-          "memory_usage": 2641004
+          "label": "iteration 10 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 11,
-          "label": "iteration 11",
-          "duration_ms": 36,
-          "read_rows": 1957888,
-          "read_bytes": 146707063,
-          "memory_usage": 2221603
+          "label": "iteration 11 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 12,
-          "label": "iteration 12",
-          "duration_ms": 36,
-          "read_rows": 1949696,
-          "read_bytes": 145726775,
-          "memory_usage": 877608
+          "label": "iteration 12 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 13,
-          "label": "iteration 13",
-          "duration_ms": 35,
-          "read_rows": 1957888,
-          "read_bytes": 146124864,
-          "memory_usage": 2407532
+          "label": "iteration 13 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 14,
-          "label": "iteration 14",
-          "duration_ms": 35,
-          "read_rows": 1949696,
-          "read_bytes": 146261088,
-          "memory_usage": 718839
+          "label": "iteration 14 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 15,
-          "label": "iteration 15",
-          "duration_ms": 37,
-          "read_rows": 1957888,
-          "read_bytes": 146323607,
-          "memory_usage": 845232
+          "label": "iteration 15 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 40296
         },
         {
           "iteration": 16,
-          "label": "iteration 16",
-          "duration_ms": 42,
-          "read_rows": 1957888,
-          "read_bytes": 145993856,
-          "memory_usage": 2731580
+          "label": "iteration 16 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 17,
-          "label": "iteration 17",
-          "duration_ms": 38,
-          "read_rows": 1957888,
-          "read_bytes": 146776960,
-          "memory_usage": 824865
+          "label": "iteration 17 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 18,
-          "label": "iteration 18",
-          "duration_ms": 38,
-          "read_rows": 1957888,
-          "read_bytes": 146297847,
-          "memory_usage": 878064
+          "label": "iteration 18 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 19,
-          "label": "iteration 19",
-          "duration_ms": 36,
-          "read_rows": 1957888,
-          "read_bytes": 145952640,
-          "memory_usage": 648792
+          "label": "iteration 19 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         },
         {
           "iteration": 20,
-          "label": "iteration 20",
-          "duration_ms": 40,
-          "read_rows": 1957888,
-          "read_bytes": 146761504,
-          "memory_usage": 989696
+          "label": "iteration 20 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 36192
         }
       ],
-      "explain_plan": "Expression ((Project names + Projection))\n  Aggregating\n    Expression (Before GROUP BY)\n      Filter ((WHERE + DROP unused columns after JOIN))\n        Join (JOIN FillRightFirst)\n          Expression\n            ReadFromMergeTree (default.otel_spans)\n            Indexes:\n              MinMax\n                Keys: \n                  start_time\n                Condition: and((start_time in (-Inf, '1792369800']), (start_time in ['1792368000', +Inf)))\n                Parts: 1/2\n                Granules: 2320/2443\n              Partition\n                Keys: \n                  toYYYYMMDD(start_time)\n                Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))\n                Parts: 1/1\n                Granules: 2320/2320\n              PrimaryKey\n                Keys: \n                  org_id\n                  start_time\n                Condition: and((start_time in (-Inf, '1792369800']), and((start_time in ['1792368000', +Inf)), (org_id in ['55634cd8-1562-4f74-ba7e-ab95c6b94bbf', '55634cd8-1562-4f74-ba7e-ab95c6b94bbf'])))\n                Parts: 1/1\n                Granules: 109/2320\n          Expression ((JOIN actions + Change column names to column identifiers))\n            ReadFromMergeTree (default.otel_spans)\n            Indexes:\n              MinMax\n                Condition: true\n                Parts: 2/2\n                Granules: 2443/2443\n              Partition\n                Condition: true\n                Parts: 2/2\n                Granules: 2443/2443\n              PrimaryKey\n                Condition: true\n                Parts: 2/2\n                Granules: 2443/2443"
+      "explain_plan": "Expression (Project names)\n  Limit (preliminary LIMIT (without OFFSET))\n    Sorting (Sorting for ORDER BY)\n      Expression ((Before ORDER BY + Projection))\n        Aggregating\n          Expression (Before GROUP BY)\n            Expression\n              ReadFromMergeTree (default.otel_spans)\n              Indexes:\n                MinMax\n                  Keys: \n                    start_time\n                  Condition: and((start_time in (-Inf, '1792368900']), (start_time in ['1792368000', +Inf)))\n                  Parts: 0/4\n                  Granules: 0/183\n                Partition\n                  Keys: \n                    toYYYYMMDD(start_time)\n                  Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))\n                  Parts: 0/0\n                  Granules: 0/0\n                PrimaryKey\n                  Keys: \n                    org_id\n                    start_time\n                  Condition: and((start_time in (-Inf, '1792368900']), and((start_time in ['1792368000', +Inf)), (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4'])))\n                  Parts: 0/0\n                  Granules: 0/0"
+    },
+    {
+      "query_name": "GetServiceGraph (Self-Join)",
+      "target_scale_rows": 1475000,
+      "first_run_duration_ms": 2,
+      "first_run_read_rows": 0,
+      "first_run_read_bytes": 0,
+      "first_run_result_rows": 0,
+      "p50_duration_ms": 2,
+      "p95_duration_ms": 18,
+      "avg_read_rows": 0,
+      "avg_read_bytes": 0,
+      "avg_result_rows": 0,
+      "status_note": "⚠️ Self-join scan across 15 min fixed window",
+      "measurements": [
+        {
+          "iteration": 1,
+          "label": "first run (cache dropped)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 2,
+          "label": "iteration 2 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 3,
+          "label": "iteration 3 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 4,
+          "label": "iteration 4 (warm OS page cache)",
+          "duration_ms": 18,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 5,
+          "label": "iteration 5 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 6,
+          "label": "iteration 6 (warm OS page cache)",
+          "duration_ms": 6,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 7,
+          "label": "iteration 7 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 8,
+          "label": "iteration 8 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 9,
+          "label": "iteration 9 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 10,
+          "label": "iteration 10 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 11,
+          "label": "iteration 11 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 12,
+          "label": "iteration 12 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 13,
+          "label": "iteration 13 (warm OS page cache)",
+          "duration_ms": 1,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 14,
+          "label": "iteration 14 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 15,
+          "label": "iteration 15 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 16,
+          "label": "iteration 16 (warm OS page cache)",
+          "duration_ms": 3,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 17,
+          "label": "iteration 17 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 18,
+          "label": "iteration 18 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 19,
+          "label": "iteration 19 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        },
+        {
+          "iteration": 20,
+          "label": "iteration 20 (warm OS page cache)",
+          "duration_ms": 2,
+          "read_rows": 0,
+          "read_bytes": 0,
+          "result_rows": 0,
+          "memory_usage": 37144
+        }
+      ],
+      "explain_plan": "Expression ((Project names + Projection))\n  Aggregating\n    Expression (Before GROUP BY)\n      Filter ((WHERE + DROP unused columns after JOIN))\n        Join (JOIN FillRightFirst)\n          Expression\n            ReadFromMergeTree (default.otel_spans)\n            Indexes:\n              MinMax\n                Keys: \n                  start_time\n                Condition: and((start_time in (-Inf, '1792368900']), (start_time in ['1792368000', +Inf)))\n                Parts: 0/4\n                Granules: 0/183\n              Partition\n                Keys: \n                  toYYYYMMDD(start_time)\n                Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))\n                Parts: 0/0\n                Granules: 0/0\n              PrimaryKey\n                Keys: \n                  org_id\n                  start_time\n                Condition: and((start_time in (-Inf, '1792368900']), and((start_time in ['1792368000', +Inf)), (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4'])))\n                Parts: 0/0\n                Granules: 0/0\n          Expression ((JOIN actions + Change column names to column identifiers))\n            ReadFromMergeTree (default.otel_spans)\n            Indexes:\n              MinMax\n                Condition: true\n                Parts: 4/4\n                Granules: 183/183\n              Partition\n                Condition: true\n                Parts: 4/4\n                Granules: 183/183\n              PrimaryKey\n                Condition: true\n                Parts: 4/4\n                Granules: 183/183"
     }
   ]
 }
