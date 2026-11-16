@@ -114,6 +114,20 @@ func assignVal(target any, source any) {
 		if arr, ok := source.([]string); ok {
 			*t = arr
 		}
+	case *[16]byte:
+		if b, ok := source.([16]byte); ok {
+			*t = b
+		} else if s, ok := source.(string); ok {
+			bin, _ := domain.ParseTraceIDHex(s)
+			*t = bin
+		}
+	case *[8]byte:
+		if b, ok := source.([8]byte); ok {
+			*t = b
+		} else if s, ok := source.(string); ok {
+			bin, _ := domain.ParseSpanIDHex(s)
+			*t = bin
+		}
 	}
 }
 
@@ -275,18 +289,22 @@ func (m *MockConn) Query(ctx context.Context, query string, args ...any) (driver
 		return &mockRows{rows: [][]any{}}, nil
 	}
 
+	traceAlphaHex := "0123456789abcdef0123456789abcdef"
+	traceBetaHex := "fedcba9876543210fedcba9876543210"
+	spanAlphaHex := "1122334455667788"
+
 	// 4. SearchTraces
 	if strings.Contains(query, "SELECT trace_id,") && strings.Contains(query, "GROUP BY trace_id") {
 		if queriedOrg == OrgA {
 			return &mockRows{
 				rows: [][]any{
-					{"trace-alpha-001", "checkout-api", "process_checkout", uint32(120), 4, 0, int64(1700000000000)},
+					{traceAlphaHex, "checkout-api", "process_checkout", uint32(120), 4, 0, time.UnixMilli(1700000000000)},
 				},
 			}, nil
 		} else if queriedOrg == OrgB {
 			return &mockRows{
 				rows: [][]any{
-					{"trace-beta-999", "secret-billing-svc", "charge", uint32(500), 2, 1, int64(1700000000000)},
+					{traceBetaHex, "secret-billing-svc", "charge", uint32(500), 2, 1, time.UnixMilli(1700000000000)},
 				},
 			}, nil
 		}
@@ -295,13 +313,19 @@ func (m *MockConn) Query(ctx context.Context, query string, args ...any) (driver
 
 	// 5. GetTraceWithSpans
 	if strings.Contains(query, "WHERE org_id = ? AND trace_id = ?") {
-		orgIDArg := args[0].(string)
-		traceIDArg := args[1].(string)
+		orgIDArg, _ := args[0].(string)
+		var traceIDArgStr string
+		switch v := args[1].(type) {
+		case string:
+			traceIDArgStr = v
+		case [16]byte:
+			traceIDArgStr = domain.FormatTraceID(v)
+		}
 
-		if orgIDArg == OrgA && traceIDArg == "trace-alpha-001" {
+		if orgIDArg == OrgA && traceIDArgStr == traceAlphaHex {
 			return &mockRows{
 				rows: [][]any{
-					{"trace-alpha-001", "span-1", "", "checkout-api", "process_checkout", uint32(120), uint8(1), "", map[string]string{"env": "test"}, time.Now()},
+					{traceAlphaHex, spanAlphaHex, "", "checkout-api", "process_checkout", uint32(120), uint8(1), "", map[string]string{"env": "test"}, time.Now()},
 				},
 			}, nil
 		}
@@ -494,7 +518,7 @@ func TestSearchTraces_TenantIsolation(t *testing.T) {
 	}
 
 	for _, tr := range tracesA {
-		if tr.TraceID == "trace-beta-999" || tr.RootService == "secret-billing-svc" {
+		if tr.TraceID == "fedcba9876543210fedcba9876543210" || tr.RootService == "secret-billing-svc" {
 			t.Fatalf("CROSS-TENANT LEAK: Org A search returned Org B trace: %s", tr.TraceID)
 		}
 	}
@@ -506,16 +530,16 @@ func TestGetTraceWithSpans_TenantIsolation(t *testing.T) {
 	ctx := context.Background()
 
 	// Org A requests its own trace -> returns trace
-	trA, err := repo.GetTraceWithSpans(ctx, OrgA, "trace-alpha-001")
+	trA, err := repo.GetTraceWithSpans(ctx, OrgA, "0123456789abcdef0123456789abcdef")
 	if err != nil {
 		t.Fatalf("expected successful lookup of own trace: %v", err)
 	}
-	if trA == nil || trA.TraceID != "trace-alpha-001" {
-		t.Errorf("expected to find trace-alpha-001, got %v", trA)
+	if trA == nil || trA.TraceID != "0123456789abcdef0123456789abcdef" {
+		t.Errorf("expected to find trace 0123456789abcdef0123456789abcdef, got %v", trA)
 	}
 
 	// Org A maliciously attempts to fetch Org B's trace -> must return nil (not found)
-	trB, err := repo.GetTraceWithSpans(ctx, OrgA, "trace-beta-999")
+	trB, err := repo.GetTraceWithSpans(ctx, OrgA, "fedcba9876543210fedcba9876543210")
 	if err != nil {
 		t.Fatalf("unexpected error on cross-tenant lookup: %v", err)
 	}
@@ -596,8 +620,8 @@ func TestInsertSpansBatch(t *testing.T) {
 	spans := []domain.Span{
 		{
 			OrgID:         OrgA,
-			TraceID:       "trace-1",
-			SpanID:        "span-1",
+			TraceID:       "0123456789abcdef0123456789abcdef",
+			SpanID:        "1122334455667788",
 			ServiceName:   "checkout",
 			OperationName: "POST /checkout",
 			DurationMs:    100,

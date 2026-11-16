@@ -39,8 +39,8 @@ func (m *mockSpanPublisher) PublishSpans(ctx context.Context, spans []domain.Spa
 func TestSpanHandler_DecoupledPipeline(t *testing.T) {
 	now := time.Now()
 	validSpan := domain.Span{
-		TraceID:       "trace-producer-1",
-		SpanID:        "span-1",
+		TraceID:       "0123456789abcdef0123456789abcdef",
+		SpanID:        "0123456789abcdef",
 		ServiceName:   "order-service",
 		OperationName: "CreateOrder",
 		DurationMs:    150,

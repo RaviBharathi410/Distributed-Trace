@@ -37,6 +37,12 @@ func formatSQLWithArgs(sql string, args []interface{}) string {
 				} else {
 					sb.WriteString("0")
 				}
+			case [16]byte:
+				sb.WriteString(fmt.Sprintf("unhex('%x')", v[:]))
+			case [8]byte:
+				sb.WriteString(fmt.Sprintf("unhex('%x')", v[:]))
+			case []byte:
+				sb.WriteString(fmt.Sprintf("unhex('%x')", v))
 			default:
 				sb.WriteString(fmt.Sprintf("'%v'", v))
 			}

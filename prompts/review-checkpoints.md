@@ -354,9 +354,32 @@
     - `SearchTraces (All Services)`: 999,424 cold read_rows (122 granules across 15 min window), p50 7.0 ms, 50 result_rows
     - `GetServiceGraph (Self-Join)`: 999,424 cold read_rows, 81,443,751 read_bytes, 15m fixed window width, p50 5.0 ms
   - Local `go test ./...` and `go build ./cmd/...` cleanly passing (Code 0).
-- **Next Checkpoint's Exit Criteria (Phase 2 — ZSTD Compression Evaluation):**
-  1. Branch `benchmark-zstd` created with `tags Map(String, String) CODEC(ZSTD(3))`.
-  2. Re-run benchmark to measure `tags` column bytes vs 157,380,660 B baseline, total B/span vs 236.59 B baseline, sustained spans/s, and ClickHouse CPU %.
+- **Review Checkpoint 2 (2026-11-16) — Phase 2 ZSTD Compression Evaluation [VERIFIED]:**
+  - Commit: `e5fea2b` on branch `benchmark-zstd` (merged to `main`)
+  - Run Evidence: Benchmark Run #8 (`0e4fab4` on `origin/benchmark-results:reports/2026-11-16-run-8.md`)
+  - `tags` Column Footprint: Reduced from 157,380,660 B (LZ4) to 94,196,645 B (ZSTD(3)) -> **-40.1% storage reduction (-63,184,015 B saved)**. Compression ratio improved from 3.69x to 6.17x.
+  - Total Storage Footprint: Reduced from 236.59 B/span to 173.39 B/span -> **-26.7% overall reduction (-63.2 B/span saved)**.
+  - In-Database Codec Matrix: LZ4 (157.2MB, 3.69x, 3716ms) vs ZSTD(1) (95.2MB, 6.10x, 4265ms, -39.4%) vs ZSTD(3) (94.2MB, 6.17x, 5156ms, -40.1%).
+  - Ingestion Throughput: 6,051 spans/s sustained (minimal ~3.7% delta vs 6,286 LZ4).
+  - Merged cleanly to `main` at commit `e5fea2b`.
+
+- **Review Checkpoint 3 (2026-11-16) — Phase 3 Binary IDs & Bloom Filter Indexing [IN PROGRESS]:**
+  - Branch: `benchmark-binary-ids`
+  - Implementation:
+    - `trace_id FixedString(16)`, `span_id FixedString(8)`, `parent_span_id FixedString(8)`
+    - Skipping index: `INDEX idx_trace trace_id TYPE bloom_filter GRANULARITY 1`
+    - REST `/api/v1/spans` rejects malformed or all-zero IDs with HTTP 400
+    - OTLP `/v1/traces` drops invalid spans into `partialSuccess.rejected_spans` without failing the batch
+    - Root spans store 8 zero bytes and decode to `""` in Go domain models
+    - `GetServiceGraph` filters out zero parents (`c.parent_span_id != toFixedString('', 8)`)
+    - Migration runner automatically drops and recreates legacy table schema
+    - Live ClickHouse round-trip test `TestBinaryIDs_ClickHouse_RoundTrip_ZeroLiteral` added
+    - Full test suite passing locally (`go test ./...` 100% green)
+  - Exit Criteria:
+    - Push `benchmark-binary-ids` to trigger GitHub Actions Run 9.
+    - Measure `trace_id` bytes vs 33.1 MB baseline, `span_id`/`parent_span_id` bytes vs 17.1 MB baselines.
+    - Measure `GetTraceWithSpans` read_rows and read_bytes proving bloom filter pruning vs 20M full scan.
+    - Report total B/span on disk. Merge to `main`.
 
 
 

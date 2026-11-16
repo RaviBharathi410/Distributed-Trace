@@ -33,11 +33,14 @@ func ValidateSpans(spans []domain.Span) error {
 
 	for i, s := range spans {
 		var spanErrs []string
-		if s.TraceID == "" {
-			spanErrs = append(spanErrs, "empty trace_id")
+		if _, err := domain.ParseTraceIDHex(s.TraceID); err != nil {
+			spanErrs = append(spanErrs, err.Error())
 		}
-		if s.SpanID == "" {
-			spanErrs = append(spanErrs, "empty span_id")
+		if _, err := domain.ParseSpanIDHex(s.SpanID); err != nil {
+			spanErrs = append(spanErrs, err.Error())
+		}
+		if _, err := domain.ParseParentSpanIDHex(s.ParentSpanID); err != nil {
+			spanErrs = append(spanErrs, err.Error())
 		}
 		if s.ServiceName == "" {
 			spanErrs = append(spanErrs, "empty service_name")

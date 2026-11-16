@@ -170,42 +170,78 @@ func (h *SpanHandler) IngestOTLP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Validate incoming telemetry
-	if err := ingest.ValidateSpans(spans); err != nil {
-		WriteError(w, http.StatusBadRequest, err.Error())
-		return
+	// 5. Filter valid spans and drop invalid/all-zero IDs into partialSuccess.rejected_spans without failing the batch
+	var acceptedSpans []domain.Span
+	var rejectedSpansCount int64
+	var rejectionErrors []string
+
+	for _, s := range spans {
+		var reason string
+		if _, err := domain.ParseTraceIDHex(s.TraceID); err != nil {
+			reason = fmt.Sprintf("invalid trace_id: %v", err)
+		} else if _, err := domain.ParseSpanIDHex(s.SpanID); err != nil {
+			reason = fmt.Sprintf("invalid span_id: %v", err)
+		} else if _, err := domain.ParseParentSpanIDHex(s.ParentSpanID); err != nil {
+			reason = fmt.Sprintf("invalid parent_span_id: %v", err)
+		} else if s.ServiceName == "" {
+			reason = "empty service_name"
+		} else if s.StartTime.IsZero() {
+			reason = "invalid start_time"
+		} else if s.DurationMs == 0 {
+			reason = "duration_ms must be greater than zero"
+		}
+
+		if reason != "" {
+			rejectedSpansCount++
+			if len(rejectionErrors) < 3 {
+				rejectionErrors = append(rejectionErrors, reason)
+			}
+			continue
+		}
+		acceptedSpans = append(acceptedSpans, s)
 	}
 
-	// 6. Enrich with OrgID and normalized names (enforcing tenant isolation and clamping org_id tags)
-	enrichedSpans := ingest.EnrichSpans(spans, orgID)
-
-	// 7. Decoupled Pipeline (Decision #19):
-	if h.producer != nil {
-		if err := h.producer.PublishSpans(r.Context(), enrichedSpans); err != nil {
-			observability.Log.Error("Failed to publish OTLP spans to Kafka", zap.Error(err), zap.String("org_id", orgID))
-			WriteError(w, http.StatusInternalServerError, "failed to queue spans: "+err.Error())
-			return
-		}
-	} else {
-		if err := h.traceRepo.InsertSpansBatch(r.Context(), enrichedSpans); err != nil {
-			observability.Log.Error("Failed to insert OTLP spans into ClickHouse", zap.Error(err), zap.String("org_id", orgID))
-			WriteError(w, http.StatusInternalServerError, "failed to persist spans: "+err.Error())
-			return
-		}
+	errMsg := ""
+	if rejectedSpansCount > 0 {
+		errMsg = fmt.Sprintf("dropped %d spans with invalid or zero IDs (%s)", rejectedSpansCount, strings.Join(rejectionErrors, "; "))
 	}
 
-	observability.SpansIngested.WithLabelValues(orgID, "ok").Add(float64(len(spans)))
+	// 6. Enrich valid telemetry with OrgID and normalized names
+	if len(acceptedSpans) > 0 {
+		enrichedSpans := ingest.EnrichSpans(acceptedSpans, orgID)
 
-	h.respondOTLPSuccess(w, r)
+		// 7. Decoupled Pipeline (Decision #19):
+		if h.producer != nil {
+			if err := h.producer.PublishSpans(r.Context(), enrichedSpans); err != nil {
+				observability.Log.Error("Failed to publish OTLP spans to Kafka", zap.Error(err), zap.String("org_id", orgID))
+				WriteError(w, http.StatusInternalServerError, "failed to queue spans: "+err.Error())
+				return
+			}
+		} else {
+			if err := h.traceRepo.InsertSpansBatch(r.Context(), enrichedSpans); err != nil {
+				observability.Log.Error("Failed to insert OTLP spans into ClickHouse", zap.Error(err), zap.String("org_id", orgID))
+				WriteError(w, http.StatusInternalServerError, "failed to persist spans: "+err.Error())
+				return
+			}
+		}
+
+		observability.SpansIngested.WithLabelValues(orgID, "ok").Add(float64(len(acceptedSpans)))
+	}
+
+	h.respondOTLPPartialSuccess(w, r, rejectedSpansCount, errMsg)
 }
 
 func (h *SpanHandler) respondOTLPSuccess(w http.ResponseWriter, r *http.Request) {
+	h.respondOTLPPartialSuccess(w, r, 0, "")
+}
+
+func (h *SpanHandler) respondOTLPPartialSuccess(w http.ResponseWriter, r *http.Request, rejectedSpans int64, errMsg string) {
 	accept := r.Header.Get("Accept")
 	contentType := r.Header.Get("Content-Type")
 
 	// Standard OTel SDKs and Collectors requesting protobuf expect binary application/x-protobuf response
 	if strings.Contains(accept, "application/x-protobuf") || strings.Contains(contentType, "application/x-protobuf") {
-		respBytes, err := ingest.BuildOTLPProtoSuccessResponse()
+		respBytes, err := ingest.BuildOTLPProtoPartialSuccessResponse(rejectedSpans, errMsg)
 		if err == nil {
 			w.Header().Set("Content-Type", "application/x-protobuf")
 			w.WriteHeader(http.StatusOK)
@@ -214,8 +250,16 @@ func (h *SpanHandler) respondOTLPSuccess(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	partialSuccessMap := map[string]any{}
+	if rejectedSpans > 0 {
+		partialSuccessMap["rejectedSpans"] = rejectedSpans
+	}
+	if errMsg != "" {
+		partialSuccessMap["errorMessage"] = errMsg
+	}
+
 	WriteJSON(w, http.StatusOK, map[string]any{
-		"partialSuccess": map[string]any{},
+		"partialSuccess": partialSuccessMap,
 	})
 }
 

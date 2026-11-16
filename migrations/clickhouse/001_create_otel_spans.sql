@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS otel_spans (
     org_id String,
-    trace_id String,
-    span_id String,
-    parent_span_id String,
+    trace_id FixedString(16),
+    span_id FixedString(8),
+    parent_span_id FixedString(8),
     service_name String,
     operation_name String,
     duration_ms UInt32,
@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS otel_spans (
     error_message String,
     tags Map(String, String) CODEC(ZSTD(3)),
     start_time DateTime64(3, 'UTC'),
-    INDEX idx_service service_name TYPE bloom_filter GRANULARITY 4
+    INDEX idx_service service_name TYPE bloom_filter GRANULARITY 4,
+    INDEX idx_trace trace_id TYPE bloom_filter GRANULARITY 1
 ) Engine = MergeTree()
 ORDER BY (org_id, service_name, start_time)
 PARTITION BY toYYYYMMDD(start_time)

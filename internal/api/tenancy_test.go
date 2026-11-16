@@ -186,7 +186,8 @@ func TestTracesHandler_TenantIsolation(t *testing.T) {
 		r := chi.NewRouter()
 		r.Get("/traces/{trace_id}", handler.GetTraceByID)
 
-		req := httptest.NewRequest(http.MethodGet, "/traces/trace-12345", nil).WithContext(ctx)
+		validTraceID := "0102030405060708090a0b0c0d0e0f10"
+		req := httptest.NewRequest(http.MethodGet, "/traces/"+validTraceID, nil).WithContext(ctx)
 		rec := httptest.NewRecorder()
 
 		r.ServeHTTP(rec, req)
@@ -199,8 +200,9 @@ func TestTracesHandler_TenantIsolation(t *testing.T) {
 		if len(mockConn.lastArgs) < 2 {
 			t.Fatalf("expected at least 2 args, got %v", mockConn.lastArgs)
 		}
-		if mockConn.lastArgs[0] != TestOrgA || mockConn.lastArgs[1] != "trace-12345" {
-			t.Errorf("expected args [%s, trace-12345], got %v", TestOrgA, mockConn.lastArgs)
+		expectedBin, _ := domain.ParseTraceIDHex(validTraceID)
+		if mockConn.lastArgs[0] != TestOrgA || mockConn.lastArgs[1] != expectedBin {
+			t.Errorf("expected args [%s, %v], got %v", TestOrgA, expectedBin, mockConn.lastArgs)
 		}
 	})
 }
@@ -213,8 +215,8 @@ func TestSpanIngest_TenantEnrichment(t *testing.T) {
 	// Malicious client payload: sets org_id to victim "org-victim-666"
 	payload := []domain.Span{
 		{
-			TraceID:       "trace-1",
-			SpanID:        "span-1",
+			TraceID:       "0102030405060708090a0b0c0d0e0f10",
+			SpanID:        "0102030405060708",
 			ServiceName:   "checkout",
 			OperationName: "POST /checkout",
 			DurationMs:    100,

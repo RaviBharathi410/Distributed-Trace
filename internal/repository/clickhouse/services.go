@@ -106,6 +106,7 @@ func (r *ServiceRepository) BuildGetServiceGraphQuery(orgID string, from, to tim
 		FROM otel_spans c
 		JOIN otel_spans p ON c.parent_span_id = p.span_id AND c.trace_id = p.trace_id AND c.org_id = p.org_id
 		WHERE c.org_id = ? AND c.start_time >= ? AND c.start_time <= ? AND c.service_name != p.service_name
+		  AND c.parent_span_id != toFixedString('', 8)
 		GROUP BY source, target
 		%s`, comment)
 

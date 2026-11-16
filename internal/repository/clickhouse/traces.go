@@ -30,11 +30,24 @@ func (r *TraceRepository) InsertSpansBatch(ctx context.Context, spans []domain.S
 	}
 
 	for _, s := range spans {
+		binTraceID, err := domain.ParseTraceIDHex(s.TraceID)
+		if err != nil {
+			return fmt.Errorf("invalid trace_id %q: %w", s.TraceID, err)
+		}
+		binSpanID, err := domain.ParseSpanIDHex(s.SpanID)
+		if err != nil {
+			return fmt.Errorf("invalid span_id %q: %w", s.SpanID, err)
+		}
+		binParentSpanID, err := domain.ParseParentSpanIDHex(s.ParentSpanID)
+		if err != nil {
+			return fmt.Errorf("invalid parent_span_id %q: %w", s.ParentSpanID, err)
+		}
+
 		err = batch.Append(
 			s.OrgID,
-			s.TraceID,
-			s.SpanID,
-			s.ParentSpanID,
+			binTraceID,
+			binSpanID,
+			binParentSpanID,
 			s.ServiceName,
 			s.OperationName,
 			s.DurationMs,
@@ -153,11 +166,12 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 	var traces []domain.TraceRow
 	for rows.Next() {
 		var tr domain.TraceRow
+		var rawTraceID [16]byte
 		var startTime time.Time
 		var spanCount uint64
 		var errorCount uint64
 		if err := rows.Scan(
-			&tr.TraceID,
+			&rawTraceID,
 			&tr.RootService,
 			&tr.RootOperation,
 			&tr.DurationMs,
@@ -167,6 +181,7 @@ func (r *TraceRepository) SearchTraces(ctx context.Context, orgID string, filter
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan trace row: %w", err)
 		}
+		tr.TraceID = domain.FormatTraceID(rawTraceID)
 		tr.SpanCount = int(spanCount)
 		tr.ErrorCount = int(errorCount)
 		tr.StartTime = startTime.UnixNano() / int64(time.Millisecond)
@@ -183,6 +198,8 @@ func (r *TraceRepository) BuildGetTraceWithSpansQuery(orgID, traceID, reqID stri
 		comment = "/* request_id=" + reqID + " */"
 	}
 
+	binTraceID, _ := domain.ParseTraceIDHex(traceID)
+
 	sql := fmt.Sprintf(`
 		SELECT 
 			trace_id,
@@ -198,7 +215,7 @@ func (r *TraceRepository) BuildGetTraceWithSpansQuery(orgID, traceID, reqID stri
 		FROM otel_spans
 		WHERE org_id = ? AND trace_id = ? %s`, comment)
 
-	return sql, []interface{}{orgID, traceID}
+	return sql, []interface{}{orgID, binTraceID}
 }
 
 // ExplainGetTraceWithSpans derives the EXPLAIN plan directly from the production query path.
@@ -228,11 +245,14 @@ func (r *TraceRepository) GetTraceWithSpans(ctx context.Context, orgID string, t
 
 	for rows.Next() {
 		var s domain.Span
+		var rawTraceID [16]byte
+		var rawSpanID [8]byte
+		var rawParentSpanID [8]byte
 		var startTime time.Time
 		if err := rows.Scan(
-			&s.TraceID,
-			&s.SpanID,
-			&s.ParentSpanID,
+			&rawTraceID,
+			&rawSpanID,
+			&rawParentSpanID,
 			&s.ServiceName,
 			&s.OperationName,
 			&s.DurationMs,
@@ -243,6 +263,9 @@ func (r *TraceRepository) GetTraceWithSpans(ctx context.Context, orgID string, t
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan span: %w", err)
 		}
+		s.TraceID = domain.FormatTraceID(rawTraceID)
+		s.SpanID = domain.FormatSpanID(rawSpanID)
+		s.ParentSpanID = domain.FormatParentSpanID(rawParentSpanID)
 		s.StartTime = startTime
 		if minStartTime.IsZero() || startTime.Before(minStartTime) {
 			minStartTime = startTime

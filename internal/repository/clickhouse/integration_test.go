@@ -77,11 +77,15 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 	testOrgB := "integration-org-beta"
 
 	// 2. Insert Real Parent-Child Spans for Org A
+	traceA := "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf"
+	spanARoot := "a101a102a103a104"
+	spanAChild := "a201a202a203a204"
+
 	spansA := []domain.Span{
 		{
 			OrgID:         testOrgA,
-			TraceID:       "trace-integ-a-01",
-			SpanID:        "span-a-root",
+			TraceID:       traceA,
+			SpanID:        spanARoot,
 			ParentSpanID:  "",
 			ServiceName:   "frontend-api-a",
 			OperationName: "GET /checkout",
@@ -91,9 +95,9 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 		},
 		{
 			OrgID:         testOrgA,
-			TraceID:       "trace-integ-a-01",
-			SpanID:        "span-a-child",
-			ParentSpanID:  "span-a-root",
+			TraceID:       traceA,
+			SpanID:        spanAChild,
+			ParentSpanID:  spanARoot,
 			ServiceName:   "payment-svc-a",
 			OperationName: "POST /charge",
 			DurationMs:    100,
@@ -103,11 +107,15 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 	}
 
 	// 3. Insert Real Parent-Child Spans for Org B
+	traceB := "b0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
+	spanBRoot := "b101b102b103b104"
+	spanBChild := "b201b202b203b204"
+
 	spansB := []domain.Span{
 		{
 			OrgID:         testOrgB,
-			TraceID:       "trace-integ-b-02",
-			SpanID:        "span-b-root",
+			TraceID:       traceB,
+			SpanID:        spanBRoot,
 			ParentSpanID:  "",
 			ServiceName:   "secret-bank-b",
 			OperationName: "GET /wire",
@@ -117,9 +125,9 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 		},
 		{
 			OrgID:         testOrgB,
-			TraceID:       "trace-integ-b-02",
-			SpanID:        "span-b-child",
-			ParentSpanID:  "span-b-root",
+			TraceID:       traceB,
+			SpanID:        spanBChild,
+			ParentSpanID:  spanBRoot,
 			ServiceName:   "vault-db-b",
 			OperationName: "SELECT secret",
 			DurationMs:    200,
@@ -252,6 +260,128 @@ func TestGetServiceGraph_RealClickHouse_Integration(t *testing.T) {
 		if node.Name == "idle-audit-svc-a" || node.Name == "payment-svc-a" || node.Name == "frontend-api-a" {
 			t.Fatalf("LIVE CLICKHOUSE CROSS-TENANT LEAK: Org B graph contains Org A node: %s", node.Name)
 		}
+	}
+}
+
+func TestBinaryIDs_ClickHouse_RoundTrip_ZeroLiteral(t *testing.T) {
+	chURL := os.Getenv("CLICKHOUSE_URL")
+	if chURL == "" {
+		chURL = "127.0.0.1:9000"
+	}
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{chURL},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		DialTimeout: 2 * time.Second,
+	})
+	if err != nil {
+		t.Skipf("skipping integration test: failed to open clickhouse connection: %v", err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := conn.Ping(ctx); err != nil {
+		t.Skipf("skipping integration test: ClickHouse not reachable at %s (%v)", chURL, err)
+		return
+	}
+
+	// 1. Ensure table schema is up to date
+	migrationSQL, err := findMigrationFile("001_create_otel_spans.sql")
+	if err != nil {
+		t.Fatalf("failed to locate migration file: %v", err)
+	}
+	if err := conn.Exec(context.Background(), migrationSQL); err != nil {
+		t.Fatalf("failed to execute migration: %v", err)
+	}
+
+	repo := NewTraceRepository(conn)
+	testOrg := "org-roundtrip-test"
+	traceHex := "0123456789abcdef0123456789abcdef"
+	rootSpanHex := "1122334455667788"
+	childSpanHex := "aabbccddeeff0011"
+	now := time.Now().UTC()
+
+	// 2. Insert root span (empty parent_span_id -> zero bytes) and child span
+	spans := []domain.Span{
+		{
+			OrgID:         testOrg,
+			TraceID:       traceHex,
+			SpanID:        rootSpanHex,
+			ParentSpanID:  "", // Root span: zero-byte literal
+			ServiceName:   "root-service",
+			OperationName: "HandleRequest",
+			DurationMs:    120,
+			StatusCode:    1,
+			StartTime:     now,
+			Tags:          map[string]string{"env": "test"},
+		},
+		{
+			OrgID:         testOrg,
+			TraceID:       traceHex,
+			SpanID:        childSpanHex,
+			ParentSpanID:  rootSpanHex,
+			ServiceName:   "child-service",
+			OperationName: "CallDownstream",
+			DurationMs:    60,
+			StatusCode:    1,
+			StartTime:     now.Add(10 * time.Millisecond),
+			Tags:          map[string]string{"env": "test"},
+		},
+	}
+
+	if err := repo.InsertSpansBatch(context.Background(), spans); err != nil {
+		t.Fatalf("InsertSpansBatch failed: %v", err)
+	}
+
+	// 3. Query via GetTraceWithSpans (FixedString scanning and decoding)
+	trace, err := repo.GetTraceWithSpans(context.Background(), testOrg, traceHex)
+	if err != nil {
+		t.Fatalf("GetTraceWithSpans failed: %v", err)
+	}
+	if trace == nil {
+		t.Fatalf("expected trace %s to be found", traceHex)
+	}
+	if len(trace.Spans) != 2 {
+		t.Fatalf("expected 2 spans in trace, got %d", len(trace.Spans))
+	}
+
+	var foundRoot, foundChild bool
+	for _, s := range trace.Spans {
+		if s.SpanID == rootSpanHex {
+			foundRoot = true
+			if s.ParentSpanID != "" {
+				t.Errorf("expected root span parent_span_id to decode to empty string \"\", got %q", s.ParentSpanID)
+			}
+		}
+		if s.SpanID == childSpanHex {
+			foundChild = true
+			if s.ParentSpanID != rootSpanHex {
+				t.Errorf("expected child span parent_span_id to be %q, got %q", rootSpanHex, s.ParentSpanID)
+			}
+		}
+		if s.TraceID != traceHex {
+			t.Errorf("expected trace_id to roundtrip to %q, got %q", traceHex, s.TraceID)
+		}
+	}
+	if !foundRoot || !foundChild {
+		t.Errorf("did not find both root and child spans: foundRoot=%v, foundChild=%v", foundRoot, foundChild)
+	}
+
+	// 4. Raw ClickHouse SQL assertion for zero-byte FixedString(8) storage
+	var rootCount uint64
+	err = conn.QueryRow(context.Background(),
+		"SELECT count() FROM otel_spans WHERE org_id = ? AND trace_id = unhex(?) AND parent_span_id = toFixedString('', 8)",
+		testOrg, traceHex).Scan(&rootCount)
+	if err != nil {
+		t.Fatalf("failed to query raw ClickHouse zero literal: %v", err)
+	}
+	if rootCount < 1 {
+		t.Errorf("expected at least 1 span with parent_span_id = toFixedString('', 8), got %d", rootCount)
 	}
 }
 

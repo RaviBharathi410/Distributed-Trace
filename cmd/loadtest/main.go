@@ -1060,9 +1060,9 @@ func seedBulkQueryDataset(_ context.Context, chConn clickhousedriver.Conn, orgID
 		)
 		SELECT
 			'%s' AS org_id,
-			lower(hex(MD5(concat('trace-', toString(intDiv(number + %d, 4)))))) AS trace_id,
-			lower(hex(substr(MD5(concat('span-', toString(number + %d))), 1, 8))) AS span_id,
-			if((number + %d) %% 4 = 0, '', lower(hex(substr(MD5(concat('span-', toString(number + %d - 1))), 1, 8)))) AS parent_span_id,
+			MD5(concat('trace-', toString(intDiv(number + %d, 4)))) AS trace_id,
+			toFixedString(substr(MD5(concat('span-', toString(number + %d))), 1, 8), 8) AS span_id,
+			if((number + %d) %% 4 = 0, toFixedString('', 8), toFixedString(substr(MD5(concat('span-', toString(number + %d - 1))), 1, 8), 8)) AS parent_span_id,
 			concat('service-', toString((number + %d) %% 4)) AS service_name,
 			concat('op-', toString((number + %d) %% 4)) AS operation_name,
 			toUInt32(multiIf((number + %d) %% 4 = 0, 250, (number + %d) %% 4 = 1, 180, (number + %d) %% 4 = 2, 120, 60)) AS duration_ms,
@@ -1110,9 +1110,9 @@ func sampleTraceIDs(ctx context.Context, chConn clickhousedriver.Conn, orgID str
 
 	var traceIDs []string
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err == nil && id != "" {
-			traceIDs = append(traceIDs, id)
+		var rawID [16]byte
+		if err := rows.Scan(&rawID); err == nil && rawID != [16]byte{} {
+			traceIDs = append(traceIDs, domain.FormatTraceID(rawID))
 		}
 	}
 	if len(traceIDs) < count {
@@ -1121,9 +1121,9 @@ func sampleTraceIDs(ctx context.Context, chConn clickhousedriver.Conn, orgID str
 		if err == nil {
 			defer fRows.Close()
 			for fRows.Next() {
-				var id string
-				if err := fRows.Scan(&id); err == nil && id != "" {
-					traceIDs = append(traceIDs, id)
+				var rawID [16]byte
+				if err := fRows.Scan(&rawID); err == nil && rawID != [16]byte{} {
+					traceIDs = append(traceIDs, domain.FormatTraceID(rawID))
 					if len(traceIDs) >= count {
 						break
 					}
@@ -1308,7 +1308,7 @@ func runQueryBenchmarks(_ context.Context, chConn clickhousedriver.Conn, chDB, o
 		totalScaleRows,
 		traceMeasurements,
 		explainTrace,
-		"⚠️ Scans full partition (no bloom filter index on trace_id yet)",
+		"✅ Pruned via bloom_filter index idx_trace on trace_id FixedString(16)",
 	))
 
 	// 2. SearchTraces (Primary Key Filter & Group By - Single Service)

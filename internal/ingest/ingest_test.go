@@ -40,31 +40,73 @@ func TestValidateSpans(t *testing.T) {
 		}
 	})
 
-	t.Run("Fails when trace_id is missing", func(t *testing.T) {
-		spans := []domain.Span{
-			{
-				SpanID:        "00f067aa0ba902b7",
-				ServiceName:   "checkout-api",
-				OperationName: "POST /checkout",
-				StartTime:     now,
-			},
-		}
-		if err := ValidateSpans(spans); err == nil {
-			t.Errorf("expected error when trace_id is missing")
+	t.Run("Fails when trace_id is missing or all-zero or invalid hex", func(t *testing.T) {
+		for _, badTrace := range []string{"", "00000000000000000000000000000000", "not-a-valid-hex-trace-id-short", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"} {
+			spans := []domain.Span{
+				{
+					TraceID:       badTrace,
+					SpanID:        "00f067aa0ba902b7",
+					ServiceName:   "checkout-api",
+					OperationName: "POST /checkout",
+					StartTime:     now,
+					DurationMs:    10,
+				},
+			}
+			if err := ValidateSpans(spans); err == nil {
+				t.Errorf("expected error when trace_id is %q, got nil", badTrace)
+			}
 		}
 	})
 
-	t.Run("Fails when span_id is missing", func(t *testing.T) {
+	t.Run("Fails when span_id is missing or all-zero or invalid hex", func(t *testing.T) {
+		for _, badSpan := range []string{"", "0000000000000000", "short-span", "zzzzzzzzzzzzzzzz"} {
+			spans := []domain.Span{
+				{
+					TraceID:       "4bf92f3577b34da6a3ce929d0e0e4736",
+					SpanID:        badSpan,
+					ServiceName:   "checkout-api",
+					OperationName: "POST /checkout",
+					StartTime:     now,
+					DurationMs:    10,
+				},
+			}
+			if err := ValidateSpans(spans); err == nil {
+				t.Errorf("expected error when span_id is %q, got nil", badSpan)
+			}
+		}
+	})
+
+	t.Run("Fails when parent_span_id is malformed hex", func(t *testing.T) {
 		spans := []domain.Span{
 			{
 				TraceID:       "4bf92f3577b34da6a3ce929d0e0e4736",
+				SpanID:        "00f067aa0ba902b7",
+				ParentSpanID:  "not-valid-hex",
 				ServiceName:   "checkout-api",
 				OperationName: "POST /checkout",
 				StartTime:     now,
+				DurationMs:    10,
 			},
 		}
 		if err := ValidateSpans(spans); err == nil {
-			t.Errorf("expected error when span_id is missing")
+			t.Errorf("expected error when parent_span_id is malformed hex, got nil")
+		}
+	})
+
+	t.Run("Accepts root span with empty parent_span_id", func(t *testing.T) {
+		spans := []domain.Span{
+			{
+				TraceID:       "4bf92f3577b34da6a3ce929d0e0e4736",
+				SpanID:        "00f067aa0ba902b7",
+				ParentSpanID:  "", // root span
+				ServiceName:   "checkout-api",
+				OperationName: "POST /checkout",
+				StartTime:     now,
+				DurationMs:    10,
+			},
+		}
+		if err := ValidateSpans(spans); err != nil {
+			t.Errorf("expected root span with empty parent_span_id to pass validation, got: %v", err)
 		}
 	})
 

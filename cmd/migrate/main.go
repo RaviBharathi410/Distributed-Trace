@@ -118,6 +118,17 @@ func main() {
 		fmt.Printf("⚠️ ClickHouse ping failed at %s (%v). Skipping ClickHouse migrations.\n", chURL, err)
 	} else {
 		fmt.Println("✔ ClickHouse connected successfully.")
+
+		// Phase 3 Binary IDs: If dev table already exists with legacy String schema, drop and recreate
+		var traceIDType string
+		_ = chConn.QueryRow(ctx, "SELECT type FROM system.columns WHERE database = ? AND table = 'otel_spans' AND name = 'trace_id'", chDB).Scan(&traceIDType)
+		if traceIDType != "" && !strings.HasPrefix(traceIDType, "FixedString(16)") {
+			fmt.Printf("⚠️ Detected legacy otel_spans schema (trace_id: %s). Dropping table to apply Phase 3 FixedString schema...\n", traceIDType)
+			if err := chConn.Exec(ctx, "DROP TABLE IF EXISTS otel_spans"); err != nil {
+				log.Fatalf("❌ Failed to drop legacy otel_spans table: %v", err)
+			}
+		}
+
 		chMigrationsDir := "migrations/clickhouse"
 		chFiles, err := os.ReadDir(chMigrationsDir)
 		if err == nil {

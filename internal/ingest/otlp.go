@@ -324,6 +324,17 @@ func ParseOTLPTraces(body []byte, contentType string) ([]domain.Span, error) {
 
 // BuildOTLPProtoSuccessResponse serializes a standard empty ExportTraceServiceResponse proto message
 func BuildOTLPProtoSuccessResponse() ([]byte, error) {
+	return BuildOTLPProtoPartialSuccessResponse(0, "")
+}
+
+// BuildOTLPProtoPartialSuccessResponse serializes an ExportTraceServiceResponse with partialSuccess details
+func BuildOTLPProtoPartialSuccessResponse(rejectedSpans int64, errorMessage string) ([]byte, error) {
 	resp := &coltracepb.ExportTraceServiceResponse{}
+	if rejectedSpans > 0 || errorMessage != "" {
+		resp.PartialSuccess = &coltracepb.ExportTracePartialSuccess{
+			RejectedSpans: rejectedSpans,
+			ErrorMessage:  errorMessage,
+		}
+	}
 	return proto.Marshal(resp)
 }
