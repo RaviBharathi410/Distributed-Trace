@@ -1,23 +1,23 @@
 # DistributedTrace Empirical Ingestion & Storage Benchmark Report
 
-**Date:** 2026-11-16T09:30:06Z  
+**Date:** 2026-11-16T09:51:19Z  
 **Hardware Environment:** `Shared 2-4 vCPU box (GitHub Actions Runner / linux amd64) - INDICATIVE ONLY, NOT A SIZING GUIDE`  
 **Dataset:** 1000000 spans sent (1000000 persisted) in 8192-span batches  
-**Sustained Throughput:** `6285 spans/second` (duration: `159.11s`)  
+**Sustained Throughput:** `6286 spans/second` (duration: `159.09s`)  
 
 ## 1. ClickHouse Partition Consolidation (system.parts)
 
 | Partition | Active Parts (Post-OPTIMIZE) | Rows | Bytes on Disk | Single Part Verified |
 |---|---|---|---|---|
-| `20261116` | 1 | 1000000 | **235061614 B** | ✅ Yes (1 part) |
+| `20261116` | 1 | 1000000 | **235177459 B** | ✅ Yes (1 part) |
 
 ## 2. Multi-Table Storage Footprint & Classification
 
 | Table | Role / Classification | Active Parts | Rows | Compressed Data | Bytes on Disk |
 |---|---|---|---|---|---|
-| `otel_spans` | Primary Ingest (Raw Spans + Indexes) | 1 | 1000000 | 235054362 B | **235061614 B** |
+| `otel_spans` | Primary Ingest (Raw Spans + Indexes) | 1 | 1000000 | 235170217 B | **235177459 B** |
 | `service_metrics_hourly` | Auxiliary Aggregate Rollup (SummingMergeTree) | 0 | 0 | 0 B | **0 B** |
-| `anomalies` | Auxiliary Incident Alerts (MergeTree) | 5 | 18303 | 1401546 B | **1407455 B** |
+| `anomalies` | Auxiliary Incident Alerts (MergeTree) | 5 | 18327 | 1404197 B | **1410109 B** |
 
 > [!NOTE]
 > Telemetry ingest storage is accounted for primarily by `otel_spans` (columns + skipping indices + marks). The `anomalies` table is populated asynchronously by the Go server's background anomaly detector evaluating spans against statistical thresholds; with an 8% injected error rate and latency jitter, the detector recorded ~1.8% of spans as anomalies (~1.4 B/span disk footprint). `service_metrics_hourly` is an analytical rollup table (0 B during raw ingest).
@@ -32,25 +32,25 @@
 
 | Column | Compressed Bytes | Uncompressed Bytes | Compression Ratio |
 |---|---|---|---|
-| `tags` | 157273954 B | 580559685 B | 3.7x |
-| `trace_id` | 33110919 B | 33000000 B | 1.0x |
-| `span_id` | 17061770 B | 17000000 B | 1.0x |
-| `parent_span_id` | 17061527 B | 17000000 B | 1.0x |
-| `start_time` | 4042536 B | 8000000 B | 2.0x |
-| `duration_ms` | 2936648 B | 4000000 B | 1.4x |
-| `operation_name` | 2626416 B | 21230462 B | 8.1x |
-| `error_message` | 435572 B | 6001550 B | 13.8x |
-| `status_code` | 277344 B | 1000000 B | 3.6x |
+| `tags` | 157380660 B | 580998443 B | 3.7x |
+| `trace_id` | 33111043 B | 33000000 B | 1.0x |
+| `span_id` | 17062356 B | 17000000 B | 1.0x |
+| `parent_span_id` | 17062005 B | 17000000 B | 1.0x |
+| `start_time` | 4042610 B | 8000000 B | 2.0x |
+| `duration_ms` | 2936904 B | 4000000 B | 1.4x |
+| `operation_name` | 2627157 B | 21237216 B | 8.1x |
+| `error_message` | 440022 B | 6066893 B | 13.8x |
+| `status_code` | 279780 B | 1000000 B | 3.6x |
 | `org_id` | 153998 B | 37000000 B | 240.3x |
 
 ## 5. Empirical SaaS Cost-Per-Million-Spans Economics
 
-- **Physical Disk Footprint per Span:** `236.47 bytes` (columns + skipping indices + marks)
+- **Physical Disk Footprint per Span:** `236.59 bytes` (columns + skipping indices + marks)
 - **Physical Disk Footprint per 1M Spans:** `0.220 GB`
 - **Monthly Storage Cost (AWS EBS gp3):** `$0.0176 / million spans / month` ($0.08/GB-mo)
 - **Monthly Storage Cost (AWS S3 Tiered):** `$0.0051 / million spans / month` ($0.023/GB-mo)
 - **One-Time Network Wire Ingress:** `$0.00142 / million spans` (0.142 GB wire payload at $0.01/GB)
-- **Initial Month Combined Unit Cost (EBS + Ingress):** `~$0.01904 / million spans`
+- **Initial Month Combined Unit Cost (EBS + Ingress):** `~$0.01905 / million spans`
 - **Initial Month Combined Unit Cost (S3 Tiered + Ingress):** `~$0.00649 / million spans`
 
 > [!NOTE]
@@ -65,10 +65,10 @@
 
 | Query Operation | Scale | First Run (Cache Dropped) | P50 Latency | P95 Latency | Cold Read Rows | Avg Read Rows | Cold Read Bytes | Avg Read Bytes | Result Rows | Status / Analysis |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `GetTraceWithSpans (Point Lookup)` | 1M rows | **22 ms** | **27.0 ms** | **32.0 ms** | 1475000 | 1475000 | 126850216 B | 126852376 B | 1 (avg 1.0) | ⚠️ Scans full partition (no bloom filter index on trace_id yet) |
-| `SearchTraces (Single Service, Primary Key Pruned)` | 1M rows | **2 ms** | **2.0 ms** | **18.0 ms** | 0 | 862 | 0 B | 97534 B | 0 (avg 5.3) | ✅ Primary key pruned via (org_id, service_name, start_time) |
-| `SearchTraces (All Services, Last 15 Min)` | 1M rows | **2 ms** | **2.0 ms** | **3.0 ms** | 0 | 0 | 0 B | 0 B | 0 (avg 0.0) | ⚠️ Cross-service scan over 15 min window (no service filter) |
-| `GetServiceGraph (Self-Join)` | 1M rows | **2 ms** | **2.0 ms** | **18.0 ms** | 0 | 0 | 0 B | 0 B | 0 (avg 0.0) | ⚠️ Self-join scan across 15 min fixed window |
+| `GetTraceWithSpans (Point Lookup)` | 20M rows | **227 ms** | **298.0 ms** | **336.0 ms** | 20000000 | 20000000 | 1723817340 B | 1723844349 B | 4 (avg 4.0) | ⚠️ Scans full partition (no bloom filter index on trace_id yet) |
+| `SearchTraces (Single Service, Primary Key Pruned)` | 20M rows | **3 ms** | **6.0 ms** | **23.0 ms** | 8192 | 13797 | 667744 B | 1456612 B | 0 (avg 23.7) | ✅ Primary key pruned via (org_id, service_name, start_time) |
+| `SearchTraces (All Services, Last 15 Min)` | 20M rows | **259 ms** | **7.0 ms** | **242.0 ms** | 999424 | 171267 | 147497806 B | 16252718 B | 50 (avg 7.9) | ⚠️ Cross-service scan over 15 min window (no service filter) |
+| `GetServiceGraph (Self-Join)` | 20M rows | **23 ms** | **5.0 ms** | **23.0 ms** | 999424 | 171267 | 81443751 B | 11241028 B | 0 (avg 0.0) | ⚠️ Self-join scan across 15 min fixed window |
 
 > [!NOTE]
 > **Deterministic Metrics:** `read_rows` and `read_bytes` are recorded directly from ClickHouse `system.query_log` after `SYSTEM FLUSH LOGS`. Wall-clock latency on shared 2–4 vCPU GitHub Actions runners exhibits jitter, whereas read rows and read bytes are deterministic proof of part pruning and index skipping.
@@ -85,18 +85,18 @@ Expression ((Project names + Projection))
     Indexes:
       MinMax
         Condition: true
-        Parts: 4/4
-        Granules: 183/183
+        Parts: 3/3
+        Granules: 2442/2442
       Partition
         Condition: true
-        Parts: 4/4
-        Granules: 183/183
+        Parts: 3/3
+        Granules: 2442/2442
       PrimaryKey
         Keys: 
           org_id
-        Condition: (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4'])
-        Parts: 4/4
-        Granules: 183/183
+        Condition: (org_id in ['6e0583ff-f062-4a83-bc6f-ccb87161ec3a', '6e0583ff-f062-4a83-bc6f-ccb87161ec3a'])
+        Parts: 3/3
+        Granules: 2442/2442
 ```
 
 #### `SearchTraces (Single Service, Primary Key Pruned)` Execution Plan
@@ -114,28 +114,28 @@ Expression (Project names)
                 MinMax
                   Keys: 
                     start_time
-                  Condition: and((start_time in (-Inf, '1792368600']), (start_time in ['1792368000', +Inf)))
-                  Parts: 0/4
-                  Granules: 0/183
+                  Condition: and((start_time in (-Inf, '1794791400']), (start_time in ['1794790800', +Inf)))
+                  Parts: 1/3
+                  Granules: 1011/2442
                 Partition
                   Keys: 
                     toYYYYMMDD(start_time)
-                  Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))
-                  Parts: 0/0
-                  Granules: 0/0
+                  Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261116]), (toYYYYMMDD(start_time) in [20261116, +Inf)))
+                  Parts: 1/1
+                  Granules: 1011/1011
                 PrimaryKey
                   Keys: 
                     org_id
                     service_name
                     start_time
-                  Condition: and((start_time in (-Inf, '1792368600']), and((start_time in ['1792368000', +Inf)), and((service_name in ['service-0', 'service-0']), (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4']))))
-                  Parts: 0/0
-                  Granules: 0/0
+                  Condition: and((start_time in (-Inf, '1794791400']), and((start_time in ['1794790800', +Inf)), and((service_name in ['service-0', 'service-0']), (org_id in ['6e0583ff-f062-4a83-bc6f-ccb87161ec3a', '6e0583ff-f062-4a83-bc6f-ccb87161ec3a']))))
+                  Parts: 1/1
+                  Granules: 1/1011
                 Skip
                   Name: idx_service
                   Description: bloom_filter GRANULARITY 4
-                  Parts: 0/0
-                  Granules: 0/0
+                  Parts: 1/1
+                  Granules: 1/1
 ```
 
 #### `SearchTraces (All Services, Last 15 Min)` Execution Plan
@@ -153,22 +153,22 @@ Expression (Project names)
                 MinMax
                   Keys: 
                     start_time
-                  Condition: and((start_time in (-Inf, '1792368900']), (start_time in ['1792368000', +Inf)))
-                  Parts: 0/4
-                  Granules: 0/183
+                  Condition: and((start_time in (-Inf, '1794791700']), (start_time in ['1794790800', +Inf)))
+                  Parts: 1/3
+                  Granules: 1011/2442
                 Partition
                   Keys: 
                     toYYYYMMDD(start_time)
-                  Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))
-                  Parts: 0/0
-                  Granules: 0/0
+                  Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261116]), (toYYYYMMDD(start_time) in [20261116, +Inf)))
+                  Parts: 1/1
+                  Granules: 1011/1011
                 PrimaryKey
                   Keys: 
                     org_id
                     start_time
-                  Condition: and((start_time in (-Inf, '1792368900']), and((start_time in ['1792368000', +Inf)), (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4'])))
-                  Parts: 0/0
-                  Granules: 0/0
+                  Condition: and((start_time in (-Inf, '1794791700']), and((start_time in ['1794790800', +Inf)), (org_id in ['6e0583ff-f062-4a83-bc6f-ccb87161ec3a', '6e0583ff-f062-4a83-bc6f-ccb87161ec3a'])))
+                  Parts: 1/1
+                  Granules: 122/1011
 ```
 
 #### `GetServiceGraph (Self-Join)` Execution Plan
@@ -185,37 +185,37 @@ Expression ((Project names + Projection))
               MinMax
                 Keys: 
                   start_time
-                Condition: and((start_time in (-Inf, '1792368900']), (start_time in ['1792368000', +Inf)))
-                Parts: 0/4
-                Granules: 0/183
+                Condition: and((start_time in (-Inf, '1794791700']), (start_time in ['1794790800', +Inf)))
+                Parts: 1/3
+                Granules: 1011/2442
               Partition
                 Keys: 
                   toYYYYMMDD(start_time)
-                Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261019]), (toYYYYMMDD(start_time) in [20261019, +Inf)))
-                Parts: 0/0
-                Granules: 0/0
+                Condition: and((toYYYYMMDD(start_time) in (-Inf, 20261116]), (toYYYYMMDD(start_time) in [20261116, +Inf)))
+                Parts: 1/1
+                Granules: 1011/1011
               PrimaryKey
                 Keys: 
                   org_id
                   start_time
-                Condition: and((start_time in (-Inf, '1792368900']), and((start_time in ['1792368000', +Inf)), (org_id in ['0afc96a9-f0a9-4165-86ff-763b31df7bb4', '0afc96a9-f0a9-4165-86ff-763b31df7bb4'])))
-                Parts: 0/0
-                Granules: 0/0
+                Condition: and((start_time in (-Inf, '1794791700']), and((start_time in ['1794790800', +Inf)), (org_id in ['6e0583ff-f062-4a83-bc6f-ccb87161ec3a', '6e0583ff-f062-4a83-bc6f-ccb87161ec3a'])))
+                Parts: 1/1
+                Granules: 122/1011
           Expression ((JOIN actions + Change column names to column identifiers))
             ReadFromMergeTree (default.otel_spans)
             Indexes:
               MinMax
                 Condition: true
-                Parts: 4/4
-                Granules: 183/183
+                Parts: 3/3
+                Granules: 2442/2442
               Partition
                 Condition: true
-                Parts: 4/4
-                Granules: 183/183
+                Parts: 3/3
+                Granules: 2442/2442
               PrimaryKey
                 Condition: true
-                Parts: 4/4
-                Granules: 183/183
+                Parts: 3/3
+                Granules: 2442/2442
 ```
 
 
@@ -223,10 +223,10 @@ Expression ((Project names + Projection))
 
 | Process / Container | Peak CPU % | Avg CPU % | Peak RAM (MB) | Avg RAM (MB) | Samples |
 |---|---|---|---|---|---|
-| `3e9c913b9b40402dbca3966226eace1f_postgres16alpine_a2571a` | **3.01%** | 0.62% | **30.2 MB** | 29.8 MB | 44 |
-| `5034603958ed4f1da40fb2670070e485_clickhouseclickhouseserver243alpine_5b1914` | **211.70%** | 79.85% | **2947.1 MB** | 1247.5 MB | 44 |
-| `dt-redpanda` | **8.31%** | 2.77% | **911.9 MB** | 780.5 MB | 44 |
-| `server-process` (Go Ingest/Consumer) | **33.80%** | 31.05% | **113.5 MB** | 104.3 MB | 44 |
+| `6a85f6ce53ad43b4ab344acabc2d1f38_clickhouseclickhouseserver243alpine_855149` | **358.34%** | 102.96% | **6498.3 MB** | 2445.2 MB | 84 |
+| `9935c1b115204165ac64268a849af6ce_postgres16alpine_239971` | **3.18%** | 0.72% | **30.7 MB** | 30.0 MB | 84 |
+| `dt-redpanda` | **10.62%** | 1.76% | **911.1 MB** | 842.1 MB | 84 |
+| `server-process` (Go Ingest/Consumer) | **34.00%** | 25.59% | **109.7 MB** | 71.7 MB | 84 |
 
 > [!NOTE]
 > Continuous background sampling captured every 2s during sustained ingestion load.
