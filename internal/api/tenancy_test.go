@@ -200,9 +200,8 @@ func TestTracesHandler_TenantIsolation(t *testing.T) {
 		if len(mockConn.lastArgs) < 2 {
 			t.Fatalf("expected at least 2 args, got %v", mockConn.lastArgs)
 		}
-		expectedBin, _ := domain.ParseTraceIDHex(validTraceID)
-		if mockConn.lastArgs[0] != TestOrgA || mockConn.lastArgs[1] != expectedBin {
-			t.Errorf("expected args [%s, %v], got %v", TestOrgA, expectedBin, mockConn.lastArgs)
+		if mockConn.lastArgs[0] != TestOrgA || mockConn.lastArgs[1] != validTraceID {
+			t.Errorf("expected args [%s, %v], got %v", TestOrgA, validTraceID, mockConn.lastArgs)
 		}
 	})
 }

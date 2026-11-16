@@ -312,7 +312,7 @@ func (m *MockConn) Query(ctx context.Context, query string, args ...any) (driver
 	}
 
 	// 5. GetTraceWithSpans
-	if strings.Contains(query, "WHERE org_id = ? AND trace_id = ?") {
+	if strings.Contains(query, "WHERE org_id = ? AND trace_id = unhex(?)") {
 		orgIDArg, _ := args[0].(string)
 		var traceIDArgStr string
 		switch v := args[1].(type) {

@@ -198,8 +198,6 @@ func (r *TraceRepository) BuildGetTraceWithSpansQuery(orgID, traceID, reqID stri
 		comment = "/* request_id=" + reqID + " */"
 	}
 
-	binTraceID, _ := domain.ParseTraceIDHex(traceID)
-
 	sql := fmt.Sprintf(`
 		SELECT 
 			trace_id,
@@ -213,9 +211,9 @@ func (r *TraceRepository) BuildGetTraceWithSpansQuery(orgID, traceID, reqID stri
 			tags,
 			start_time
 		FROM otel_spans
-		WHERE org_id = ? AND trace_id = ? %s`, comment)
+		WHERE org_id = ? AND trace_id = unhex(?) %s`, comment)
 
-	return sql, []interface{}{orgID, binTraceID}
+	return sql, []interface{}{orgID, traceID}
 }
 
 // ExplainGetTraceWithSpans derives the EXPLAIN plan directly from the production query path.
