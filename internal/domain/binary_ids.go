@@ -93,3 +93,4 @@ func FormatParentSpanID(id [8]byte) string {
 	}
 	return hex.EncodeToString(id[:])
 }
+

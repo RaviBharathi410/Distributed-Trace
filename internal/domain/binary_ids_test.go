@@ -141,3 +141,4 @@ func TestParseParentSpanIDHex_RootSpanDecodesToEmpty(t *testing.T) {
 		t.Fatalf("round-trip mismatch: expected %s, got %s", childHex, dec)
 	}
 }
+
