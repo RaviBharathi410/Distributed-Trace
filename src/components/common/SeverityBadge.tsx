@@ -22,18 +22,18 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({
       label: 'CRITICAL',
     },
     high: {
-      bg: 'bg-[#f5b942]',
-      text: 'text-[#0a0b14]',
+      bg: 'bg-[#3b82f6]',
+      text: 'text-white',
       label: 'HIGH',
     },
     medium: {
-      bg: 'bg-[#b4a7f5]',
-      text: 'text-[#0a0b14]',
+      bg: 'bg-[#818cf8]',
+      text: 'text-white',
       label: 'MEDIUM',
     },
     low: {
-      bg: 'bg-[#60a5fa]',
-      text: 'text-[#0a0b14]',
+      bg: 'bg-[#64748b]',
+      text: 'text-white',
       label: 'LOW',
     },
     info: {

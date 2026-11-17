@@ -265,7 +265,7 @@ export const TracesTab: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 w-full">
       {/* Top Filter Bar */}
-      <div className="p-4 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex flex-wrap items-center justify-between gap-3">
+      <div className="p-4 rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
           {/* Search box */}
           <div className="relative min-w-[240px] flex-1 max-w-sm">
@@ -275,7 +275,7 @@ export const TracesTab: React.FC = () => {
               placeholder="Filter by trace ID, service..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-[8px] bg-[#0d0f1a] text-[#f3f4f8] text-[13px] border border-[rgba(255,255,255,0.07)] placeholder:text-[#6b7188] focus:outline-none focus:border-[#7c6cf0] focus:ring-1 focus:ring-[#7c6cf0] transition-colors"
+              className="w-full h-9 pl-9 pr-4 rounded-[8px] bg-[#050508] text-[#f3f4f8] text-[13px] border border-white/[0.08] placeholder:text-[#6b7188] focus:outline-none focus:border-[#7c6cf0] focus:ring-1 focus:ring-[#7c6cf0] transition-colors"
             />
           </div>
 
@@ -303,7 +303,7 @@ export const TracesTab: React.FC = () => {
           />
 
           {/* Time range pills */}
-          <div className="flex items-center rounded-[8px] bg-[#0d0f1a] p-1 border border-[rgba(255,255,255,0.07)]">
+          <div className="flex items-center rounded-[8px] bg-[#050508] p-1 border border-white/[0.08]">
             {(['15m', '1h', '24h'] as const).map((r) => (
               <button
                 key={r}
@@ -326,7 +326,7 @@ export const TracesTab: React.FC = () => {
           <button
             onClick={() => refetchTraces()}
             disabled={isFetchingTraces}
-            className="h-9 px-3 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-[rgba(255,255,255,0.07)] text-[12px] font-medium text-[#f3f4f8] flex items-center gap-2 transition-colors disabled:opacity-50"
+            className="h-9 px-3 rounded-[8px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[12px] font-medium text-[#f3f4f8] flex items-center gap-2 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isFetchingTraces ? 'animate-spin' : ''}`} />
             Refresh
@@ -380,7 +380,7 @@ export const TracesTab: React.FC = () => {
         </div>
 
         {/* Right Pane: Trace Detail (~45% width, cols 5) */}
-        <div className="lg:col-span-5 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 min-h-[500px] flex flex-col">
+        <div className="lg:col-span-5 rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 min-h-[500px] flex flex-col">
           {!selectedTraceId ? (
             <div className="m-auto py-12">
               <EmptyState
@@ -398,7 +398,7 @@ export const TracesTab: React.FC = () => {
           ) : activeTraceDetail ? (
             <div className="flex flex-col gap-4">
               {/* Header card with trace metadata */}
-              <div className="p-4 rounded-[10px] bg-white/[0.02] border border-[rgba(255,255,255,0.05)] flex flex-col gap-2.5">
+              <div className="p-4 rounded-[10px] bg-white/[0.02] border border-white/[0.06] flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-medium uppercase tracking-wider text-[#6b7188]">
@@ -417,7 +417,7 @@ export const TracesTab: React.FC = () => {
                   >
                     {copiedTraceId ? (
                       <>
-                        <Check className="w-3 h-3 text-[#34d399]" />
+                        <Check className="w-3 h-3 text-[#60a5fa]" />
                         <span>Copied</span>
                       </>
                     ) : (
@@ -463,7 +463,7 @@ export const TracesTab: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex flex-col divide-y divide-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] rounded-[8px] bg-[#0d0f1a] overflow-hidden">
+                <div className="flex flex-col divide-y divide-white/[0.04] border border-white/[0.08] rounded-[8px] bg-[#050508] overflow-hidden">
                   {activeTraceDetail.spans.map((s) => {
                     const maxDur = activeTraceDetail.duration_ms || 1;
                     const offset = s.start_offset_ms || 0;
@@ -565,9 +565,9 @@ export const TracesTab: React.FC = () => {
                 {activeInspectorTab === 'tags' && (
                   <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
                     {activeSpan?.tags && Object.keys(activeSpan.tags).length > 0 ? (
-                      <div className="rounded-[8px] border border-[rgba(255,255,255,0.06)] bg-[#0d0f1a] overflow-hidden text-[12px]">
+                      <div className="rounded-[8px] border border-white/[0.08] bg-[#050508] overflow-hidden text-[12px]">
                         <table className="w-full text-left">
-                          <tbody className="divide-y divide-[rgba(255,255,255,0.04)] font-mono text-[11px]">
+                          <tbody className="divide-y divide-white/[0.04] font-mono text-[11px]">
                             {Object.entries(activeSpan.tags).map(([k, v]) => (
                               <tr key={k} className="hover:bg-white/[0.02]">
                                 <td className="p-2.5 text-[#9aa0b5] font-semibold w-1/3 select-all">
@@ -594,10 +594,10 @@ export const TracesTab: React.FC = () => {
                       onClick={handleCopyJson}
                       className="absolute right-3 top-3 z-10 px-2 py-1 rounded text-[11px] font-mono bg-white/10 hover:bg-white/20 text-[#f3f4f8] flex items-center gap-1 transition-colors"
                     >
-                      {copiedJson ? <Check className="w-3 h-3 text-[#34d399]" /> : <Copy className="w-3 h-3" />}
+                      {copiedJson ? <Check className="w-3 h-3 text-[#60a5fa]" /> : <Copy className="w-3 h-3" />}
                       <span>{copiedJson ? 'Copied' : 'Copy'}</span>
                     </button>
-                    <pre className="p-3 rounded-[8px] bg-[#0d0f1a] border border-[rgba(255,255,255,0.07)] text-[11px] font-mono text-[#9aa0b5] overflow-auto max-h-60 select-all">
+                    <pre className="p-3 rounded-[8px] bg-[#050508] border border-white/[0.08] text-[11px] font-mono text-[#9aa0b5] overflow-auto max-h-60 select-all">
                       {JSON.stringify(activeTraceDetail, null, 2)}
                     </pre>
                   </div>

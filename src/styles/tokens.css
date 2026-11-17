@@ -1,18 +1,18 @@
 /**
  * DistributedTrace Design Tokens
- * Source of truth: DistributedTrace_Dark-Mode_Dashboard_Suite.png
- * Eyedropped color values & typography definitions
+ * Strict black theme: #000000 overall canvas
+ * Clean highlight palette: Black, White, Blue, Violet (Zero yellow, zero green, zero tri-colors)
  */
 
 :root {
   /* Surfaces */
-  --bg: #0a0b14;
-  --bg-radial-1: rgba(124, 92, 255, 0.12);
-  --bg-radial-2: rgba(90, 60, 200, 0.08);
-  --card: #10121f;
-  --card-hover: #141727;
-  --card-border: rgba(255, 255, 255, 0.07);
-  --card-border-hover: rgba(255, 255, 255, 0.14);
+  --bg: #000000;
+  --bg-radial-1: transparent;
+  --bg-radial-2: transparent;
+  --card: #0a0a0d;
+  --card-hover: #121217;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-border-hover: rgba(255, 255, 255, 0.16);
 
   /* Typography & Hierarchy */
   --text: #f3f4f8;
@@ -29,38 +29,38 @@
   --link: #4d8dff;
   --link-hover: #70a5ff;
 
-  /* Positive & Negative Indicators */
-  --good: #34d399;
-  --good-subtle: rgba(52, 211, 153, 0.15);
+  /* Status Indicators (Blue / White / Muted - Zero Green, Zero Yellow) */
+  --good: #60a5fa;
+  --good-subtle: rgba(96, 165, 250, 0.15);
   --bad: #f87171;
   --bad-subtle: rgba(248, 113, 113, 0.15);
-  --warn: #f5b942;
-  --warn-subtle: rgba(245, 185, 66, 0.15);
+  --warn: #3b82f6;
+  --warn-subtle: rgba(59, 130, 246, 0.15);
 
   /* Visualization Bars */
   --bar-start: #3b6cf0;
   --bar-end: #5b8cff;
   --bar: linear-gradient(180deg, #5b8cff 0%, #3b6cf0 100%);
-  --bar-hot-start: #9b6bf2;
+  --bar-hot-start: #7c6cf0;
   --bar-hot-end: #b08cff;
-  --bar-hot: linear-gradient(180deg, #b08cff 0%, #9b6bf2 100%);
+  --bar-hot: linear-gradient(180deg, #b08cff 0%, #7c6cf0 100%);
   --bar-solid: #4d8dff;
-  --bar-hot-solid: #9b6bf2;
+  --bar-hot-solid: #7c6cf0;
 
-  /* Severity Badges (Mockup Exact) */
+  /* Severity Badges (Zero Yellow) */
   --sev-critical: #9b5cf6;
   --sev-critical-text: #ffffff;
-  --sev-high: #f5b942;
-  --sev-high-text: #0a0b14;
-  --sev-medium: #b4a7f5;
-  --sev-medium-text: #0a0b14;
-  --sev-low: #60a5fa;
-  --sev-low-text: #0a0b14;
+  --sev-high: #3b82f6;
+  --sev-high-text: #ffffff;
+  --sev-medium: #818cf8;
+  --sev-medium-text: #ffffff;
+  --sev-low: #64748b;
+  --sev-low-text: #ffffff;
 
-  /* Service Health / Donut Chart */
-  --donut-healthy: #22c7d6;
-  --donut-degraded: #f5b942;
-  --donut-unhealthy: #9b5cf6;
+  /* Service Health / Donut Chart (Blue / Indigo / Violet - Zero Yellow, Zero Green) */
+  --donut-healthy: #3b82f6;
+  --donut-degraded: #818cf8;
+  --donut-unhealthy: #7c6cf0;
 
   /* Component Radii */
   --radius-card: 14px;
@@ -73,4 +73,3 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
-

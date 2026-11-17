@@ -88,7 +88,7 @@ const GeneralSettings: React.FC = () => {
   };
 
   return (
-    <div className="relative rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 md:p-8 overflow-hidden shadow-xl">
+    <div className="relative rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] p-7 md:p-8 overflow-hidden shadow-xl">
       {/* Decorative subtle violet wave lines in header matching source mockup */}
       <div
         className="absolute right-4 top-4 w-72 md:w-96 h-28 pointer-events-none opacity-30 overflow-hidden"
@@ -211,7 +211,7 @@ const GeneralSettings: React.FC = () => {
         {/* Bottom Actions Bar */}
         <div className="flex items-center justify-end gap-3 pt-6 mt-2 border-t border-[rgba(255,255,255,0.06)]">
           {savedNotice && (
-            <span className="text-[12px] text-[#34d399] flex items-center gap-1.5 mr-auto animate-in fade-in">
+            <span className="text-[12px] text-[#60a5fa] flex items-center gap-1.5 mr-auto animate-in fade-in">
               <Check className="w-3.5 h-3.5" />
               Settings saved successfully
             </span>
@@ -261,7 +261,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; children: React.Reac
       }}
       className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
     >
-      <div className="bg-[#10121f] border border-[rgba(255,255,255,0.12)] rounded-[14px] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+      <div className="bg-[#0a0a0d] border border-[rgba(255,255,255,0.12)] rounded-[14px] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         <div className="p-4 px-6 border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center">
           <h3 className="font-semibold text-[15px] text-[#f3f4f8]">{title}</h3>
           <button
@@ -283,7 +283,7 @@ const DataSourcesSettings: React.FC = () => {
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success'>('idle');
 
   return (
-    <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
+    <div className="rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Data Sources</h2>
@@ -314,7 +314,7 @@ const DataSourcesSettings: React.FC = () => {
               <td className="px-4 py-3.5 font-medium text-[#f3f4f8]">Prod OTLP Collector</td>
               <td className="px-4 py-3.5 text-[#9aa0b5]">OTLP / HTTP (Protobuf + Gzip)</td>
               <td className="px-4 py-3.5">
-                <span className="text-[#34d399] bg-[rgba(52,211,153,0.12)] border border-[rgba(52,211,153,0.2)] px-2 py-0.5 rounded-[9999px] text-[11px]">
+                <span className="text-[#60a5fa] bg-[#3b82f6]/10 border border-[#3b82f6]/30 px-2 py-0.5 rounded-[9999px] text-[11px]">
                   Connected
                 </span>
               </td>
@@ -389,7 +389,7 @@ const DataSourcesSettings: React.FC = () => {
 
 // --- Alerting Settings ---
 const AlertingSettings: React.FC = () => (
-  <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
+  <div className="rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
     <div className="flex justify-between items-center">
       <div>
         <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Alert Rules</h2>
@@ -413,7 +413,7 @@ const AlertingSettings: React.FC = () => (
 
 // --- Retention Settings ---
 const RetentionSettings: React.FC = () => (
-  <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 max-w-2xl animate-in fade-in">
+  <div className="rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 max-w-2xl animate-in fade-in">
     <div>
       <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Data Retention</h2>
       <p className="text-[13px] text-[#9aa0b5] mt-0.5">
@@ -462,7 +462,7 @@ const RetentionSettings: React.FC = () => (
 
 // --- Team Settings ---
 const TeamSettings: React.FC = () => (
-  <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
+  <div className="rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
     <div className="flex justify-between items-center">
       <div>
         <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Team Members</h2>
@@ -573,7 +573,7 @@ const ApiKeysSettings: React.FC = () => {
   };
 
   return (
-    <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
+    <div className="rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-[20px] font-semibold text-[#f3f4f8]">API Keys</h2>
@@ -651,7 +651,7 @@ const ApiKeysSettings: React.FC = () => {
                     <span
                       className={`px-2 py-0.5 rounded-[9999px] text-[11px] ${
                         k.is_prod
-                          ? 'bg-[rgba(52,211,153,0.12)] text-[#34d399] border border-[rgba(52,211,153,0.25)]'
+                          ? 'bg-[#3b82f6]/10 text-[#60a5fa] border border-[#3b82f6]/30'
                           : 'bg-white/[0.05] text-[#9aa0b5]'
                       }`}
                     >
@@ -687,7 +687,7 @@ const ApiKeysSettings: React.FC = () => {
         <Modal title="Generate New Ingestion Key" onClose={handleCloseModal}>
           {newGeneratedKey ? (
             <div className="flex flex-col gap-4 text-[13px]">
-              <div className="p-3 bg-[rgba(52,211,153,0.1)] border border-[rgba(52,211,153,0.2)] rounded-[8px] flex items-center gap-2 text-[#34d399]">
+              <div className="p-3 bg-[#3b82f6]/10 border border-[#3b82f6]/30 rounded-[8px] flex items-center gap-2 text-[#60a5fa]">
                 <ShieldCheck className="w-5 h-5 shrink-0" />
                 <span>Save this key now. It will not be shown again.</span>
               </div>

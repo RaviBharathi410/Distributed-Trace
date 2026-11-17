@@ -27,9 +27,9 @@ export const AppShell: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0b14] text-[#f3f4f8] selection:bg-[#7c6cf0]/30 selection:text-white">
+    <div className="min-h-screen flex flex-col bg-black text-[#f3f4f8] selection:bg-[#7c6cf0]/30 selection:text-white">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 h-14 border-b border-[rgba(255,255,255,0.07)] bg-[#0a0b14]/90 backdrop-blur-md px-6 flex items-center justify-between">
+      <header className="sticky top-0 z-40 h-14 border-b border-white/[0.08] bg-black/95 backdrop-blur-md px-6 flex items-center justify-between">
         {/* Brand / Logo */}
         <div className="flex items-center gap-6">
           <BrandLogo to="/" size="md" />
@@ -60,7 +60,7 @@ export const AppShell: React.FC = () => {
         {/* Right Actions & Utilities (Region Pills matching reference image) */}
         <div className="flex items-center gap-2.5">
           {/* Region selector pills matching mockup */}
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#10121f] p-0.5 rounded-full border border-[rgba(255,255,255,0.07)]">
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#0a0a0d] p-0.5 rounded-full border border-white/[0.08]">
             <button
               type="button"
               onClick={() => setSelectedRegion('us-east-1')}
@@ -97,10 +97,10 @@ export const AppShell: React.FC = () => {
 
           {isDemoMode && (
             <span
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/30"
               title="Running with mock fixture demo dataset"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
               Demo
             </span>
           )}

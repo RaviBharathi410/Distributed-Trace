@@ -329,9 +329,9 @@ export const DEMO_WATERFALL_SPANS = [
 ];
 
 export const DEMO_SERVICE_HEALTH_SEGMENTS = [
-  { label: 'Healthy', value: 5, color: '#22c7d6' },
-  { label: 'Degraded', value: 1, color: '#f5b942' },
-  { label: 'Unhealthy', value: 1, color: '#9b5cf6' },
+  { label: 'Healthy', value: 5, color: '#3b82f6' },
+  { label: 'Degraded', value: 1, color: '#818cf8' },
+  { label: 'Unhealthy', value: 1, color: '#7c6cf0' },
 ];
 
 export const DEMO_TRACES_LIST: TraceRow[] = [

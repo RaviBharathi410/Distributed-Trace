@@ -41,7 +41,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   return (
     <div
-      className={`rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex items-start gap-4 transition-all duration-150 hover:border-[rgba(255,255,255,0.12)] ${className}`}
+      className={`rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 flex items-start gap-4 transition-all duration-150 hover:border-white/[0.14] ${className}`}
     >
       {icon && (
         <div
@@ -68,8 +68,8 @@ export const StatCard: React.FC<StatCardProps> = ({
                 isNeutral
                   ? 'bg-white/5 text-[#9aa0b5]'
                   : isPositive
-                  ? 'bg-[#34d399]/15 text-[#34d399]'
-                  : 'bg-[#f87171]/15 text-[#f87171]'
+                  ? 'bg-[#3b82f6]/15 text-[#60a5fa] border border-[#3b82f6]/30'
+                  : 'bg-white/10 text-white/80 border border-white/20'
               }`}
             >
               {delta > 0 ? (

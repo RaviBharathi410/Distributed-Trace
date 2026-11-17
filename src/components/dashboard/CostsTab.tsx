@@ -92,7 +92,7 @@ export const CostsTab: React.FC = () => {
           <div className="relative">
             <button
               type="button"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-[9999px] bg-[#10121f] border border-[rgba(255,255,255,0.1)] text-[12px] text-[#f3f4f8] hover:border-[rgba(255,255,255,0.2)] transition-colors focus:outline-none"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-[9999px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.1)] text-[12px] text-[#f3f4f8] hover:border-[rgba(255,255,255,0.2)] transition-colors focus:outline-none"
               onClick={() => {
                 setTimeRange(timeRange === 'This Month' ? 'Last 30 Days' : 'This Month');
               }}
@@ -109,7 +109,7 @@ export const CostsTab: React.FC = () => {
             onClick={handleRefresh}
             disabled={isBusy}
             title="Refresh cost metrics"
-            className="p-2 rounded-[8px] bg-[#10121f] border border-[rgba(255,255,255,0.1)] text-[#9aa0b5] hover:text-[#f3f4f8] hover:border-[rgba(255,255,255,0.2)] transition-colors disabled:opacity-50"
+            className="p-2 rounded-[8px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.1)] text-[#9aa0b5] hover:text-[#f3f4f8] hover:border-[rgba(255,255,255,0.2)] transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isBusy ? 'animate-spin text-[#7c6cf0]' : ''}`} />
           </button>
@@ -126,7 +126,7 @@ export const CostsTab: React.FC = () => {
       {/* 4 TOP KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Monthly Cost */}
-        <div className="p-5 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
+        <div className="p-5 rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
           <div className="w-11 h-11 rounded-[10px] bg-[rgba(124,108,240,0.15)] border border-[rgba(124,108,240,0.3)] flex items-center justify-center shrink-0">
             <Activity className="w-5 h-5 text-[#7c6cf0]" />
           </div>
@@ -141,7 +141,7 @@ export const CostsTab: React.FC = () => {
         </div>
 
         {/* Card 2: Avg. Cost / Incident */}
-        <div className="p-5 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
+        <div className="p-5 rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
           <div className="w-11 h-11 rounded-[10px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5 text-[#9aa0b5]" />
           </div>
@@ -156,7 +156,7 @@ export const CostsTab: React.FC = () => {
         </div>
 
         {/* Card 3: LLM / Token Spend */}
-        <div className="p-5 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
+        <div className="p-5 rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
           <div className="w-11 h-11 rounded-[10px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] flex items-center justify-center shrink-0">
             <Layers className="w-5 h-5 text-[#9aa0b5]" />
           </div>
@@ -171,7 +171,7 @@ export const CostsTab: React.FC = () => {
         </div>
 
         {/* Card 4: Infrastructure */}
-        <div className="p-5 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
+        <div className="p-5 rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] flex items-center gap-4 relative overflow-hidden group hover:border-[rgba(255,255,255,0.14)] transition-colors">
           <div className="w-11 h-11 rounded-[10px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] flex items-center justify-center shrink-0">
             <Server className="w-5 h-5 text-[#9aa0b5]" />
           </div>
@@ -189,7 +189,7 @@ export const CostsTab: React.FC = () => {
       {/* ROW 2: COST TREND & COST BY SERVICE */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Left (~60% / 7 cols): Cost Trend */}
-        <div className="lg:col-span-7 p-6 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex flex-col justify-between">
+        <div className="lg:col-span-7 p-6 rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-6">
             <TrendingUp className="w-4 h-4 text-[#7c6cf0]" />
             <h2 className="text-[14px] font-semibold text-[#f3f4f8]">
@@ -269,7 +269,7 @@ export const CostsTab: React.FC = () => {
         </div>
 
         {/* Right (~40% / 5 cols): Cost by Service */}
-        <div className="lg:col-span-5 p-6 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex flex-col justify-between">
+        <div className="lg:col-span-5 p-6 rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-6">
               <Layers className="w-4 h-4 text-[#7c6cf0]" />
@@ -312,7 +312,7 @@ export const CostsTab: React.FC = () => {
       </div>
 
       {/* COLLAPSIBLE / DETAILED INCIDENT LEDGER TABLE */}
-      <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] overflow-hidden">
+      <div className="rounded-[14px] bg-[#0a0a0d] border border-[rgba(255,255,255,0.07)] overflow-hidden">
         <button
           type="button"
           onClick={() => setShowLedger(!showLedger)}
@@ -368,7 +368,7 @@ export const CostsTab: React.FC = () => {
                         <td className="py-3 px-4 text-[#7c6cf0]">{item.model}</td>
                         <td className="py-3 px-4 text-[#9aa0b5]">{item.inputTokens}</td>
                         <td className="py-3 px-4 text-[#9aa0b5]">{item.outputTokens}</td>
-                        <td className="py-3 px-4 text-[#34d399] font-semibold">${item.estimatedCostUsd.toFixed(6)}</td>
+                        <td className="py-3 px-4 text-[#60a5fa] font-semibold">${item.estimatedCostUsd.toFixed(6)}</td>
                         <td className="py-3 px-4 text-[#6b7188]">{new Date(item.createdAt).toLocaleString()}</td>
                       </tr>
                     ))}

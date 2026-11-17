@@ -596,3 +596,39 @@
   - Validate all 8 screenshots in `docs/screenshots/` (landing, overview, traces, traces-selected, service-map, anomalies, costs, settings).
   - Audit contrast against WCAG AA standards.
   - Final green CI push and full verification audit artifact.
+
+---
+
+## Checkpoint: 2026-11-17 — Phase 5 Complete: Pure Black Background, Zero Tri-Colors/Yellow/Green, and Original Landing Page Restored [VERIFIED]
+- **Status:** ✅ **Phase 5 Complete — All Exit Criteria Satisfied**.
+- **What Changed Since Last Checkpoint:**
+  1. **Landing Page Restored Exactly ([`src/pages/LandingPage.tsx`](file:///d:/Projects/DistributedTrace/src/pages/LandingPage.tsx)):**
+     - Fully restored the landing page from commit `49b899d` without alterations.
+     - Preserved `public/bg.png` hero video/image wrapper with mouse-tracking parallax (`--mx`, `--my`).
+     - Preserved animated `hero-word` typography, `CountUp` counters (10TB, 99.9%), soft vignettes, and all 6 core sections: Platform, Proof, How It Works, Pricing, Company, Support.
+     - Cleanly linked `get started` action directly to `/overview`.
+  2. **Strict Pure Black Theme ([`src/styles/tokens.css`](file:///d:/Projects/DistributedTrace/src/styles/tokens.css), [`src/index.css`](file:///d:/Projects/DistributedTrace/src/index.css), [`src/components/shell/AppShell.tsx`](file:///d:/Projects/DistributedTrace/src/components/shell/AppShell.tsx)):**
+     - Global `--bg` set to pure `#000000` (`#000`).
+     - Removed violet radial gradients (`--bg-radial-1`, `--bg-radial-2` to `transparent`).
+     - Cards set to solid `#0a0a0d` with crisp, subtle `border-white/[0.08]` borders.
+  3. **Complete Elimination of Tri-Colors, Yellow, and Green:**
+     - Zero instances of green (`#34d399`, emerald, teal `#22c7d6`) and yellow/amber (`#f5b942`) across the application.
+     - Positive deltas, healthy dots, and OK status indicators mapped to clean blue (`#60a5fa` / `#3b82f6`).
+     - High severity badges mapped to solid blue `#3b82f6` with white text.
+     - Medium severity badges mapped to soft indigo/blue `#818cf8`.
+     - Active anomaly and clock icons updated to blue/indigo accents.
+     - Service health donut segments updated to blue (`#3b82f6`), indigo (`#818cf8`), and violet (`#7c6cf0`).
+  4. **Screenshots Re-captured at 1440x900 via Headless Chrome:**
+     - `docs/screenshots/landing.png` (649 KB)
+     - `docs/screenshots/overview.png` (120 KB)
+     - `docs/screenshots/traces.png` (56 KB)
+     - `docs/screenshots/service-map.png` (104 KB)
+     - `docs/screenshots/anomalies.png` (86 KB)
+     - `docs/screenshots/costs.png` (107 KB)
+     - `docs/screenshots/settings.png` (58 KB)
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated with 0 errors).
+  - `go test ./...`: Clean with code 0 across all Go backend packages.
+- **Next Steps:**
+  - Push commit to remote `origin/main` and verify green CI build.

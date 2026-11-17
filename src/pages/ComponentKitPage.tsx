@@ -119,16 +119,16 @@ export const ComponentKitPage: React.FC = () => {
       <Card title="1. Color Tokens & Eyedropped Palette" subtitle="Eyedropped from DistributedTrace_Dark-Mode_Dashboard_Suite.png">
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
           {[
-            { name: '--bg', color: '#0a0b14', desc: 'Page background' },
-            { name: '--card', color: '#10121f', desc: 'Card / Panel fill' },
-            { name: '--card-hover', color: '#141727', desc: 'Panel hover' },
+            { name: '--bg', color: '#000000', desc: 'Page background' },
+            { name: '--card', color: '#0a0a0d', desc: 'Card / Panel fill' },
+            { name: '--card-hover', color: '#111116', desc: 'Panel hover' },
             { name: '--accent', color: '#7c6cf0', desc: 'Violet brand / active' },
             { name: '--link', color: '#4d8dff', desc: 'Trace link mono' },
-            { name: '--good', color: '#34d399', desc: 'Healthy / Positive' },
+            { name: '--good', color: '#60a5fa', desc: 'Healthy / Positive' },
             { name: '--sev-critical', color: '#9b5cf6', desc: 'Critical badge' },
-            { name: '--sev-high', color: '#f5b942', desc: 'High badge' },
-            { name: '--sev-medium', color: '#b4a7f5', desc: 'Medium badge' },
-            { name: '--donut-healthy', color: '#22c7d6', desc: 'Healthy teal' },
+            { name: '--sev-high', color: '#3b82f6', desc: 'High badge' },
+            { name: '--sev-medium', color: '#818cf8', desc: 'Medium badge' },
+            { name: '--donut-healthy', color: '#3b82f6', desc: 'Healthy blue' },
             { name: '--bar-hot', color: '#9b6bf2', desc: 'Waterfall hot / highlight' },
             { name: '--text-2', color: '#9aa0b5', desc: 'Secondary label' },
           ].map((token) => (
@@ -163,24 +163,24 @@ export const ComponentKitPage: React.FC = () => {
             invertDelta={true}
             deltaLabel="vs previous 24h"
             icon={<Zap className="w-5 h-5" />}
-            iconColor="#34d399"
-            iconBg="rgba(52, 211, 153, 0.12)"
+            iconColor="#60a5fa"
+            iconBg="rgba(96, 165, 250, 0.12)"
           />
           <StatCard
             label="Active Services"
             value="7"
             subtext="All reporting healthy"
             icon={<Layers className="w-5 h-5" />}
-            iconColor="#22c7d6"
-            iconBg="rgba(34, 199, 214, 0.12)"
+            iconColor="#3b82f6"
+            iconBg="rgba(59, 130, 246, 0.12)"
           />
           <StatCard
             label="Active Anomalies"
             value="3"
             subtext="1 critical, 2 medium"
             icon={<ShieldAlert className="w-5 h-5" />}
-            iconColor="#f5b942"
-            iconBg="rgba(245, 185, 66, 0.12)"
+            iconColor="#818cf8"
+            iconBg="rgba(129, 140, 248, 0.12)"
           />
         </div>
       </div>
@@ -310,9 +310,9 @@ export const ComponentKitPage: React.FC = () => {
         <Card title="6B. Service Health Donut" subtitle="Radial breakdown with center count">
           <DonutChart
             segments={[
-              { label: 'Healthy', value: 5, color: '#22c7d6' },
-              { label: 'Degraded', value: 1, color: '#f5b942' },
-              { label: 'Unhealthy', value: 1, color: '#9b5cf6' },
+              { label: 'Healthy', value: 5, color: '#3b82f6' },
+              { label: 'Degraded', value: 1, color: '#818cf8' },
+              { label: 'Unhealthy', value: 1, color: '#7c6cf0' },
             ]}
           />
         </Card>

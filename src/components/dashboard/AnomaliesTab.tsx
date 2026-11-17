@@ -132,7 +132,7 @@ export const AnomaliesTab: React.FC = () => {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="w-9 h-9 rounded-[8px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.14)] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-[8px] bg-[#0a0a0d] border border-white/[0.08] hover:border-white/[0.14] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
             title="Refresh anomalies"
           >
             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -160,8 +160,8 @@ export const AnomaliesTab: React.FC = () => {
           label="High"
           value={stats.high}
           icon={<BarChart2 className="w-5 h-5" />}
-          iconColor="#f5b942"
-          iconBg="rgba(245, 185, 66, 0.12)"
+          iconColor="#3b82f6"
+          iconBg="rgba(59, 130, 246, 0.12)"
         />
         <StatCard
           label="Medium"
@@ -173,7 +173,7 @@ export const AnomaliesTab: React.FC = () => {
       </div>
 
       {/* Filter Row */}
-      <div className="p-4 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] flex flex-wrap items-center gap-3">
+      <div className="p-4 rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] flex flex-wrap items-center gap-3">
         <Select
           options={[
             { value: 'all', label: 'All Severities' },
@@ -214,11 +214,11 @@ export const AnomaliesTab: React.FC = () => {
       </div>
 
       {/* Anomalies Table */}
-      <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] overflow-hidden">
+      <div className="rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-[rgba(255,255,255,0.07)] bg-[#0d0f1a] text-[12px] font-medium text-[#6b7188]">
+              <tr className="border-b border-white/[0.08] bg-[#000000] text-[12px] font-medium text-[#6b7188]">
                 <th className="px-5 py-3 font-medium">Time</th>
                 <th className="px-5 py-3 font-medium">Severity</th>
                 <th className="px-5 py-3 font-medium">Service</th>
@@ -250,17 +250,17 @@ export const AnomaliesTab: React.FC = () => {
                     <td className="px-5 py-4 text-[#9aa0b5] font-normal">
                       {anom.issue_description || anom.operation_name}
                     </td>
-                    <td className="px-5 py-4 font-mono text-[13px] text-[#34d399] font-medium">
+                    <td className="px-5 py-4 font-mono text-[13px] text-[#60a5fa] font-medium">
                       {anom.deviation_text || `+${Math.round(anom.observed_latency_ms)}ms`}
                     </td>
                     <td className="px-5 py-4 text-right">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
                           isResolved
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            ? 'bg-[#3b82f6]/10 text-[#60a5fa] border-[#3b82f6]/30'
                             : isAck
                             ? 'bg-white/[0.04] text-[#9aa0b5] border-white/10'
-                            : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                            : 'bg-white/10 text-white/90 border-white/20'
                         }`}
                       >
                         {isResolved ? 'Resolved' : isAck ? 'Acknowledged' : 'Open'}
@@ -277,7 +277,7 @@ export const AnomaliesTab: React.FC = () => {
       {/* Slide-Over Drawer for Incident Root-Cause Analysis */}
       {selectedAnomaly && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-150">
-          <div className="w-full max-w-xl bg-[#10121f] border-l border-[rgba(255,255,255,0.1)] p-6 overflow-y-auto flex flex-col justify-between shadow-2xl">
+          <div className="w-full max-w-xl bg-[#0a0a0d] border-l border-white/[0.08] p-6 overflow-y-auto flex flex-col justify-between shadow-2xl">
             <div className="flex flex-col gap-6">
               {/* Drawer Header */}
               <div className="flex items-start justify-between pb-4 border-b border-[rgba(255,255,255,0.07)]">
@@ -352,7 +352,7 @@ export const AnomaliesTab: React.FC = () => {
                     <Sparkles className="w-3.5 h-3.5 text-[#7c6cf0]" />
                     Causal Incident Analysis
                   </span>
-                  <span className="text-[10px] font-mono text-[#34d399] bg-[#34d399]/10 px-2 py-0.5 rounded border border-[#34d399]/30">
+                  <span className="text-[10px] font-mono text-[#60a5fa] bg-[#3b82f6]/10 px-2 py-0.5 rounded border border-[#3b82f6]/30">
                     Confidence: 94%
                   </span>
                 </div>

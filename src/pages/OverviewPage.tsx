@@ -115,8 +115,8 @@ export const OverviewPage: React.FC = () => {
           delta={DEMO_KPIS.p99LatencyDelta}
           invertDelta={true}
           icon={<Clock className="w-5 h-5" />}
-          iconColor="#34d399"
-          iconBg="rgba(52, 211, 153, 0.12)"
+          iconColor="#60a5fa"
+          iconBg="rgba(96, 165, 250, 0.12)"
         />
         <StatCard
           label="Active Services"
@@ -129,8 +129,8 @@ export const OverviewPage: React.FC = () => {
           label="Active Anomalies"
           value={activeAnomaliesCount}
           icon={<AlertTriangle className="w-5 h-5" />}
-          iconColor="#f5b942"
-          iconBg="rgba(245, 185, 66, 0.12)"
+          iconColor="#818cf8"
+          iconBg="rgba(129, 140, 248, 0.12)"
         />
       </div>
 
@@ -138,7 +138,7 @@ export const OverviewPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Live Trace Stream */}
         <div
-          className="lg:col-span-2 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex flex-col justify-between transition-colors hover:border-[rgba(255,255,255,0.12)]"
+          className="lg:col-span-2 rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 flex flex-col justify-between transition-colors hover:border-white/[0.14]"
           onMouseEnter={() => setIsStreamHovered(true)}
           onMouseLeave={() => setIsStreamHovered(false)}
         >
@@ -226,7 +226,7 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         {/* Anomaly Feed */}
-        <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex flex-col justify-between transition-colors hover:border-[rgba(255,255,255,0.12)]">
+        <div className="rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 flex flex-col justify-between transition-colors hover:border-white/[0.14]">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[14px] font-semibold text-[#f3f4f8]">Anomaly Feed</h2>
@@ -282,7 +282,7 @@ export const OverviewPage: React.FC = () => {
       {/* Row 3: Trace Waterfall (2/3) + Service Health (1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Trace Waterfall (Live Example) */}
-        <div className="lg:col-span-2 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex flex-col justify-between transition-colors hover:border-[rgba(255,255,255,0.12)]">
+        <div className="lg:col-span-2 rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 flex flex-col justify-between transition-colors hover:border-white/[0.14]">
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -315,12 +315,12 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         {/* Service Health */}
-        <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex flex-col justify-between transition-colors hover:border-[rgba(255,255,255,0.12)]">
+        <div className="rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 flex flex-col justify-between transition-colors hover:border-white/[0.14]">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[14px] font-semibold text-[#f3f4f8]">Service Health</h2>
-              <span className="text-[12px] text-[#34d399] font-medium flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#34d399]" />
+              <span className="text-[12px] text-[#60a5fa] font-medium flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa]" />
                 All Operational
               </span>
             </div>

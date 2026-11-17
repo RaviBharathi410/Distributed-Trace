@@ -66,8 +66,8 @@ export const ServiceMapTab: React.FC = () => {
     if (type === 'client') return <User className="w-4 h-4 text-[#9aa0b5]" />;
     if (type === 'gateway') return <Layers className="w-4 h-4 text-[#7c6cf0]" />;
     if (id === 'payment-svc') return <CreditCard className="w-4 h-4 text-[#b08cff]" />;
-    if (id === 'inventory-svc') return <Database className="w-4 h-4 text-[#34d399]" />;
-    if (id === 'notifications-svc') return <Bell className="w-4 h-4 text-[#f5b942]" />;
+    if (id === 'inventory-svc') return <Database className="w-4 h-4 text-[#60a5fa]" />;
+    if (id === 'notifications-svc') return <Bell className="w-4 h-4 text-[#818cf8]" />;
     if (id === 'user-service') return <Server className="w-4 h-4 text-[#4d8dff]" />;
     return <Box className="w-4 h-4 text-[#f3f4f8]" />;
   };
@@ -101,7 +101,7 @@ export const ServiceMapTab: React.FC = () => {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="w-9 h-9 rounded-[8px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.14)] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-[8px] bg-[#0a0a0d] border border-white/[0.08] hover:border-white/[0.14] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
             title="Refresh graph"
           >
             <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -109,7 +109,7 @@ export const ServiceMapTab: React.FC = () => {
 
           <button
             type="button"
-            className="w-9 h-9 rounded-[8px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.14)] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-[8px] bg-[#0a0a0d] border border-white/[0.08] hover:border-white/[0.14] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
             title="Expand fullscreen"
           >
             <Maximize2 className="w-4 h-4" />
@@ -120,7 +120,7 @@ export const ServiceMapTab: React.FC = () => {
       {/* Main Two-Column View: Canvas (~70%) + Service Details (~30%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left: Topology Canvas (Cols 8) */}
-        <div className="lg:col-span-8 rounded-[14px] bg-[#0d0f1a] border border-[rgba(255,255,255,0.07)] h-[520px] relative overflow-hidden flex flex-col justify-between shadow-inner">
+        <div className="lg:col-span-8 rounded-[14px] bg-[#050508] border border-white/[0.08] h-[520px] relative overflow-hidden flex flex-col justify-between shadow-inner">
           {/* SVG Canvas */}
           <svg className="w-full h-full select-none" viewBox="0 0 700 480">
             <defs>
@@ -192,7 +192,7 @@ export const ServiceMapTab: React.FC = () => {
               let ringColor = 'rgba(255, 255, 255, 0.15)';
               if (isSelected) ringColor = '#7c6cf0';
               else if (isCritical) ringColor = '#9b5cf6';
-              else if (isDegraded) ringColor = '#f5b942';
+              else if (isDegraded) ringColor = '#818cf8';
 
               return (
                 <g
@@ -216,7 +216,7 @@ export const ServiceMapTab: React.FC = () => {
                   {/* Node Base Circle */}
                   <circle
                     r="20"
-                    fill="#10121f"
+                    fill="#0a0a0d"
                     stroke={ringColor}
                     strokeWidth={isSelected ? '2.5' : '1.5'}
                     className="transition-colors group-hover:stroke-[#7c6cf0]"
@@ -247,9 +247,9 @@ export const ServiceMapTab: React.FC = () => {
           </svg>
 
           {/* Bottom Bar Info */}
-          <div className="p-3 bg-[#0a0b14]/90 border-t border-[rgba(255,255,255,0.07)] flex items-center justify-between text-[11px] text-[#6b7188] px-4">
+          <div className="p-3 bg-black/90 border-t border-white/[0.08] flex items-center justify-between text-[11px] text-[#6b7188] px-4">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#60a5fa] animate-pulse" />
               <span>Real-time Topology • 7 Active Services</span>
             </div>
             <span>Click any node to inspect telemetry</span>
@@ -257,8 +257,8 @@ export const ServiceMapTab: React.FC = () => {
         </div>
 
         {/* Right: Service Details Card (Cols 4) */}
-        <div className="lg:col-span-4 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex flex-col gap-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
+        <div className="lg:col-span-4 rounded-[14px] bg-[#0a0a0d] border border-white/[0.08] p-5 flex flex-col gap-5">
+          <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
             <h2 className="text-[14px] font-semibold text-[#f3f4f8]">
               Service Details
             </h2>
@@ -267,8 +267,8 @@ export const ServiceMapTab: React.FC = () => {
                 selectedNode.health === 'critical'
                   ? 'bg-[#9b5cf6]/20 text-[#b4a7f5] border border-[#9b5cf6]/40'
                   : selectedNode.health === 'degraded'
-                  ? 'bg-[#f5b942]/20 text-[#f5b942] border border-[#f5b942]/40'
-                  : 'bg-[#34d399]/20 text-[#34d399] border border-[#34d399]/40'
+                  ? 'bg-[#818cf8]/20 text-[#818cf8] border border-[#818cf8]/40'
+                  : 'bg-[#3b82f6]/20 text-[#60a5fa] border border-[#3b82f6]/40'
               }`}
             >
               {selectedNode.health}

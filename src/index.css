@@ -16,11 +16,7 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--bg);
-  background-image: 
-    radial-gradient(ellipse 600px 400px at 85% 5%, var(--bg-radial-1) 0%, transparent 70%),
-    radial-gradient(ellipse 500px 400px at 15% 95%, var(--bg-radial-2) 0%, transparent 70%);
-  background-attachment: fixed;
+  background-color: #000000;
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
