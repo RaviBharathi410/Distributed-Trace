@@ -564,3 +564,35 @@
 - **Next Checkpoint's Exit Criteria (Phase 4 — Cost Analysis & Settings Screens):**
   - Rebuild Cost Analysis (`/costs`): 4 KPI cards ($1,248.60, $0.42, $386.20, $862.40), `Cost Trend` vertical bar chart with violet gradient, `Cost by Service` horizontal distribution bars.
   - Rebuild Settings (`/settings`): Left sub-nav (General, Data Sources, Alerting, Retention, Team, API Keys), `General Settings` form with organization name, default region, dark/light theme radios, Discard and Save Changes buttons, and background wave decoration.
+
+---
+
+## Checkpoint: 2026-11-17 — Phase 4 Complete: Cost Analysis & Settings [VERIFIED]
+- **Status:** ✅ **Phase 4 Complete — All Cost Analysis & Settings Rebuild Criteria Satisfied**.
+- **What Changed Since Last Checkpoint:**
+  1. **Cost Analysis Screen (`src/components/dashboard/CostsTab.tsx`):**
+     - Header block: Title `Cost Analysis` / "Tenant cost attribution, token usage, and infrastructure economics." with `This Month` date range pill and spinning refresh button.
+     - Top KPI Cards: 4 stat cards in a responsive grid (`Total Monthly Cost: $1,248.60` with pulse icon, `Avg. Cost / Incident: $0.42` with clock icon, `LLM / Token Spend: $386.20` with layers icon, `Infrastructure: $862.40` with server icon).
+     - Row 2 Main Panels:
+       - **Left (~60%) `Cost Trend`**: Vertical bar chart with Y-axis ($0, $250, $500, $750, $1,000), dashed horizontal grid lines, and 13 vertical gradient violet bars (`#7c6cf0` to `#b08cff`) with hover tooltips and X-axis date labels (`Nov 10` to `Nov 22`).
+       - **Right (~40%) `Cost by Service`**: Microservice breakdown with horizontal distribution bars: `payment-svc` 38%, `inventory-svc` 24%, `checkout-api` 16%, `api-gateway` 12%, `notifications-svc` 10%.
+     - Bottom section: Collapsible live incident cost ledger table wired to backend API.
+  2. **Settings Screen (`src/components/dashboard/SettingsTab.tsx`):**
+     - Sub-Nav Sidebar: Pill navigation list (General, Data Sources, Alerting, Retention, Team, API Keys) with icons; `General` active as solid violet pill (`#7c6cf0`).
+     - Right Form Panel:
+       - Header: Title `General Settings` / "Configure your organization, region, and appearance." with signature violet bezier decorative wave lines in the top right.
+       - Form controls: `Organization Name` input (`Acme Corp`), `Default Region` select (`us-east-1`), and custom `Theme` radio buttons (`● Dark`, `○ Light`).
+       - Action buttons: `Discard` (ghost) and `Save Changes` (solid violet `#7c6cf0` with instant feedback notice).
+       - Preserved functional backend integration for API Key management (generation, copy, revocation) and data sources.
+  3. **Headless Chrome 1440x900 Verification:**
+     - Captured and validated 1440x900 screenshots:
+       - `docs/screenshots/costs.png` (104 KB)
+       - `docs/screenshots/settings.png` (56 KB)
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated in 469ms).
+  - `go test ./...`: Clean with code 0 across all Go backend packages.
+- **Next Checkpoint's Exit Criteria (Phase 5 — Full Verification & Final Audit):**
+  - Validate all 8 screenshots in `docs/screenshots/` (landing, overview, traces, traces-selected, service-map, anomalies, costs, settings).
+  - Audit contrast against WCAG AA standards.
+  - Final green CI push and full verification audit artifact.

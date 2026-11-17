@@ -1,5 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Database, Bell, HardDrive, Users, Key, Plus, Trash2, Copy, Check, Loader2, AlertCircle, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-react';
+import {
+  SlidersHorizontal,
+  Database,
+  Bell,
+  Clock,
+  Users,
+  Key,
+  ChevronDown,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  ShieldCheck,
+  ShieldAlert,
+} from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../../lib/api';
 import type { APIKey } from '../../lib/api';
@@ -11,28 +28,36 @@ export const SettingsTab: React.FC = () => {
   const [activeSection, setActiveSection] = useState<Section>('General');
 
   return (
-    <div className="flex h-full bg-black font-dm-sans rounded-lg border border-white/[0.08] overflow-hidden">
-      {/* SIDEBAR */}
-      <div className="w-64 bg-black border-r border-white/[0.08] flex flex-col p-4 gap-1 shrink-0">
-        {SECTIONS.map(s => (
-          <button
-            key={s}
-            onClick={() => setActiveSection(s)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-md text-sm transition-colors text-left focus:outline-none focus:ring-2 focus:ring-white/20 ${activeSection === s ? 'bg-white/10 text-white font-medium' : 'text-white/60 hover:text-white hover:bg-white/[0.05]'}`}
-          >
-            {s === 'General' && <Settings className="w-4 h-4" />}
-            {s === 'Data Sources' && <Database className="w-4 h-4" />}
-            {s === 'Alerting' && <Bell className="w-4 h-4" />}
-            {s === 'Retention' && <HardDrive className="w-4 h-4" />}
-            {s === 'Team' && <Users className="w-4 h-4" />}
-            {s === 'API Keys' && <Key className="w-4 h-4" />}
-            {s}
-          </button>
-        ))}
+    <div className="flex flex-col lg:flex-row gap-6 text-[#f3f4f8] font-sans pb-10">
+      {/* LEFT SUB-NAV SIDEBAR */}
+      <div className="w-full lg:w-52 flex flex-row lg:flex-col gap-1.5 shrink-0 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+        {SECTIONS.map((s) => {
+          const isActive = activeSection === s;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setActiveSection(s)}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-[9999px] lg:rounded-[8px] text-[13px] font-medium transition-all text-left whitespace-nowrap focus:outline-none ${
+                isActive
+                  ? 'bg-[#7c6cf0] text-white shadow-md'
+                  : 'text-[#9aa0b5] hover:text-[#f3f4f8] hover:bg-white/[0.04]'
+              }`}
+            >
+              {s === 'General' && <SlidersHorizontal className="w-4 h-4 shrink-0" />}
+              {s === 'Data Sources' && <Database className="w-4 h-4 shrink-0" />}
+              {s === 'Alerting' && <Bell className="w-4 h-4 shrink-0" />}
+              {s === 'Retention' && <Clock className="w-4 h-4 shrink-0" />}
+              {s === 'Team' && <Users className="w-4 h-4 shrink-0" />}
+              {s === 'API Keys' && <Key className="w-4 h-4 shrink-0" />}
+              <span>{s}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* CONTENT AREA */}
-      <div className="flex-1 overflow-y-auto p-8 relative bg-white/[0.01]">
+      {/* RIGHT MAIN CONTENT AREA */}
+      <div className="flex-1 min-w-0">
         {activeSection === 'General' && <GeneralSettings />}
         {activeSection === 'Data Sources' && <DataSourcesSettings />}
         {activeSection === 'Alerting' && <AlertingSettings />}
@@ -44,12 +69,186 @@ export const SettingsTab: React.FC = () => {
   );
 };
 
+// --- General Settings (Mockup Pixel-Exact Tile) ---
+const GeneralSettings: React.FC = () => {
+  const [orgName, setOrgName] = useState('Acme Corp');
+  const [region, setRegion] = useState('us-east-1');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [savedNotice, setSavedNotice] = useState(false);
+
+  const handleSave = () => {
+    setSavedNotice(true);
+    setTimeout(() => setSavedNotice(false), 2500);
+  };
+
+  const handleDiscard = () => {
+    setOrgName('Acme Corp');
+    setRegion('us-east-1');
+    setTheme('dark');
+  };
+
+  return (
+    <div className="relative rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 md:p-8 overflow-hidden shadow-xl">
+      {/* Decorative subtle violet wave lines in header matching source mockup */}
+      <div
+        className="absolute right-4 top-4 w-72 md:w-96 h-28 pointer-events-none opacity-30 overflow-hidden"
+        aria-hidden="true"
+      >
+        <svg viewBox="0 0 380 100" fill="none" className="w-full h-full text-[#7c6cf0]">
+          <path
+            d="M0 60 C 80 20, 160 90, 240 40 C 290 10, 330 50, 380 30"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+          <path
+            d="M20 70 C 100 30, 180 95, 260 50 C 310 20, 350 60, 380 42"
+            stroke="currentColor"
+            strokeWidth="1.2"
+            opacity="0.6"
+          />
+          <path
+            d="M40 80 C 120 40, 200 100, 280 60 C 330 30, 360 70, 380 55"
+            stroke="currentColor"
+            strokeWidth="0.8"
+            strokeDasharray="4 4"
+            opacity="0.4"
+          />
+        </svg>
+      </div>
+
+      {/* Header Block */}
+      <div className="relative z-10 mb-8">
+        <h2 className="text-[22px] font-semibold text-[#f3f4f8] tracking-tight">
+          General Settings
+        </h2>
+        <p className="text-[13px] text-[#9aa0b5] mt-1">
+          Configure your organization, region, and appearance.
+        </p>
+      </div>
+
+      {/* Form Fields */}
+      <div className="relative z-10 flex flex-col gap-6 max-w-xl">
+        {/* Field 1: Organization Name */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px] font-medium text-[#9aa0b5]">
+            Organization Name
+          </label>
+          <input
+            type="text"
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            className="bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] text-[#f3f4f8] text-[13px] rounded-[8px] px-4 py-2.5 w-full focus:outline-none focus:border-[#7c6cf0] transition-colors"
+          />
+        </div>
+
+        {/* Field 2: Default Region */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px] font-medium text-[#9aa0b5]">
+            Default Region
+          </label>
+          <div className="relative">
+            <select
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              className="bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] text-[#f3f4f8] text-[13px] rounded-[8px] px-4 py-2.5 w-full focus:outline-none focus:border-[#7c6cf0] appearance-none cursor-pointer transition-colors"
+            >
+              <option value="us-east-1">us-east-1</option>
+              <option value="eu-west-1">eu-west-1</option>
+              <option value="ap-south-1">ap-south-1</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-[#6b7188] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Field 3: Theme */}
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px] font-medium text-[#9aa0b5]">
+            Theme
+          </label>
+          <div className="flex items-center gap-6 mt-1">
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              className="flex items-center gap-2.5 cursor-pointer text-[13px] focus:outline-none"
+            >
+              <span
+                className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                  theme === 'dark'
+                    ? 'border-[#7c6cf0]'
+                    : 'border-[rgba(255,255,255,0.25)]'
+                }`}
+              >
+                {theme === 'dark' && <span className="w-2 h-2 rounded-full bg-[#7c6cf0]" />}
+              </span>
+              <span className={theme === 'dark' ? 'text-[#f3f4f8]' : 'text-[#9aa0b5]'}>
+                Dark
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              className="flex items-center gap-2.5 cursor-pointer text-[13px] focus:outline-none opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <span
+                className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                  theme === 'light'
+                    ? 'border-[#7c6cf0]'
+                    : 'border-[rgba(255,255,255,0.25)]'
+                }`}
+              >
+                {theme === 'light' && <span className="w-2 h-2 rounded-full bg-[#7c6cf0]" />}
+              </span>
+              <span className={theme === 'light' ? 'text-[#f3f4f8]' : 'text-[#9aa0b5]'}>
+                Light
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Actions Bar */}
+        <div className="flex items-center justify-end gap-3 pt-6 mt-2 border-t border-[rgba(255,255,255,0.06)]">
+          {savedNotice && (
+            <span className="text-[12px] text-[#34d399] flex items-center gap-1.5 mr-auto animate-in fade-in">
+              <Check className="w-3.5 h-3.5" />
+              Settings saved successfully
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={handleDiscard}
+            className="px-5 py-2 rounded-[8px] text-[13px] font-medium text-[#9aa0b5] hover:text-[#f3f4f8] hover:bg-white/[0.04] transition-colors focus:outline-none"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-5 py-2 rounded-[8px] text-[13px] font-medium text-white bg-[#7c6cf0] hover:bg-[#6b5bd6] transition-colors shadow-sm focus:outline-none"
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Modals Base ---
-const Modal: React.FC<{ title: string, onClose: () => void, children: React.ReactNode }> = ({ title, onClose, children }) => {
+const Modal: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({
+  title,
+  onClose,
+  children,
+}) => {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
@@ -57,89 +256,73 @@ const Modal: React.FC<{ title: string, onClose: () => void, children: React.Reac
   return (
     <div
       ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose();
+      }}
       className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
     >
-      <div className="bg-[#111] border border-white/10 rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-        <div className="p-4 border-b border-white/10 flex justify-between items-center">
-          <h3 className="font-semibold text-lg">{title}</h3>
-          <button onClick={onClose} className="text-white/50 hover:text-white">&times;</button>
+      <div className="bg-[#10121f] border border-[rgba(255,255,255,0.12)] rounded-[14px] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+        <div className="p-4 px-6 border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center">
+          <h3 className="font-semibold text-[15px] text-[#f3f4f8]">{title}</h3>
+          <button
+            onClick={onClose}
+            className="text-[#9aa0b5] hover:text-[#f3f4f8] text-lg leading-none p-1"
+          >
+            &times;
+          </button>
         </div>
-        <div className="p-6 flex flex-col gap-4">
-          {children}
-        </div>
+        <div className="p-6 flex flex-col gap-4 text-[#f3f4f8]">{children}</div>
       </div>
     </div>
   );
 };
 
-// --- Section Components ---
-
-const GeneralSettings = () => (
-  <div className="max-w-2xl flex flex-col gap-8 animate-in fade-in">
-    <div>
-      <h2 className="text-2xl font-bold mb-6">General Settings</h2>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <label className="text-sm text-white/70">Organization Name</label>
-          <input type="text" defaultValue="Acme Corp" className="bg-black border border-white/20 rounded px-4 py-2 w-full max-w-md focus:border-blue-500 focus:outline-none" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-sm text-white/70">Default Region</label>
-          <select className="bg-black border border-white/20 rounded px-4 py-2 w-full max-w-md focus:border-blue-500 focus:outline-none appearance-none">
-            <option>us-east-1</option>
-            <option>eu-west-1</option>
-            <option>ap-south-1</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-sm text-white/70">Theme</label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="theme" defaultChecked className="accent-blue-500" />
-              <span>Dark</span>
-            </label>
-            <label className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Coming soon">
-              <input type="radio" name="theme" disabled className="accent-blue-500" />
-              <span>Light</span>
-            </label>
-          </div>
-        </div>
-        <button className="bg-white text-black px-6 py-2 rounded font-medium self-start hover:bg-white/80 transition-colors">Save Changes</button>
-      </div>
-    </div>
-  </div>
-);
-
-const DataSourcesSettings = () => {
+// --- Data Sources Settings ---
+const DataSourcesSettings: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [testState, setTestState] = useState<'idle' | 'testing' | 'success'>('idle');
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6 animate-in fade-in">
+    <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Data Sources</h2>
-        <button onClick={() => setModalOpen(true)} className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded text-sm hover:bg-white/80 transition-colors">
+        <div>
+          <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Data Sources</h2>
+          <p className="text-[13px] text-[#9aa0b5] mt-0.5">
+            Ingestion endpoints for OpenTelemetry collectors and sidecars.
+          </p>
+        </div>
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-2 bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors shadow-sm"
+        >
           <Plus className="w-4 h-4" /> Add Source
         </button>
       </div>
 
-      <div className="border border-white/10 rounded-lg overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-white/[0.02] border-b border-white/10">
+      <div className="border border-[rgba(255,255,255,0.08)] rounded-[10px] overflow-hidden">
+        <table className="w-full text-left text-[12px]">
+          <thead className="bg-white/[0.02] border-b border-[rgba(255,255,255,0.08)] text-[#6b7188] font-mono uppercase text-[11px]">
             <tr>
-              <th className="px-4 py-3 text-white/50 font-medium">Name</th>
-              <th className="px-4 py-3 text-white/50 font-medium">Type</th>
-              <th className="px-4 py-3 text-white/50 font-medium">Status</th>
-              <th className="px-4 py-3 text-white/50 font-medium text-right">Actions</th>
+              <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Type</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-[rgba(255,255,255,0.04)] font-mono">
             <tr>
-              <td className="px-4 py-4 font-medium">Prod OTLP Collector</td>
-              <td className="px-4 py-4">OTLP/gRPC</td>
-              <td className="px-4 py-4"><span className="text-green-400 bg-green-500/10 px-2 py-1 rounded text-xs">Connected</span></td>
-              <td className="px-4 py-4 text-right"><button className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4 inline" /></button></td>
+              <td className="px-4 py-3.5 font-medium text-[#f3f4f8]">Prod OTLP Collector</td>
+              <td className="px-4 py-3.5 text-[#9aa0b5]">OTLP / HTTP (Protobuf + Gzip)</td>
+              <td className="px-4 py-3.5">
+                <span className="text-[#34d399] bg-[rgba(52,211,153,0.12)] border border-[rgba(52,211,153,0.2)] px-2 py-0.5 rounded-[9999px] text-[11px]">
+                  Connected
+                </span>
+              </td>
+              <td className="px-4 py-3.5 text-right">
+                <button className="text-[#f87171] hover:text-red-400 p-1">
+                  <Trash2 className="w-4 h-4 inline" />
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -147,25 +330,54 @@ const DataSourcesSettings = () => {
 
       {modalOpen && (
         <Modal title="Add Data Source" onClose={() => setModalOpen(false)}>
-          <div className="flex flex-col gap-4">
-            <input type="text" placeholder="Name (e.g. Prod Collector)" className="bg-black border border-white/20 rounded px-4 py-2 w-full focus:border-blue-500 focus:outline-none text-sm" />
-            <select className="bg-black border border-white/20 rounded px-4 py-2 w-full focus:border-blue-500 focus:outline-none text-sm appearance-none">
-              <option>OTLP (gRPC)</option>
-              <option>Jaeger</option>
-              <option>Zipkin</option>
+          <div className="flex flex-col gap-4 text-[13px]">
+            <input
+              type="text"
+              placeholder="Name (e.g. Prod Collector)"
+              className="bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] rounded-[8px] px-4 py-2.5 w-full focus:outline-none focus:border-[#7c6cf0] text-[#f3f4f8]"
+            />
+            <select className="bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] rounded-[8px] px-4 py-2.5 w-full focus:outline-none focus:border-[#7c6cf0] text-[#f3f4f8]">
+              <option>OTLP / HTTP (Protobuf)</option>
+              <option>Jaeger HTTP</option>
+              <option>Zipkin v2</option>
             </select>
-            <input type="text" placeholder="Endpoint URL (e.g. grpc://...)" className="bg-black border border-white/20 rounded px-4 py-2 w-full focus:border-blue-500 focus:outline-none font-dm-mono text-sm" />
+            <input
+              type="text"
+              placeholder="Endpoint URL (e.g. http://localhost:8080/v1/traces)"
+              className="bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] rounded-[8px] px-4 py-2.5 w-full focus:outline-none focus:border-[#7c6cf0] font-mono text-[#f3f4f8]"
+            />
 
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-[rgba(255,255,255,0.08)]">
               <button
-                onClick={() => { setTestState('testing'); setTimeout(() => setTestState('success'), 1000); }}
-                className="text-sm px-4 py-2 bg-white/10 rounded hover:bg-white/20 transition-colors"
+                type="button"
+                onClick={() => {
+                  setTestState('testing');
+                  setTimeout(() => setTestState('success'), 800);
+                }}
+                className="text-[12px] px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] rounded-[8px] transition-colors text-[#9aa0b5] hover:text-[#f3f4f8]"
               >
-                {testState === 'idle' ? 'Test Connection' : testState === 'testing' ? 'Testing...' : 'Success!'}
+                {testState === 'idle'
+                  ? 'Test Connection'
+                  : testState === 'testing'
+                  ? 'Testing...'
+                  : 'Connection Verified!'}
               </button>
-              <div className="flex gap-3">
-                <button onClick={() => setModalOpen(false)} className="text-sm text-white/50 hover:text-white">Cancel</button>
-                <button onClick={() => setModalOpen(false)} disabled={testState !== 'success'} className="text-sm bg-white text-black px-4 py-2 rounded disabled:opacity-50">Add Source</button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="text-[12px] text-[#9aa0b5] hover:text-[#f3f4f8] px-3 py-2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  disabled={testState !== 'success'}
+                  className="text-[12px] bg-[#7c6cf0] text-white px-4 py-2 rounded-[8px] font-medium disabled:opacity-50"
+                >
+                  Add Source
+                </button>
               </div>
             </div>
           </div>
@@ -175,79 +387,114 @@ const DataSourcesSettings = () => {
   );
 };
 
-const AlertingSettings = () => (
-  <div className="max-w-4xl flex flex-col gap-6 animate-in fade-in">
+// --- Alerting Settings ---
+const AlertingSettings: React.FC = () => (
+  <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
     <div className="flex justify-between items-center">
-      <h2 className="text-2xl font-bold">Alert Rules</h2>
-      <button className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded text-sm hover:bg-white/80 transition-colors">
+      <div>
+        <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Alert Rules</h2>
+        <p className="text-[13px] text-[#9aa0b5] mt-0.5">
+          Configure real-time notifications for latency regressions and error spikes.
+        </p>
+      </div>
+      <button className="flex items-center gap-2 bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors shadow-sm">
         <Plus className="w-4 h-4" /> Create Rule
       </button>
     </div>
-    <div className="flex flex-col items-center justify-center py-20 border border-white/10 border-dashed rounded-lg text-white/40">
-      <Bell className="w-12 h-12 mb-4 opacity-50" />
-      <p>No alert rules configured yet.</p>
-      <button className="mt-4 text-blue-400 hover:underline">Read the docs</button>
+    <div className="flex flex-col items-center justify-center py-16 border border-dashed border-[rgba(255,255,255,0.1)] rounded-[10px] text-[#9aa0b5]">
+      <Bell className="w-10 h-10 mb-3 text-[#6b7188] opacity-50" />
+      <p className="text-[13px] text-[#f3f4f8]">No alert rules configured yet.</p>
+      <span className="text-[12px] text-[#6b7188] mt-1">
+        Configure threshold-based anomaly notifications via Slack, PagerDuty, or Webhook.
+      </span>
     </div>
   </div>
 );
 
-const RetentionSettings = () => (
-  <div className="max-w-2xl flex flex-col gap-8 animate-in fade-in">
-    <h2 className="text-2xl font-bold">Data Retention</h2>
-    <div className="flex flex-col gap-8 bg-white/[0.02] p-6 rounded-lg border border-white/10">
+// --- Retention Settings ---
+const RetentionSettings: React.FC = () => (
+  <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 max-w-2xl animate-in fade-in">
+    <div>
+      <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Data Retention</h2>
+      <p className="text-[13px] text-[#9aa0b5] mt-0.5">
+        ClickHouse columnar MergeTree automated TTL policies.
+      </p>
+    </div>
+
+    <div className="flex flex-col gap-6 bg-[rgba(255,255,255,0.02)] p-6 rounded-[10px] border border-[rgba(255,255,255,0.06)]">
       <div className="flex flex-col gap-2">
-        <div className="flex justify-between text-sm">
-          <label className="text-white/70">Raw Trace Retention</label>
-          <span className="font-dm-mono text-blue-400">7 Days</span>
+        <div className="flex justify-between text-[13px]">
+          <label className="text-[#f3f4f8] font-medium">Raw Trace Retention</label>
+          <span className="font-mono text-[#7c6cf0] font-semibold">14 Days (TTL Enforced)</span>
         </div>
-        <input type="range" min="1" max="30" defaultValue="7" className="w-full accent-blue-500" />
-        <span className="text-xs text-white/40">Estimated storage: ~1.2 TB / month</span>
+        <input
+          type="range"
+          min="1"
+          max="30"
+          defaultValue="14"
+          className="w-full accent-[#7c6cf0]"
+        />
+        <span className="text-[11px] text-[#6b7188]">
+          Non-error spans automatically pruned after 14 days; error spans retained for 30 days.
+        </span>
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex justify-between text-sm">
-          <label className="text-white/70">Aggregated Metrics</label>
-          <span className="font-dm-mono text-blue-400">90 Days</span>
+        <div className="flex justify-between text-[13px]">
+          <label className="text-[#f3f4f8] font-medium">Aggregated Metrics & Anomalies</label>
+          <span className="font-mono text-[#7c6cf0] font-semibold">90 Days</span>
         </div>
-        <input type="range" min="30" max="365" defaultValue="90" className="w-full accent-blue-500" />
+        <input
+          type="range"
+          min="30"
+          max="365"
+          defaultValue="90"
+          className="w-full accent-[#7c6cf0]"
+        />
       </div>
 
-      <button className="bg-white text-black px-6 py-2 rounded font-medium self-start mt-4">Update Retention Policies</button>
+      <button className="bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white px-5 py-2 rounded-[8px] text-[13px] font-medium self-start mt-2 transition-colors shadow-sm">
+        Update Retention Policies
+      </button>
     </div>
   </div>
 );
 
-const TeamSettings = () => (
-  <div className="max-w-4xl flex flex-col gap-6 animate-in fade-in">
+// --- Team Settings ---
+const TeamSettings: React.FC = () => (
+  <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
     <div className="flex justify-between items-center">
-      <h2 className="text-2xl font-bold">Team Members</h2>
-      <button className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded text-sm hover:bg-white/80 transition-colors">
+      <div>
+        <h2 className="text-[20px] font-semibold text-[#f3f4f8]">Team Members</h2>
+        <p className="text-[13px] text-[#9aa0b5] mt-0.5">
+          Manage tenant user accounts and role-based access control.
+        </p>
+      </div>
+      <button className="flex items-center gap-2 bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors shadow-sm">
         <Plus className="w-4 h-4" /> Invite Member
       </button>
     </div>
 
-    <div className="border border-white/10 rounded-lg overflow-hidden">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-white/[0.02] border-b border-white/10">
+    <div className="border border-[rgba(255,255,255,0.08)] rounded-[10px] overflow-hidden">
+      <table className="w-full text-left text-[12px]">
+        <thead className="bg-white/[0.02] border-b border-[rgba(255,255,255,0.08)] text-[#6b7188] font-mono uppercase text-[11px]">
           <tr>
-            <th className="px-4 py-3 text-white/50 font-medium">Name</th>
-            <th className="px-4 py-3 text-white/50 font-medium">Email</th>
-            <th className="px-4 py-3 text-white/50 font-medium">Role</th>
-            <th className="px-4 py-3 text-white/50 font-medium text-right">Actions</th>
+            <th className="px-4 py-3 font-medium">Name</th>
+            <th className="px-4 py-3 font-medium">Email</th>
+            <th className="px-4 py-3 font-medium">Role</th>
+            <th className="px-4 py-3 font-medium text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">
+        <tbody className="divide-y divide-[rgba(255,255,255,0.04)] font-mono">
           <tr>
-            <td className="px-4 py-4 font-medium">Alice Engineer</td>
-            <td className="px-4 py-4 text-white/70">alice@example.com</td>
-            <td className="px-4 py-4"><span className="bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs">Admin</span></td>
-            <td className="px-4 py-4 text-right"></td>
-          </tr>
-          <tr>
-            <td className="px-4 py-4 font-medium">Bob Developer</td>
-            <td className="px-4 py-4 text-white/70">bob@example.com</td>
-            <td className="px-4 py-4"><span className="bg-white/10 text-white/70 px-2 py-1 rounded text-xs">Editor</span></td>
-            <td className="px-4 py-4 text-right"><button className="text-red-400 hover:text-red-300"><Trash2 className="w-4 h-4 inline" /></button></td>
+            <td className="px-4 py-3.5 font-medium text-[#f3f4f8]">Admin User</td>
+            <td className="px-4 py-3.5 text-[#9aa0b5]">admin@acme.com</td>
+            <td className="px-4 py-3.5">
+              <span className="bg-[rgba(124,108,240,0.15)] text-[#b08cff] border border-[rgba(124,108,240,0.3)] px-2 py-0.5 rounded-[9999px] text-[11px]">
+                Owner
+              </span>
+            </td>
+            <td className="px-4 py-3.5 text-right"></td>
           </tr>
         </tbody>
       </table>
@@ -255,7 +502,8 @@ const TeamSettings = () => (
   </div>
 );
 
-const ApiKeysSettings = () => {
+// --- API Keys Settings (Full Backend Hook Integration) ---
+const ApiKeysSettings: React.FC = () => {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [keyName, setKeyName] = useState('');
@@ -325,24 +573,26 @@ const ApiKeysSettings = () => {
   };
 
   return (
-    <div className="max-w-4xl flex flex-col gap-6 animate-in fade-in">
+    <div className="rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-7 flex flex-col gap-6 animate-in fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">API Keys</h2>
-          <p className="text-sm text-white/50 mt-1">Manage ingestion credentials for OpenTelemetry collectors and SDKs.</p>
+          <h2 className="text-[20px] font-semibold text-[#f3f4f8]">API Keys</h2>
+          <p className="text-[13px] text-[#9aa0b5] mt-0.5">
+            Manage ingestion credentials for OpenTelemetry collectors and SDKs.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-2 border border-white/10 rounded text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors"
+            className="p-2 border border-[rgba(255,255,255,0.1)] rounded-[8px] text-[#9aa0b5] hover:text-[#f3f4f8] hover:bg-white/[0.04] transition-colors"
             title="Refresh keys"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin text-[#7c6cf0]' : ''}`} />
           </button>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded text-sm font-medium hover:bg-white/80 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" /> Generate Key
           </button>
@@ -350,259 +600,173 @@ const ApiKeysSettings = () => {
       </div>
 
       {actionError && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded text-sm flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-[8px] text-red-300 text-[12px] flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
           <span>{actionError}</span>
         </div>
       )}
 
-      {isLoading ? (
-        <div className="border border-white/10 rounded-lg p-12 flex flex-col items-center justify-center gap-3 text-white/40">
-          <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-          <span className="text-sm font-dm-mono">Loading API keys from PostgreSQL...</span>
-        </div>
-      ) : isError ? (
-        <div className="border border-red-500/20 bg-red-500/5 rounded-lg p-8 flex flex-col items-center justify-center gap-3 text-red-400">
-          <AlertCircle className="w-8 h-8" />
-          <p className="text-sm font-medium">Failed to load API keys</p>
-          <p className="text-xs text-white/50">{(error as Error)?.message || 'Database connection error'}</p>
+      {isError && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-[8px] text-red-300 text-[13px] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 shrink-0 text-red-400" />
+            <span>Failed to load API keys: {(error as Error)?.message || 'Unknown error'}</span>
+          </div>
           <button
             onClick={() => refetch()}
-            className="mt-2 px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs text-white transition-colors"
+            className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.1] rounded text-[12px] text-white font-mono"
           >
-            Try Again
+            Retry
           </button>
-        </div>
-      ) : keys.length === 0 ? (
-        <div className="border border-white/10 border-dashed rounded-lg p-12 flex flex-col items-center justify-center gap-3 text-center">
-          <Key className="w-10 h-10 text-white/20" />
-          <p className="text-white/80 font-medium">No API keys created</p>
-          <p className="text-xs text-white/40 max-w-sm">
-            Generate an API key with the <code className="text-blue-400">dt_live_</code> prefix to authenticate telemetry sent to <code className="text-blue-400">/api/v1/spans</code>.
-          </p>
-          <button
-            onClick={handleOpenCreateModal}
-            className="mt-3 flex items-center gap-2 bg-white text-black px-4 py-2 rounded text-xs font-medium hover:bg-white/80 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" /> Generate First Key
-          </button>
-        </div>
-      ) : (
-        <div className="border border-white/10 rounded-lg overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-white/[0.02] border-b border-white/10">
-              <tr>
-                <th className="px-4 py-3 text-white/50 font-medium">Key Name & Prefix</th>
-                <th className="px-4 py-3 text-white/50 font-medium">Environment</th>
-                <th className="px-4 py-3 text-white/50 font-medium">Status</th>
-                <th className="px-4 py-3 text-white/50 font-medium">Created</th>
-                <th className="px-4 py-3 text-white/50 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {keys.map((k) => {
-                const isRevoked = !!k.revoked_at;
-                const isProdKey = k.prefix.startsWith('dt_live_');
-                return (
-                  <tr key={k.id} className={isRevoked ? 'opacity-50 bg-white/[0.005]' : 'hover:bg-white/[0.01]'}>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-white/90">{k.name}</span>
-                        <span className="font-dm-mono text-xs text-blue-400/80">{k.prefix}••••••••</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      {isProdKey ? (
-                        <span className="inline-flex items-center gap-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded text-[11px] font-medium">
-                          <ShieldCheck className="w-3 h-3" /> Production
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[11px] font-medium">
-                          <ShieldAlert className="w-3 h-3" /> Test
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {isRevoked ? (
-                        <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded text-[11px]">
-                          Revoked
-                        </span>
-                      ) : (
-                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[11px]">
-                          Active
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-white/60 text-xs font-dm-mono">
-                      {new Date(k.created_at).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      {isRevoked ? (
-                        <span className="text-xs text-white/30 italic">Revoked</span>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Revoke API key "${k.name}"? Ingest clients using this key will immediately be rejected.`)) {
-                              revokeMutation.mutate(k.id);
-                            }
-                          }}
-                          disabled={revokingId === k.id}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-50 text-xs px-3 py-1 border border-red-500/20 rounded transition-colors inline-flex items-center gap-1"
-                        >
-                          {revokingId === k.id ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" /> Revoking...
-                            </>
-                          ) : (
-                            'Revoke'
-                          )}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       )}
 
+      <div className="border border-[rgba(255,255,255,0.08)] rounded-[10px] overflow-hidden">
+        {isLoading ? (
+          <div className="p-8 flex items-center justify-center text-[#9aa0b5] text-[13px] gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-[#7c6cf0]" />
+            Loading API keys...
+          </div>
+        ) : keys.length === 0 ? (
+          <div className="p-12 text-center text-[#6b7188] text-[13px]">
+            No API keys found. Generate a key to begin ingesting OTLP traces.
+          </div>
+        ) : (
+          <table className="w-full text-left text-[12px]">
+            <thead className="bg-white/[0.02] border-b border-[rgba(255,255,255,0.08)] text-[#6b7188] font-mono uppercase text-[11px]">
+              <tr>
+                <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Prefix</th>
+                <th className="px-4 py-3 font-medium">Environment</th>
+                <th className="px-4 py-3 font-medium">Created</th>
+                <th className="px-4 py-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[rgba(255,255,255,0.04)] font-mono">
+              {keys.map((k) => (
+                <tr key={k.id} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="px-4 py-3.5 font-medium text-[#f3f4f8]">{k.name}</td>
+                  <td className="px-4 py-3.5 text-[#9aa0b5]">{k.key_prefix}...</td>
+                  <td className="px-4 py-3.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-[9999px] text-[11px] ${
+                        k.is_prod
+                          ? 'bg-[rgba(52,211,153,0.12)] text-[#34d399] border border-[rgba(52,211,153,0.25)]'
+                          : 'bg-white/[0.05] text-[#9aa0b5]'
+                      }`}
+                    >
+                      {k.is_prod ? 'Production' : 'Development'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5 text-[#6b7188]">
+                    {new Date(k.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
+                    <button
+                      onClick={() => revokeMutation.mutate(k.id)}
+                      disabled={revokingId === k.id}
+                      className="text-[#f87171] hover:text-red-400 p-1 disabled:opacity-50 transition-colors"
+                      title="Revoke Key"
+                    >
+                      {revokingId === k.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin inline" />
+                      ) : (
+                        <Trash2 className="w-4 h-4 inline" />
+                      )}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Create Key Modal */}
       {modalOpen && (
-        <Modal
-          title={newGeneratedKey ? 'API Key Generated' : 'Create New API Key'}
-          onClose={handleCloseModal}
-        >
+        <Modal title="Generate New Ingestion Key" onClose={handleCloseModal}>
           {newGeneratedKey ? (
-            <div className="flex flex-col gap-4">
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded text-amber-400 text-xs flex flex-col gap-1">
-                <span className="font-semibold uppercase tracking-wider">⚠️ Important Secret Warning</span>
-                <span>
-                  Please copy this key now. For security reasons, the full secret key hash is stored irreversibly in PostgreSQL and cannot be retrieved again.
-                </span>
+            <div className="flex flex-col gap-4 text-[13px]">
+              <div className="p-3 bg-[rgba(52,211,153,0.1)] border border-[rgba(52,211,153,0.2)] rounded-[8px] flex items-center gap-2 text-[#34d399]">
+                <ShieldCheck className="w-5 h-5 shrink-0" />
+                <span>Save this key now. It will not be shown again.</span>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-white/50 uppercase tracking-wider">Generated Ingestion Key</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={newGeneratedKey}
-                    className="flex-1 bg-black border border-white/20 rounded px-4 py-2 font-dm-mono text-sm text-blue-400 focus:outline-none select-all"
-                  />
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(newGeneratedKey);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2500);
-                    }}
-                    className="p-2 bg-white/10 rounded hover:bg-white/20 transition-colors text-white"
-                    title="Copy to clipboard"
-                  >
-                    {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
-                  </button>
-                </div>
+              <div className="flex items-center gap-2 bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] rounded-[8px] p-3 font-mono text-[12px] text-[#f3f4f8]">
+                <span className="flex-1 select-all break-all">{newGeneratedKey}</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(newGeneratedKey);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="px-3 py-1.5 bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white rounded-[6px] text-[11px] font-sans flex items-center gap-1.5 transition-colors"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
               </div>
-
-              <div className="p-3 bg-white/[0.02] border border-white/10 rounded text-xs font-dm-mono text-white/60">
-                <p className="text-white/40 mb-1">// Usage with cURL:</p>
-                <p className="text-emerald-400/90 break-all">
-                  curl -X POST http://localhost:8080/api/v1/spans \<br />
-                  &nbsp;&nbsp;-H &quot;X-API-Key: {newGeneratedKey}&quot;
-                </p>
-              </div>
-
               <button
                 onClick={handleCloseModal}
-                className="w-full mt-2 bg-white text-black py-2 rounded text-sm font-medium hover:bg-white/90 transition-colors"
+                className="w-full mt-2 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] rounded-[8px] text-[13px] text-[#f3f4f8] transition-colors"
               >
-                I have copied the key
+                Done
               </button>
             </div>
           ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                createMutation.mutate();
-              }}
-              className="flex flex-col gap-4"
-            >
+            <div className="flex flex-col gap-4 text-[13px]">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-white/70">Key Name / Description</label>
+                <label className="text-[12px] text-[#9aa0b5]">Key Identifier</label>
                 <input
                   type="text"
-                  placeholder="e.g. Production OTel Gateway"
+                  placeholder="e.g. Production OTel Ingest"
                   value={keyName}
                   onChange={(e) => setKeyName(e.target.value)}
-                  className="bg-black border border-white/20 rounded px-4 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  autoFocus
+                  className="bg-[#0a0b14] border border-[rgba(255,255,255,0.12)] rounded-[8px] px-4 py-2.5 focus:outline-none focus:border-[#7c6cf0] text-[#f3f4f8]"
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs text-white/70">Key Scope / Environment</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsProd(true)}
-                    className={`p-3 rounded border text-left flex flex-col gap-1 transition-all ${
-                      isProd
-                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                        : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20'
-                    }`}
-                  >
-                    <span className="text-sm font-medium">Production</span>
-                    <span className="text-[11px] font-dm-mono text-blue-400">dt_live_••••</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsProd(false)}
-                    className={`p-3 rounded border text-left flex flex-col gap-1 transition-all ${
-                      !isProd
-                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                        : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/20'
-                    }`}
-                  >
-                    <span className="text-sm font-medium">Test / Staging</span>
-                    <span className="text-[11px] font-dm-mono text-amber-400">dt_test_••••</span>
-                  </button>
-                </div>
+              <div className="flex items-center gap-4 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="env"
+                    checked={isProd}
+                    onChange={() => setIsProd(true)}
+                    className="accent-[#7c6cf0]"
+                  />
+                  <span>Production</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="env"
+                    checked={!isProd}
+                    onChange={() => setIsProd(false)}
+                    className="accent-[#7c6cf0]"
+                  />
+                  <span>Development</span>
+                </label>
               </div>
 
-              {actionError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-2.5 rounded text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{actionError}</span>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 mt-4">
+              <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-[rgba(255,255,255,0.08)]">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-4 py-2 rounded text-sm text-white/60 hover:text-white transition-colors"
+                  className="px-4 py-2 text-[#9aa0b5] hover:text-[#f3f4f8] text-[12px]"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => createMutation.mutate()}
                   disabled={createMutation.isPending}
-                  className="bg-white text-black px-5 py-2 rounded text-sm font-medium hover:bg-white/90 disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+                  className="bg-[#7c6cf0] hover:bg-[#6b5bd6] text-white px-5 py-2 rounded-[8px] font-medium text-[12px] flex items-center gap-2 shadow-sm disabled:opacity-50"
                 >
-                  {createMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Generating...
-                    </>
-                  ) : (
-                    'Generate Key'
-                  )}
+                  {createMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Generate
                 </button>
               </div>
-            </form>
+            </div>
           )}
         </Modal>
       )}

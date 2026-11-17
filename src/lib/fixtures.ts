@@ -496,3 +496,47 @@ export const DEMO_TRACE_DETAILS: Record<string, TraceDetail> = {
     ],
   },
 };
+
+export const DEMO_COSTS_KPIS = {
+  totalMonthlyCost: '$1,248.60',
+  avgCostPerIncident: '$0.42',
+  llmTokenSpend: '$386.20',
+  infrastructure: '$862.40',
+};
+
+export interface CostTrendPoint {
+  date: string;
+  cost: number;
+}
+
+export const DEMO_COST_TREND: CostTrendPoint[] = [
+  { date: 'Nov 10', cost: 280 },
+  { date: 'Nov 11', cost: 340 },
+  { date: 'Nov 12', cost: 410 },
+  { date: 'Nov 13', cost: 360 },
+  { date: 'Nov 14', cost: 490 },
+  { date: 'Nov 15', cost: 520 },
+  { date: 'Nov 16', cost: 480 },
+  { date: 'Nov 17', cost: 560 },
+  { date: 'Nov 18', cost: 620 },
+  { date: 'Nov 19', cost: 710 },
+  { date: 'Nov 20', cost: 680 },
+  { date: 'Nov 21', cost: 780 },
+  { date: 'Nov 22', cost: 840 },
+];
+
+export interface CostByServiceItem {
+  id: string;
+  service: string;
+  percentage: number;
+  cost: string;
+}
+
+export const DEMO_COST_BY_SERVICE: CostByServiceItem[] = [
+  { id: 'payment-svc', service: 'payment-svc', percentage: 38, cost: '$474.47' },
+  { id: 'inventory-svc', service: 'inventory-svc', percentage: 24, cost: '$299.66' },
+  { id: 'checkout-api', service: 'checkout-api', percentage: 16, cost: '$199.78' },
+  { id: 'api-gateway', service: 'api-gateway', percentage: 12, cost: '$149.83' },
+  { id: 'notifications-svc', service: 'notifications-svc', percentage: 10, cost: '$124.86' },
+];
+
