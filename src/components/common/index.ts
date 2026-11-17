@@ -14,4 +14,5 @@ export * from './HorizontalBars';
 export * from './Skeleton';
 export * from './EmptyState';
 export * from './ErrorBanner';
+export * from './BrandLogo';
 

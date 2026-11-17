@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -8,11 +8,14 @@ import {
   Layers,
   Settings,
   Sparkles,
+  Home,
 } from 'lucide-react';
+import { BrandLogo } from '../common/BrandLogo';
 
 export const AppShell: React.FC = () => {
   const location = useLocation();
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  const [selectedRegion, setSelectedRegion] = useState<'us-east-1' | 'eu-west-1'>('us-east-1');
 
   const navItems = [
     { name: 'Overview', path: '/overview', icon: LayoutGrid },
@@ -29,37 +32,7 @@ export const AppShell: React.FC = () => {
       <header className="sticky top-0 z-40 h-14 border-b border-[rgba(255,255,255,0.07)] bg-[#0a0b14]/90 backdrop-blur-md px-6 flex items-center justify-between">
         {/* Brand / Logo */}
         <div className="flex items-center gap-6">
-          <NavLink
-            to="/overview"
-            className="flex items-center gap-2.5 group focus:outline-none focus:ring-2 focus:ring-[#7c6cf0] rounded-md px-1 py-0.5"
-            aria-label="DistributedTrace Home"
-          >
-            {/* Custom SVG logo mark */}
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#7c6cf0]/30 to-[#9b5cf6]/10 border border-[#7c6cf0]/40 flex items-center justify-center shadow-sm group-hover:border-[#7c6cf0]/80 transition-colors">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-[#7c6cf0]"
-              >
-                <circle cx="6" cy="6" r="2.5" fill="#7c6cf0" />
-                <circle cx="18" cy="8" r="2.5" fill="#7c6cf0" />
-                <circle cx="12" cy="18" r="2.5" fill="#34d399" />
-                <path
-                  d="M7.8 7.2L16.2 7.8M7.2 8L10.8 16M16.8 9.8L13.2 16.2"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <span className="font-semibold text-[15px] tracking-tight text-[#f3f4f8] flex items-center">
-              <span>distributed</span>
-              <span className="text-[#9aa0b5] font-normal">trace</span>
-            </span>
-          </NavLink>
+          <BrandLogo to="/" size="md" />
         </div>
 
         {/* Center Nav Pills */}
@@ -84,15 +57,51 @@ export const AppShell: React.FC = () => {
           })}
         </nav>
 
-        {/* Right Actions & Utilities */}
-        <div className="flex items-center gap-3">
+        {/* Right Actions & Utilities (Region Pills matching reference image) */}
+        <div className="flex items-center gap-2.5">
+          {/* Region selector pills matching mockup */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#10121f] p-0.5 rounded-full border border-[rgba(255,255,255,0.07)]">
+            <button
+              type="button"
+              onClick={() => setSelectedRegion('us-east-1')}
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono transition-all ${
+                selectedRegion === 'us-east-1'
+                  ? 'bg-[#7c6cf0]/20 text-[#f3f4f8] border border-[#7c6cf0]/40 font-semibold'
+                  : 'text-[#6b7188] hover:text-[#9aa0b5] border border-transparent'
+              }`}
+            >
+              us-east-1
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedRegion('eu-west-1')}
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono transition-all ${
+                selectedRegion === 'eu-west-1'
+                  ? 'bg-[#7c6cf0]/20 text-[#f3f4f8] border border-[#7c6cf0]/40 font-semibold'
+                  : 'text-[#6b7188] hover:text-[#9aa0b5] border border-transparent'
+              }`}
+            >
+              eu-west-1
+            </button>
+          </div>
+
+          {/* Quick link to Landing Page */}
+          <NavLink
+            to="/"
+            className="text-[12px] text-[#6b7188] hover:text-[#9aa0b5] px-2 py-1 rounded transition-colors inline-flex items-center gap-1 border border-transparent hover:border-white/10"
+            title="Return to Landing Page"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline text-[11px]">Landing</span>
+          </NavLink>
+
           {isDemoMode && (
             <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30"
               title="Running with mock fixture demo dataset"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              Demo data
+              Demo
             </span>
           )}
 
@@ -102,7 +111,7 @@ export const AppShell: React.FC = () => {
             title="Design System Component Gallery"
           >
             <Sparkles className="w-3 h-3 text-[#7c6cf0]" />
-            <span className="hidden md:inline">Kit</span>
+            <span className="hidden md:inline text-[11px]">Kit</span>
           </NavLink>
         </div>
       </header>

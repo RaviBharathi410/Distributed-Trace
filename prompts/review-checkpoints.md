@@ -504,3 +504,34 @@
 - **Next Checkpoint's Exit Criteria (Phase 3 — Service Map & Anomalies Screens):**
   - Rebuild Service Map (`/service-map`): Interactive D3/SVG topology graph, dotted background, curved edges with moving particles, service node cards with p99/health/active anomalies, edge labels (RPS, error rate, p95).
   - Rebuild Anomalies (`/anomalies`): Top KPI stats cards, severity filtering tabs, anomaly list table, and slide-over / side inspection drawer with 3-state deterministic/AI explanation.
+
+---
+
+## Checkpoint: 2026-11-17 — Landing Page & Dashboard Bidirectional Linkage [VERIFIED]
+- **Status:** ✅ **Landing Page Integration Complete — All Linking & Visual Assets Verified**.
+- **What Changed Since Last Checkpoint:**
+  1. **Pitch-Black Landing Page (`src/pages/LandingPage.tsx`):**
+     - Mounted at root `/` and `/landing` in strict accordance with the master plan.
+     - Strict black theme (`#0a0b14` canvas, `#10121f` surfaces, radial violet glows, zero light backgrounds).
+     - Hero section featuring headline "Microservices Observability Without the Enterprise Tax" with direct primary CTA "Launch Live Dashboard" navigating to `/overview`.
+     - Interactive 5-tab live UI preview container showcasing Overview, Traces, Service Map, Anomalies, and Costs.
+     - Feature pillars grid: Columnar MergeTree Engine (ZSTD(3) + binary IDs), $0 Hot-Path Deterministic AI, Live Dependency Topology, and Unit Economics.
+     - Benchmarks and market pricing comparison table against SigNoz, Grafana Cloud, and Honeycomb.
+     - High-impact bottom CTA banner and comprehensive footer with direct deep links to every dashboard screen.
+  2. **Shared Brand Identity (`src/components/common/BrandLogo.tsx`):**
+     - Implemented reusable `BrandLogo` and `BrandLogoMark` with the exact 4-petal quadrant pinwheel SVG icon and lowercase `distributedtrace` typography.
+     - Reused across both `AppShell.tsx` and `LandingPage.tsx`.
+     - In all dashboard views, clicking the brand logo navigates seamlessly back to `/`.
+  3. **AppShell Header Polish & Region Pills:**
+     - Restored the `us-east-1` (active) and `eu-west-1` (inactive) rounded region selector pills on the top right across all dashboard views matching the reference image.
+     - Added quick "Landing" link in the top bar for easy toggling between marketing and operational views.
+  4. **Headless Chrome 1440x900 Verification:**
+     - Captured and validated 1440x900 screenshot:
+       - `docs/screenshots/landing.png` (171 KB)
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated in 984ms).
+  - `go test ./...`: Clean with code 0 across all Go backend packages.
+- **Next Checkpoint's Exit Criteria (Phase 3 — Service Map & Anomalies Screens):**
+  - Rebuild Service Map (`/service-map`): Interactive D3/SVG topology graph, dotted background, curved edges with moving particles, service node cards with p99/health/active anomalies, edge labels (RPS, error rate, p95).
+  - Rebuild Anomalies (`/anomalies`): Top KPI stats cards, severity filtering tabs, anomaly list table, and slide-over / side inspection drawer with 3-state deterministic/AI explanation.
