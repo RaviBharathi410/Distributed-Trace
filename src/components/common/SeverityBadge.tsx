@@ -15,30 +15,38 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({
 }) => {
   const normalized = severity.toLowerCase() as SeverityLevel;
 
-  const styles: Record<SeverityLevel, { bg: string; text: string; label: string }> = {
+  const styles: Record<
+    SeverityLevel,
+    { gradient: string; text: string; border: string; label: string }
+  > = {
     critical: {
-      bg: 'bg-[#9b5cf6]',
-      text: 'text-white',
+      gradient: 'bg-gradient-to-r from-white via-neutral-100 to-neutral-300',
+      text: 'text-black font-extrabold',
+      border: 'border border-white shadow-[0_0_8px_rgba(255,255,255,0.25)]',
       label: 'CRITICAL',
     },
     high: {
-      bg: 'bg-[#3b82f6]',
-      text: 'text-white',
+      gradient: 'bg-gradient-to-r from-neutral-200 via-neutral-300 to-neutral-400',
+      text: 'text-black font-bold',
+      border: 'border border-white/40',
       label: 'HIGH',
     },
     medium: {
-      bg: 'bg-[#818cf8]',
-      text: 'text-white',
+      gradient: 'bg-gradient-to-r from-neutral-700 via-neutral-800 to-neutral-900',
+      text: 'text-neutral-100 font-medium',
+      border: 'border border-white/20',
       label: 'MEDIUM',
     },
     low: {
-      bg: 'bg-[#64748b]',
-      text: 'text-white',
+      gradient: 'bg-gradient-to-r from-neutral-900 to-black',
+      text: 'text-neutral-400 font-normal',
+      border: 'border border-white/10',
       label: 'LOW',
     },
     info: {
-      bg: 'bg-[#64748b]',
-      text: 'text-white',
+      gradient: 'bg-gradient-to-r from-neutral-900 to-black',
+      text: 'text-neutral-400 font-normal',
+      border: 'border border-white/10',
       label: 'INFO',
     },
   };
@@ -48,10 +56,9 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-[6px] ${current.bg} ${current.text} ${sizeClasses} shadow-sm ${className}`}
+      className={`inline-flex items-center justify-center font-mono uppercase tracking-wider rounded-[6px] ${current.gradient} ${current.text} ${current.border} ${sizeClasses} select-none ${className}`}
     >
       {current.label}
     </span>
   );
 };
-

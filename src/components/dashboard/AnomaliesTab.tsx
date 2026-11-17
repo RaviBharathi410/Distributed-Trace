@@ -140,35 +140,35 @@ export const AnomaliesTab: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 Metric KPI Cards matching reference image */}
+      {/* 4 Metric KPI Cards matching reference image with Black & White Gradients */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Total Anomalies"
           value={stats.total}
           icon={<Activity className="w-5 h-5" />}
-          iconColor="#7c6cf0"
-          iconBg="rgba(124, 108, 240, 0.12)"
+          iconColor="#ffffff"
+          iconBg="linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(0, 0, 0, 0.7) 100%)"
         />
         <StatCard
           label="Critical"
           value={stats.critical}
           icon={<TriangleAlert className="w-5 h-5" />}
-          iconColor="#9b5cf6"
-          iconBg="rgba(155, 92, 246, 0.12)"
+          iconColor="#000000"
+          iconBg="linear-gradient(135deg, #ffffff 0%, #a3a3a3 100%)"
         />
         <StatCard
           label="High"
           value={stats.high}
           icon={<BarChart2 className="w-5 h-5" />}
-          iconColor="#3b82f6"
-          iconBg="rgba(59, 130, 246, 0.12)"
+          iconColor="#000000"
+          iconBg="linear-gradient(135deg, #e5e5e5 0%, #737373 100%)"
         />
         <StatCard
           label="Medium"
           value={stats.medium}
           icon={<Layers className="w-5 h-5" />}
-          iconColor="#b4a7f5"
-          iconBg="rgba(180, 167, 245, 0.12)"
+          iconColor="#ffffff"
+          iconBg="linear-gradient(135deg, #404040 0%, #171717 100%)"
         />
       </div>
 
@@ -244,23 +244,25 @@ export const AnomaliesTab: React.FC = () => {
                     <td className="px-5 py-4">
                       <SeverityBadge severity={anom.severity} size="sm" />
                     </td>
-                    <td className="px-5 py-4 font-semibold text-[#f3f4f8] group-hover:text-[#7c6cf0] transition-colors">
+                    <td className="px-5 py-4 font-semibold text-[#f3f4f8] group-hover:text-white transition-colors">
                       {anom.service_name}
                     </td>
                     <td className="px-5 py-4 text-[#9aa0b5] font-normal">
                       {anom.issue_description || anom.operation_name}
                     </td>
-                    <td className="px-5 py-4 font-mono text-[13px] text-[#60a5fa] font-medium">
-                      {anom.deviation_text || `+${Math.round(anom.observed_latency_ms)}ms`}
+                    <td className="px-5 py-4 font-mono text-[13px] font-bold">
+                      <span className="bg-gradient-to-r from-white via-neutral-200 to-neutral-400 bg-clip-text text-transparent">
+                        {anom.deviation_text || `+${Math.round(anom.observed_latency_ms)}ms`}
+                      </span>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
                           isResolved
-                            ? 'bg-[#3b82f6]/10 text-[#60a5fa] border-[#3b82f6]/30'
+                            ? 'bg-gradient-to-r from-neutral-800 to-black text-neutral-300 border-white/20'
                             : isAck
-                            ? 'bg-white/[0.04] text-[#9aa0b5] border-white/10'
-                            : 'bg-white/10 text-white/90 border-white/20'
+                            ? 'bg-gradient-to-r from-neutral-900 to-black text-neutral-400 border-white/10'
+                            : 'bg-gradient-to-r from-white/20 to-white/5 text-white border-white/30 shadow-sm'
                         }`}
                       >
                         {isResolved ? 'Resolved' : isAck ? 'Acknowledged' : 'Open'}
@@ -314,14 +316,14 @@ export const AnomaliesTab: React.FC = () => {
                 </div>
                 <div className="p-3 rounded-[10px] bg-white/[0.02] border border-white/5">
                   <span className="text-[#6b7188]">Observed Latency</span>
-                  <div className="text-[16px] font-bold font-mono text-[#b08cff] mt-0.5">
+                  <div className="text-[16px] font-bold font-mono bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent mt-0.5">
                     {selectedAnomaly.observed_latency_ms} ms
                   </div>
                 </div>
               </div>
 
               {/* Root Cause Path */}
-              <div className="p-4 rounded-[12px] bg-[#0d0f1a] border border-white/5">
+              <div className="p-4 rounded-[12px] bg-[#050508] border border-white/5">
                 <span className="text-[11px] font-medium text-[#6b7188] uppercase tracking-wider">
                   Causal Dependency Path
                 </span>
@@ -331,8 +333,8 @@ export const AnomaliesTab: React.FC = () => {
                       <span
                         className={`px-2.5 py-1 rounded text-xs font-mono font-medium ${
                           idx === selectedAnomaly.root_cause_path.length - 1
-                            ? 'bg-[#9b5cf6]/20 text-[#b4a7f5] border border-[#9b5cf6]/40'
-                            : 'bg-white/5 text-[#f3f4f8]'
+                            ? 'bg-gradient-to-r from-white/25 to-white/10 text-white border border-white/30 font-semibold shadow-sm'
+                            : 'bg-white/5 text-neutral-300'
                         }`}
                       >
                         {svc}
@@ -346,13 +348,13 @@ export const AnomaliesTab: React.FC = () => {
               </div>
 
               {/* AI Diagnostic Explanation / Deterministic Fallback */}
-              <div className="p-4 rounded-[12px] bg-[#0d0f1a] border border-[#7c6cf0]/30 flex flex-col gap-3">
+              <div className="p-4 rounded-[12px] bg-gradient-to-b from-white/[0.04] to-[#050508] border border-white/20 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-[#f3f4f8] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#7c6cf0]" />
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
                     Causal Incident Analysis
                   </span>
-                  <span className="text-[10px] font-mono text-[#60a5fa] bg-[#3b82f6]/10 px-2 py-0.5 rounded border border-[#3b82f6]/30">
+                  <span className="text-[10px] font-mono text-white bg-gradient-to-r from-white/15 to-white/5 px-2 py-0.5 rounded border border-white/25">
                     Confidence: 94%
                   </span>
                 </div>
@@ -382,7 +384,7 @@ export const AnomaliesTab: React.FC = () => {
                   /* mutate status */
                   setSelectedAnomaly(null);
                 }}
-                className="px-4 py-2 rounded-[8px] bg-[#7c6cf0] hover:bg-[#6c5ce7] text-xs font-semibold text-white transition-colors"
+                className="px-4 py-2 rounded-[8px] bg-gradient-to-r from-white via-neutral-100 to-neutral-300 hover:from-neutral-100 hover:to-white text-xs font-semibold text-black transition-all shadow-sm"
               >
                 Acknowledge Incident
               </button>

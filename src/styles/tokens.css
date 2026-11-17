@@ -47,15 +47,15 @@
   --bar-solid: #4d8dff;
   --bar-hot-solid: #7c6cf0;
 
-  /* Severity Badges (Zero Yellow) */
-  --sev-critical: #9b5cf6;
-  --sev-critical-text: #ffffff;
-  --sev-high: #3b82f6;
-  --sev-high-text: #ffffff;
-  --sev-medium: #818cf8;
+  /* Severity Badges & Anomaly Detection (Black & White Gradients) */
+  --sev-critical: linear-gradient(135deg, #ffffff 0%, #d4d4d4 100%);
+  --sev-critical-text: #000000;
+  --sev-high: linear-gradient(135deg, #e5e5e5 0%, #a3a3a3 100%);
+  --sev-high-text: #000000;
+  --sev-medium: linear-gradient(135deg, #404040 0%, #171717 100%);
   --sev-medium-text: #ffffff;
-  --sev-low: #64748b;
-  --sev-low-text: #ffffff;
+  --sev-low: linear-gradient(135deg, #1f1f1f 0%, #0a0a0a 100%);
+  --sev-low-text: #a3a3a3;
 
   /* Service Health / Donut Chart (Blue / Indigo / Violet - Zero Yellow, Zero Green) */
   --donut-healthy: #3b82f6;

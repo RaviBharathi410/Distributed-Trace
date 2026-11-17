@@ -125,9 +125,9 @@ export const ComponentKitPage: React.FC = () => {
             { name: '--accent', color: '#7c6cf0', desc: 'Violet brand / active' },
             { name: '--link', color: '#4d8dff', desc: 'Trace link mono' },
             { name: '--good', color: '#60a5fa', desc: 'Healthy / Positive' },
-            { name: '--sev-critical', color: '#9b5cf6', desc: 'Critical badge' },
-            { name: '--sev-high', color: '#3b82f6', desc: 'High badge' },
-            { name: '--sev-medium', color: '#818cf8', desc: 'Medium badge' },
+            { name: '--sev-critical', color: '#ffffff', desc: 'Critical gradient' },
+            { name: '--sev-high', color: '#a3a3a3', desc: 'High gradient' },
+            { name: '--sev-medium', color: '#404040', desc: 'Medium gradient' },
             { name: '--donut-healthy', color: '#3b82f6', desc: 'Healthy blue' },
             { name: '--bar-hot', color: '#9b6bf2', desc: 'Waterfall hot / highlight' },
             { name: '--text-2', color: '#9aa0b5', desc: 'Secondary label' },
@@ -179,8 +179,8 @@ export const ComponentKitPage: React.FC = () => {
             value="3"
             subtext="1 critical, 2 medium"
             icon={<ShieldAlert className="w-5 h-5" />}
-            iconColor="#818cf8"
-            iconBg="rgba(129, 140, 248, 0.12)"
+            iconColor="#ffffff"
+            iconBg="linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(0, 0, 0, 0.7) 100%)"
           />
         </div>
       </div>

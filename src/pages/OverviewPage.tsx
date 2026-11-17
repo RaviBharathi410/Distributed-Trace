@@ -129,8 +129,8 @@ export const OverviewPage: React.FC = () => {
           label="Active Anomalies"
           value={activeAnomaliesCount}
           icon={<AlertTriangle className="w-5 h-5" />}
-          iconColor="#818cf8"
-          iconBg="rgba(129, 140, 248, 0.12)"
+          iconColor="#ffffff"
+          iconBg="linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(0, 0, 0, 0.7) 100%)"
         />
       </div>
 
@@ -250,17 +250,17 @@ export const OverviewPage: React.FC = () => {
                   <div
                     key={anom.id}
                     onClick={() => navigate(`/anomalies?selected=${anom.id}`)}
-                    className="p-3 rounded-[10px] bg-white/[0.02] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.12)] transition-all cursor-pointer flex flex-col gap-1.5 group"
+                    className="p-3 rounded-[10px] bg-gradient-to-r from-white/[0.04] to-transparent border border-white/[0.07] hover:border-white/20 transition-all cursor-pointer flex flex-col gap-1.5 group"
                   >
                     <div className="flex items-center justify-between">
                       <SeverityBadge severity={anom.severity} size="sm" />
-                      <span className="text-[11px] text-[#6b7188]">
+                      <span className="text-[11px] font-mono text-neutral-400 bg-gradient-to-r from-white/10 to-transparent px-1.5 py-0.5 rounded border border-white/10">
                         p95 +{latencyDelta > 0 ? latencyDelta : 340}%
                       </span>
                     </div>
 
                     <div className="flex items-baseline justify-between mt-0.5">
-                      <span className="text-[13px] font-semibold text-[#f3f4f8] group-hover:text-[#7c6cf0] transition-colors">
+                      <span className="text-[13px] font-semibold text-[#f3f4f8] group-hover:text-white transition-colors">
                         {anom.service_name}
                       </span>
                       <span className="text-[11px] font-mono text-[#9aa0b5]">

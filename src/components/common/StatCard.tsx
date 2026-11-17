@@ -46,7 +46,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       {icon && (
         <div
           className="w-10 h-10 rounded-[10px] flex items-center justify-center shrink-0 border border-white/[0.05]"
-          style={{ backgroundColor: iconBg, color: iconColor }}
+          style={{ background: iconBg, color: iconColor }}
         >
           {icon}
         </div>
