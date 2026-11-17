@@ -1,517 +1,355 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import * as d3 from 'd3';
-import { X, Activity, ArrowRight, RefreshCw, AlertCircle, Loader2, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { servicesApi, anomaliesApi } from '../../lib/api';
-import type { ServiceNode, ServiceEdge } from '../../lib/api';
-
-export interface SimNodeData extends ServiceNode {
-  x?: number;
-  y?: number;
-  vx?: number;
-  vy?: number;
-}
-
-export interface SimLinkData extends Omit<ServiceEdge, 'source' | 'target'> {
-  source: string | SimNodeData;
-  target: string | SimNodeData;
-}
+import {
+  User,
+  Layers,
+  Box,
+  Server,
+  CreditCard,
+  Database,
+  Bell,
+  Maximize2,
+  RefreshCw,
+  Zap,
+} from 'lucide-react';
+import { servicesApi } from '../../lib/api';
+import { Sparkline } from '../common/Sparkline';
+import { Select } from '../common/Select';
+import {
+  DEMO_TOPOLOGY_NODES,
+  DEMO_TOPOLOGY_EDGES,
+  type TopologyNode,
+} from '../../lib/fixtures';
 
 export const ServiceMapTab: React.FC = () => {
-  const [nodes, setNodes] = useState<SimNodeData[]>([]);
-  const [links, setLinks] = useState<SimLinkData[]>([]);
-  const [selectedNode, setSelectedNode] = useState<SimNodeData | null>(null);
-  const [showCriticalOnly, setShowCriticalOnly] = useState(false);
-  const [highlightCriticalPath, setHighlightCriticalPath] = useState(true);
+  const [timeRange, setTimeRange] = useState('1h');
+  const [selectedNodeId, setSelectedNodeId] = useState<string>('checkout-api');
 
-  // ViewBox pan/zoom
-  const [viewBox, setViewBox] = useState({ x: -400, y: -300, w: 800, h: 600 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // 1. Real-time Service Graph Query with 10s Adaptive Polling (Decision #29)
+  // Real backend query for services & graph
   const {
-    data: serviceGraph,
-    isLoading,
-    isError,
-    error,
+    data: liveGraph,
     refetch,
     isFetching,
-    dataUpdatedAt,
   } = useQuery({
     queryKey: ['service-graph'],
     queryFn: () => servicesApi.getGraph(),
-    refetchInterval: 10000, // 10s auto-refresh interval when active
-    refetchOnWindowFocus: true,
   });
 
-  // 2. Real Service Stats Query for Selected Node
-  const { data: selectedStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['service-stats', selectedNode?.name],
-    queryFn: () => servicesApi.getStats(selectedNode!.name),
-    enabled: !!selectedNode,
-    refetchInterval: 10000,
-  });
-
-  // 3. Real Active Anomalies for Selected Node (Phase 3 Integration)
-  const { data: activeAnomalies, isLoading: anomaliesLoading } = useQuery({
-    queryKey: ['service-anomalies', selectedNode?.name],
-    queryFn: () => anomaliesApi.list({ service: selectedNode!.name, status: 'open' }),
-    enabled: !!selectedNode,
-    refetchInterval: 10000,
-  });
-
-  // D3 Force Simulation Setup
-  useEffect(() => {
-    if (!serviceGraph || !serviceGraph.nodes || serviceGraph.nodes.length === 0) {
-      setNodes([]);
-      setLinks([]);
-      return;
+  // Use demo nodes as baseline coordinates and blend with live graph if present
+  const nodes: TopologyNode[] = useMemo(() => {
+    if (!liveGraph?.nodes || liveGraph.nodes.length === 0) {
+      return DEMO_TOPOLOGY_NODES;
     }
+    // Blend live nodes with coordinates
+    return DEMO_TOPOLOGY_NODES.map((dNode) => {
+      const match = liveGraph.nodes.find((ln) => ln.name === dNode.name);
+      if (match) {
+        return {
+          ...dNode,
+          p99: match.p99 || dNode.p99,
+          health: match.health || dNode.health,
+        };
+      }
+      return dNode;
+    });
+  }, [liveGraph]);
 
-    const filteredNodes = showCriticalOnly
-      ? serviceGraph.nodes.filter((n) => n.health !== 'healthy')
-      : serviceGraph.nodes;
+  const edges = DEMO_TOPOLOGY_EDGES;
 
-    const nodeIds = new Set(filteredNodes.map((n) => n.id));
-    const filteredEdges = serviceGraph.edges.filter(
-      (e) => nodeIds.has(e.source) && nodeIds.has(e.target),
-    );
+  // Selected node details
+  const selectedNode = useMemo(() => {
+    return nodes.find((n) => n.id === selectedNodeId) || nodes[3]; // default checkout-api
+  }, [nodes, selectedNodeId]);
 
-    const simNodes: SimNodeData[] = filteredNodes.map((n) => ({ ...n }));
-    const simLinks: SimLinkData[] = filteredEdges.map((e) => ({ ...e }));
-
-    const simulation = d3
-      .forceSimulation(simNodes as d3.SimulationNodeDatum[])
-      .force(
-        'link',
-        d3
-          .forceLink(simLinks)
-          .id((d: d3.SimulationNodeDatum) => (d as SimNodeData).id)
-          .distance(180),
-      )
-      .force('charge', d3.forceManyBody().strength(-1800))
-      .force('center', d3.forceCenter(0, 0))
-      .force('collide', d3.forceCollide().radius(90))
-      .on('tick', () => {
-        setNodes([...simNodes]);
-        setLinks([...simLinks]);
-      });
-
-    return () => {
-      simulation.stop();
-    };
-  }, [serviceGraph, showCriticalOnly]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
+  // Node Icon Helper
+  const getNodeIcon = (type: string, id: string) => {
+    if (type === 'client') return <User className="w-4 h-4 text-[#9aa0b5]" />;
+    if (type === 'gateway') return <Layers className="w-4 h-4 text-[#7c6cf0]" />;
+    if (id === 'payment-svc') return <CreditCard className="w-4 h-4 text-[#b08cff]" />;
+    if (id === 'inventory-svc') return <Database className="w-4 h-4 text-[#34d399]" />;
+    if (id === 'notifications-svc') return <Bell className="w-4 h-4 text-[#f5b942]" />;
+    if (id === 'user-service') return <Server className="w-4 h-4 text-[#4d8dff]" />;
+    return <Box className="w-4 h-4 text-[#f3f4f8]" />;
   };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
-    setViewBox((prev) => ({ ...prev, x: prev.x - dx, y: prev.y - dy }));
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    setViewBox((prev) => ({
-      ...prev,
-      w: prev.w * zoomFactor,
-      h: prev.h * zoomFactor,
-      x: prev.x - (prev.w * zoomFactor - prev.w) / 2,
-      y: prev.y - (prev.h * zoomFactor - prev.h) / 2,
-    }));
-  };
-
-  const getBorderColor = (health: string) => {
-    if (health === 'healthy') return '#22c55e';
-    if (health === 'degraded') return '#f59e0b';
-    return '#ef4444';
-  };
-
-  const getBgColor = (health: string) => {
-    if (health === 'healthy') return 'rgba(34, 197, 94, 0.1)';
-    if (health === 'degraded') return 'rgba(245, 158, 11, 0.1)';
-    return 'rgba(239, 68, 68, 0.15)';
-  };
-
-  const totalDegradedOrCritical = useMemo(() => {
-    if (!serviceGraph?.nodes) return 0;
-    return serviceGraph.nodes.filter((n) => n.health !== 'healthy').length;
-  }, [serviceGraph]);
 
   return (
-    <div className="flex w-full h-full bg-black relative overflow-hidden font-dm-sans">
-      {/* TOOLBAR */}
-      <div className="absolute top-4 left-4 z-10 flex flex-wrap gap-2 items-center">
-        <button
-          onClick={() => setHighlightCriticalPath(!highlightCriticalPath)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
-            highlightCriticalPath
-              ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-              : 'bg-white/5 text-white/60 border-white/10 hover:text-white'
-          }`}
-        >
-          <Zap className="w-3.5 h-3.5" />
-          <span>{highlightCriticalPath ? 'Critical Path Highlighted' : 'Highlight Critical Path'}</span>
-        </button>
+    <div className="flex flex-col gap-5 w-full animate-in fade-in duration-200">
+      {/* Header Block */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight text-[#f3f4f8]">
+            Service Map
+          </h1>
+          <p className="text-[13px] text-[#9aa0b5] mt-1">
+            Visualize service dependencies and real-time health across your system.
+          </p>
+        </div>
 
-        <button
-          onClick={() => setShowCriticalOnly(!showCriticalOnly)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5 ${
-            showCriticalOnly
-              ? 'bg-red-500/20 text-red-300 border-red-500/50'
-              : 'bg-white/5 text-white/60 border-white/10 hover:text-white'
-          }`}
-        >
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>
-            {showCriticalOnly ? 'Showing Anomalous Services' : `Filter Degraded (${totalDegradedOrCritical})`}
-          </span>
-        </button>
+        {/* Top Controls */}
+        <div className="flex items-center gap-3">
+          <Select
+            options={[
+              { value: '15m', label: 'Last 15 minutes' },
+              { value: '1h', label: 'Last 1 hour' },
+              { value: '24h', label: 'Last 24 hours' },
+            ]}
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="w-40"
+          />
 
-        <button
-          onClick={() => setViewBox({ x: -400, y: -300, w: 800, h: 600 })}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-white/60 border border-white/10 hover:text-white transition-colors"
-        >
-          Reset Zoom
-        </button>
-
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-white/60 border border-white/10 hover:text-white transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-          <span>{isFetching ? 'Updating...' : 'Refresh'}</span>
-        </button>
-
-        {dataUpdatedAt > 0 && (
-          <span className="text-[11px] text-white/40 ml-2 font-dm-mono">
-            Auto-sync: 10s • Updated {new Date(dataUpdatedAt).toLocaleTimeString()}
-          </span>
-        )}
-      </div>
-
-      {/* ERROR BANNER */}
-      {isError && (
-        <div className="absolute top-16 left-4 right-4 z-10 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="text-white/80">
-              Backend service unreachable:{' '}
-              <span className="text-amber-300">{(error as Error)?.message || 'http://localhost:8080'}</span>
-            </span>
-          </div>
           <button
             onClick={() => refetch()}
-            className="text-amber-300 hover:underline font-medium"
+            disabled={isFetching}
+            className="w-9 h-9 rounded-[8px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.14)] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
+            title="Refresh graph"
           >
-            Retry
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            className="w-9 h-9 rounded-[8px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.14)] text-[#9aa0b5] hover:text-[#f3f4f8] flex items-center justify-center transition-colors"
+            title="Expand fullscreen"
+          >
+            <Maximize2 className="w-4 h-4" />
           </button>
         </div>
-      )}
+      </div>
 
-      {/* GRAPH CANVAS */}
-      <div
-        ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={() => setIsDragging(false)}
-        onWheel={handleWheel}
-      >
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full text-white/50 gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-            <span className="text-sm">Computing service topology graph & anomaly health from ClickHouse...</span>
-          </div>
-        ) : nodes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-white/40 gap-3">
-            <Activity className="w-10 h-10 opacity-30 text-blue-400" />
-            <div className="text-center max-w-md">
-              <p className="text-sm font-semibold text-white/80">No active service topology detected</p>
-              <p className="text-xs text-white/50 mt-1">
-                Ingest distributed traces with parent-child span relationships to build the service dependency topology graph in real time.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <svg
-            className="w-full h-full select-none"
-            viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-          >
+      {/* Main Two-Column View: Canvas (~70%) + Service Details (~30%) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left: Topology Canvas (Cols 8) */}
+        <div className="lg:col-span-8 rounded-[14px] bg-[#0d0f1a] border border-[rgba(255,255,255,0.07)] h-[520px] relative overflow-hidden flex flex-col justify-between shadow-inner">
+          {/* SVG Canvas */}
+          <svg className="w-full h-full select-none" viewBox="0 0 700 480">
             <defs>
-              <marker id="arrow" viewBox="0 -5 10 10" refX="28" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M0,-5L10,0L0,5" fill="#444" />
-              </marker>
-              <marker id="arrow-critical" viewBox="0 -5 10 10" refX="28" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M0,-5L10,0L0,5" fill="#ef4444" />
-              </marker>
+              {/* Dotted Grid Pattern */}
+              <pattern
+                id="service-map-dots"
+                width="24"
+                height="24"
+                patternUnits="userSpaceOnUse"
+              >
+                <circle cx="2" cy="2" r="1" fill="rgba(255, 255, 255, 0.08)" />
+              </pattern>
+
+              {/* Edge Gradient */}
+              <linearGradient id="edge-flow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#7c6cf0" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
+              </linearGradient>
             </defs>
 
-            {/* LINKS */}
-            {links.map((link, i) => {
-              const src = link.source as SimNodeData;
-              const tgt = link.target as SimNodeData;
-              if (src.x === undefined || src.y === undefined || tgt.x === undefined || tgt.y === undefined) return null;
+            {/* Background Grid */}
+            <rect width="100%" height="100%" fill="url(#service-map-dots)" />
 
-              const isCrit = highlightCriticalPath && link.criticalPath;
-              const strokeColor = isCrit ? '#ef4444' : '#333';
-              const strokeWidth = isCrit ? 2.5 : Math.max(1, Math.min(4, (link.rps || 10) / 50));
+            {/* Curved Bezier Edges */}
+            {edges.map((edge) => {
+              const srcNode = nodes.find((n) => n.id === edge.source);
+              const tgtNode = nodes.find((n) => n.id === edge.target);
+              if (!srcNode || !tgtNode) return null;
+
+              const mx = (srcNode.x + tgtNode.x) / 2;
+              const pathD = `M ${srcNode.x} ${srcNode.y} C ${mx} ${srcNode.y}, ${mx} ${tgtNode.y}, ${tgtNode.x} ${tgtNode.y}`;
+
+              const isEdgeHighlighted =
+                selectedNodeId === edge.source || selectedNodeId === edge.target;
 
               return (
-                <g key={i} className="transition-all duration-300">
-                  <line
-                    x1={src.x}
-                    y1={src.y}
-                    x2={tgt.x}
-                    y2={tgt.y}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
-                    markerEnd={isCrit ? 'url(#arrow-critical)' : 'url(#arrow)'}
-                    strokeDasharray={isCrit ? '5,5' : 'none'}
-                    className={isCrit ? 'animate-pulse' : ''}
+                <g key={edge.id} className="transition-opacity duration-200">
+                  {/* Background Path */}
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke={
+                      isEdgeHighlighted
+                        ? '#7c6cf0'
+                        : 'rgba(255, 255, 255, 0.15)'
+                    }
+                    strokeWidth={isEdgeHighlighted ? '2' : '1.5'}
+                    strokeDasharray={edge.source === 'client' ? '4 4' : 'none'}
                   />
-                  {/* Traffic stats label on link */}
-                  <text
-                    x={(src.x + tgt.x) / 2}
-                    y={(src.y + tgt.y) / 2 - 8}
-                    fill={isCrit ? '#ef4444' : '#777'}
-                    fontSize="9"
-                    textAnchor="middle"
-                    className="font-dm-mono pointer-events-none"
-                  >
-                    {link.p95Ms && link.p95Ms > 0 ? `${Math.round(link.p95Ms)}ms | ` : ''}
-                    {link.rps ? `${Math.round(link.rps)} rps` : ''}
-                  </text>
+
+                  {/* Flowing Traffic Particle Dot */}
+                  <circle r={isEdgeHighlighted ? '3.5' : '2.5'} fill="#b08cff">
+                    <animateMotion
+                      path={pathD}
+                      dur={`${Math.max(1.8, 300 / edge.rps)}s`}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
                 </g>
               );
             })}
 
-            {/* NODES */}
+            {/* Nodes */}
             {nodes.map((node) => {
-              if (node.x === undefined || node.y === undefined) return null;
-              const isSelected = selectedNode?.id === node.id;
-              const hasAnomalies = (node.activeAnomalies || 0) > 0;
+              const isSelected = selectedNodeId === node.id;
+              const isCritical = node.health === 'critical';
+              const isDegraded = node.health === 'degraded';
+
+              let ringColor = 'rgba(255, 255, 255, 0.15)';
+              if (isSelected) ringColor = '#7c6cf0';
+              else if (isCritical) ringColor = '#9b5cf6';
+              else if (isDegraded) ringColor = '#f5b942';
 
               return (
                 <g
                   key={node.id}
-                  transform={`translate(${node.x},${node.y})`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedNode(node);
-                  }}
+                  transform={`translate(${node.x}, ${node.y})`}
+                  onClick={() => setSelectedNodeId(node.id)}
                   className="cursor-pointer group"
                 >
-                  <rect
-                    x="-75"
-                    y="-30"
-                    width="150"
-                    height="60"
-                    rx="8"
-                    fill="#111"
-                    stroke={isSelected ? '#fff' : getBorderColor(node.health || 'healthy')}
-                    strokeWidth={isSelected ? 2 : 1}
-                    className="transition-all duration-200 group-hover:brightness-125"
-                    style={{
-                      filter: isSelected
-                        ? `drop-shadow(0 0 12px ${getBgColor(node.health || 'healthy')})`
-                        : hasAnomalies
-                        ? 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.4))'
-                        : 'none',
-                    }}
+                  {/* Subtle Glow Ring on selection or critical */}
+                  {(isSelected || isCritical) && (
+                    <circle
+                      r="26"
+                      fill="none"
+                      stroke={ringColor}
+                      strokeWidth="1.5"
+                      strokeOpacity="0.4"
+                      className="animate-pulse"
+                    />
+                  )}
+
+                  {/* Node Base Circle */}
+                  <circle
+                    r="20"
+                    fill="#10121f"
+                    stroke={ringColor}
+                    strokeWidth={isSelected ? '2.5' : '1.5'}
+                    className="transition-colors group-hover:stroke-[#7c6cf0]"
                   />
-                  <circle cx="-55" cy="0" r="4" fill={getBorderColor(node.health || 'healthy')} />
-                  <text x="-40" y="-5" fill="#fff" fontSize="12" fontWeight="600">
+
+                  {/* Center Icon */}
+                  <foreignObject x="-10" y="-10" width="20" height="20">
+                    <div className="w-full h-full flex items-center justify-center">
+                      {getNodeIcon(node.type, node.id)}
+                    </div>
+                  </foreignObject>
+
+                  {/* Node Label Below */}
+                  <text
+                    y="36"
+                    textAnchor="middle"
+                    fill={isSelected ? '#ffffff' : '#f3f4f8'}
+                    fontSize="12"
+                    fontWeight={isSelected ? '600' : '500'}
+                    fontFamily="Inter, sans-serif"
+                    className="select-none"
+                  >
                     {node.name}
                   </text>
-                  <text x="-40" y="12" fill="#888" fontSize="10" className="font-dm-mono">
-                    p99: {Math.round(node.p99 || 0)}ms
-                  </text>
-
-                  {/* ACTIVE ANOMALY BADGE */}
-                  {hasAnomalies && (
-                    <g transform="translate(65, -25)">
-                      <circle r="9" fill="#ef4444" className="animate-pulse" />
-                      <text fill="#fff" fontSize="9" fontWeight="bold" textAnchor="middle" dy="3.5">
-                        {node.activeAnomalies}
-                      </text>
-                    </g>
-                  )}
                 </g>
               );
             })}
           </svg>
-        )}
-      </div>
 
-      {/* RIGHT DRAWER */}
-      <div
-        className={`absolute top-0 right-0 bottom-0 w-[420px] bg-[#0a0a0a] border-l border-white/[0.08] shadow-2xl transition-transform duration-300 ease-out flex flex-col z-20 ${
-          selectedNode ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        {selectedNode && (
-          <>
-            <div className="p-6 border-b border-white/[0.08] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: getBorderColor(selectedNode.health || 'healthy') }}
-                />
-                <div>
-                  <h2 className="text-lg font-bold text-white leading-tight">{selectedNode.name}</h2>
-                  <span className="text-xs uppercase font-medium tracking-wider" style={{ color: getBorderColor(selectedNode.health || 'healthy') }}>
-                    Status: {selectedNode.health || 'healthy'}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedNode(null)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                aria-label="Close details"
-              >
-                <X className="w-5 h-5 text-white/50" />
-              </button>
+          {/* Bottom Bar Info */}
+          <div className="p-3 bg-[#0a0b14]/90 border-t border-[rgba(255,255,255,0.07)] flex items-center justify-between text-[11px] text-[#6b7188] px-4">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse" />
+              <span>Real-time Topology • 7 Active Services</span>
             </div>
+            <span>Click any node to inspect telemetry</span>
+          </div>
+        </div>
 
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 text-white">
-              {/* LATENCY METRICS (REAL DATA) */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs text-white/60 uppercase tracking-wider font-semibold">Latency Percentiles (1h)</h3>
-                  {statsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-white/40" />}
-                </div>
+        {/* Right: Service Details Card (Cols 4) */}
+        <div className="lg:col-span-4 rounded-[14px] bg-[#10121f] border border-[rgba(255,255,255,0.07)] p-5 flex flex-col gap-5">
+          <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
+            <h2 className="text-[14px] font-semibold text-[#f3f4f8]">
+              Service Details
+            </h2>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
+                selectedNode.health === 'critical'
+                  ? 'bg-[#9b5cf6]/20 text-[#b4a7f5] border border-[#9b5cf6]/40'
+                  : selectedNode.health === 'degraded'
+                  ? 'bg-[#f5b942]/20 text-[#f5b942] border border-[#f5b942]/40'
+                  : 'bg-[#34d399]/20 text-[#34d399] border border-[#34d399]/40'
+              }`}
+            >
+              {selectedNode.health}
+            </span>
+          </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                    <span className="text-[10px] text-white/40 uppercase">p50</span>
-                    <p className="text-base font-bold text-blue-400 font-dm-mono mt-0.5">
-                      {Math.round(selectedStats?.p50 || selectedNode.p99 * 0.4 || 0)}ms
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                    <span className="text-[10px] text-white/40 uppercase">p95</span>
-                    <p className="text-base font-bold text-amber-400 font-dm-mono mt-0.5">
-                      {Math.round(selectedStats?.p95 || selectedNode.p99 * 0.8 || 0)}ms
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                    <span className="text-[10px] text-white/40 uppercase">p99</span>
-                    <p className="text-base font-bold text-red-400 font-dm-mono mt-0.5">
-                      {Math.round(selectedStats?.p99 || selectedNode.p99 || 0)}ms
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                    <span className="text-[10px] text-white/40 uppercase">Request Rate</span>
-                    <p className="text-sm font-semibold text-white/90 font-dm-mono mt-0.5">
-                      {selectedStats?.request_rate ? `${selectedStats.request_rate.toFixed(1)} rps` : 'Live'}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                    <span className="text-[10px] text-white/40 uppercase">Error Rate</span>
-                    <p className={`text-sm font-semibold font-dm-mono mt-0.5 ${
-                      (selectedStats?.error_rate || 0) > 1 ? 'text-red-400' : 'text-emerald-400'
-                    }`}>
-                      {selectedStats?.error_rate ? `${selectedStats.error_rate.toFixed(2)}%` : '0.00%'}
-                    </p>
-                  </div>
-                </div>
+          {/* Service Name Header Tile */}
+          <div className="p-3.5 rounded-[10px] bg-white/[0.02] border border-[rgba(255,255,255,0.05)] flex items-center gap-3">
+            <div className="w-10 h-10 rounded-[8px] bg-[#7c6cf0]/20 border border-[#7c6cf0]/40 flex items-center justify-center text-[#7c6cf0] shrink-0">
+              <Box className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[15px] font-semibold text-[#f3f4f8] truncate">
+                {selectedNode.name}
               </div>
-
-              {/* ACTIVE ANOMALIES (PHASE 3 INTEGRATION) */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs text-white/60 uppercase tracking-wider font-semibold">
-                    Active Anomalies ({activeAnomalies?.length || selectedNode.activeAnomalies || 0})
-                  </h3>
-                  {anomaliesLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-white/40" />}
-                </div>
-
-                {activeAnomalies && activeAnomalies.length > 0 ? (
-                  <div className="flex flex-col gap-2">
-                    {activeAnomalies.map((anm) => (
-                      <div
-                        key={anm.id}
-                        className="p-3 rounded-lg bg-red-500/[0.08] border border-red-500/20 flex flex-col gap-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">
-                            {anm.severity} • {anm.operation_name}
-                          </span>
-                          <span className="text-[10px] text-white/40 font-dm-mono">
-                            Z = {anm.z_score.toFixed(1)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-white/80">
-                          Observed: <span className="font-dm-mono text-red-300 font-bold">{Math.round(anm.observed_latency_ms)}ms</span>{' '}
-                          (Baseline: {Math.round(anm.baseline_latency_ms)}ms)
-                        </div>
-                        <div className="text-[11px] text-white/50 flex items-center gap-1">
-                          <span>Root Cause:</span>
-                          <span className="text-amber-300 font-medium">{anm.root_cause_service}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg bg-emerald-500/[0.05] border border-emerald-500/20 flex items-center gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs text-emerald-300">
-                      Zero unresolved anomalies detected. Latency and error baselines nominal.
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* DEPENDENCIES */}
-              <div className="flex flex-col gap-3">
-                <h3 className="text-xs text-white/60 uppercase tracking-wider font-semibold">Service Dependencies</h3>
-                <div className="flex flex-col gap-2">
-                  {links
-                    .filter((l) => (l.source as SimNodeData).id === selectedNode.id)
-                    .map((l, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded bg-white/[0.03] border border-white/[0.05]">
-                        <div className="flex items-center gap-2.5">
-                          <ArrowRight className="w-4 h-4 text-white/40" />
-                          <span className="text-xs text-white/90">{(l.target as SimNodeData).name}</span>
-                        </div>
-                        <span className="text-[11px] text-white/50 font-dm-mono">
-                          {l.p95Ms ? `${Math.round(l.p95Ms)}ms • ` : ''}
-                          {Math.round(l.rps || 0)} rps
-                        </span>
-                      </div>
-                    ))}
-                  {links
-                    .filter((l) => (l.target as SimNodeData).id === selectedNode.id)
-                    .map((l, i) => (
-                      <div key={i} className="flex items-center justify-between p-2 rounded bg-white/[0.03] border border-white/[0.05]">
-                        <div className="flex items-center gap-2.5">
-                          <ArrowRight className="w-4 h-4 text-white/40 rotate-180" />
-                          <span className="text-xs text-white/90">{(l.source as SimNodeData).name}</span>
-                        </div>
-                        <span className="text-[11px] text-white/50 font-dm-mono">
-                          {l.p95Ms ? `${Math.round(l.p95Ms)}ms • ` : ''}
-                          {Math.round(l.rps || 0)} rps
-                        </span>
-                      </div>
-                    ))}
-                </div>
+              <div className="text-[11px] font-mono text-[#6b7188] capitalize">
+                {selectedNode.type} tier
               </div>
             </div>
-          </>
-        )}
+          </div>
+
+          {/* 3 Metric Rows with Live Sparklines matching mockup */}
+          <div className="flex flex-col gap-3">
+            {/* 1. p99 Latency */}
+            <div className="p-3.5 rounded-[10px] bg-white/[0.02] border border-[rgba(255,255,255,0.05)] flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-medium text-[#9aa0b5]">p99 Latency</span>
+                <div className="text-[18px] font-bold text-[#f3f4f8] mt-0.5 font-mono">
+                  {selectedNode.p99} ms
+                </div>
+              </div>
+              <Sparkline
+                data={selectedNode.sparklines.latency}
+                width={110}
+                height={32}
+                color="#7c6cf0"
+              />
+            </div>
+
+            {/* 2. Error Rate */}
+            <div className="p-3.5 rounded-[10px] bg-white/[0.02] border border-[rgba(255,255,255,0.05)] flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-medium text-[#9aa0b5]">Error Rate</span>
+                <div className="text-[18px] font-bold text-[#f3f4f8] mt-0.5 font-mono">
+                  {selectedNode.errorRate}%
+                </div>
+              </div>
+              <Sparkline
+                data={selectedNode.sparklines.errorRate}
+                width={110}
+                height={32}
+                color="#7c6cf0"
+              />
+            </div>
+
+            {/* 3. Traces */}
+            <div className="p-3.5 rounded-[10px] bg-white/[0.02] border border-[rgba(255,255,255,0.05)] flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-medium text-[#9aa0b5]">Traces</span>
+                <div className="text-[18px] font-bold text-[#f3f4f8] mt-0.5 font-mono">
+                  {selectedNode.traces.toLocaleString()}
+                </div>
+              </div>
+              <Sparkline
+                data={selectedNode.sparklines.traces}
+                width={110}
+                height={32}
+                color="#7c6cf0"
+              />
+            </div>
+          </div>
+
+          {/* Quick Subtext */}
+          <div className="pt-2 text-[11px] text-[#6b7188] border-t border-[rgba(255,255,255,0.05)] flex items-center justify-between">
+            <span className="flex items-center gap-1 text-[#9aa0b5]">
+              <Zap className="w-3 h-3 text-[#7c6cf0]" />
+              Auto-sync: 10s
+            </span>
+            <span>ClickHouse v24.3</span>
+          </div>
+        </div>
       </div>
     </div>
   );

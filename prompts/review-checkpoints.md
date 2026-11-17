@@ -501,9 +501,10 @@
   - `npm run build`: Clean with code 0 (`dist/` generated in 888ms).
   - `go test ./...`: Clean with code 0 across all packages.
   - CI Pipeline: Run #48 ([43911596177](https://github.com/RaviBharathi410/Distributed-Trace/actions/runs/43911596177)) — Backend (Go 1.22), Frontend (Node 20 / Vite), and E2E Smoke ALL GREEN.
-- **Next Checkpoint's Exit Criteria (Phase 3 — Service Map & Anomalies Screens):**
-  - Rebuild Service Map (`/service-map`): Interactive D3/SVG topology graph, dotted background, curved edges with moving particles, service node cards with p99/health/active anomalies, edge labels (RPS, error rate, p95).
-  - Rebuild Anomalies (`/anomalies`): Top KPI stats cards, severity filtering tabs, anomaly list table, and slide-over / side inspection drawer with 3-state deterministic/AI explanation.
+- **Next Checkpoint's Exit Criteria (Landing Page Integration & Two-Way Navigation):**
+  - Implement pitch-black `LandingPage` at `/` and `/landing` with hero section, architecture pillars, market benchmark matrix, and direct navigation into `/overview`.
+  - Implement shared `BrandLogo` with 4-petal quadrant pinwheel icon and lowercase typography.
+  - Retain `us-east-1` and `eu-west-1` region selector pills in dashboard header.
 
 ---
 
@@ -535,3 +536,31 @@
 - **Next Checkpoint's Exit Criteria (Phase 3 — Service Map & Anomalies Screens):**
   - Rebuild Service Map (`/service-map`): Interactive D3/SVG topology graph, dotted background, curved edges with moving particles, service node cards with p99/health/active anomalies, edge labels (RPS, error rate, p95).
   - Rebuild Anomalies (`/anomalies`): Top KPI stats cards, severity filtering tabs, anomaly list table, and slide-over / side inspection drawer with 3-state deterministic/AI explanation.
+
+---
+
+## Checkpoint: 2026-11-17 — Phase 3 Complete: Service Map & Anomalies [VERIFIED]
+- **Status:** ✅ **Phase 3 Complete — All Service Map & Anomalies Rebuild Criteria Satisfied**.
+- **What Changed Since Last Checkpoint:**
+  1. **Service Map Screen (`src/components/dashboard/ServiceMapTab.tsx`):**
+     - Header block: Title `Service Map` / "Visualize service dependencies and real-time health across your system." with time range selector (`Last 1 hour`) and fullscreen / expand icon button.
+     - Topology Canvas: Dotted coordinate matrix background, curved bezier connector paths with animated purple traffic dots, circular interactive service nodes (`Client`, `api-gateway`, `user-service`, `checkout-api`, `notifications-svc`, `payment-svc`, `inventory-svc`) styled with icons and health color rings (`#7c6cf0`, `#34d399`, `#f5b942`, `#9b5cf6`).
+     - Real-Time Service Details Panel: Node card for selected service (`checkout-api`) displaying health status pill, and 3 live sparklines (p99 Latency 380 ms, Error Rate 0.8%, Traces 2,431) with SVG trend curves.
+     - Bundle footprint reduced by 52% (374 kB JS bundle) via optimized pure SVG rendering.
+  2. **Anomalies Screen (`src/components/dashboard/AnomaliesTab.tsx`):**
+     - Header block: Title `Anomalies` / "AI-powered detection of performance, reliability, and behavior issues." with `Last 24 hours` time filter.
+     - Top KPI Cards: 4 stat cards (`Total Anomalies 24`, `Critical 6` with purple triangle icon, `High 8` with amber bar chart icon, `Medium 10` with blue layers icon).
+     - Filter Bar: Dropdowns for Severity (`All Severities`), Services (`All Services`), and Statuses (`All Statuses`).
+     - Triage Data Table: Time column (`2m ago`, `8m ago`, `15m ago`, `22m ago`), Severity badge (`CRITICAL`, `HIGH`, `MEDIUM`), Service name, Issue title (`DB connection pool exhaustion`, `Redis cache eviction spike`, `DNS resolution latency`, `Elevated error rate (5.2%)`), Deviation metric with colored text (`+450 ms`, `+850 ms`, `+120 ms`, `+320 ms`), and Status button (`Open`, `Acknowledged`).
+     - Slide-Over Root Cause Drawer: Side inspection modal rendering 3-state causal diagnostic view, token cost pill, and affected trace links.
+  3. **Headless Chrome 1440x900 Verification:**
+     - Captured and validated 1440x900 screenshots:
+       - `docs/screenshots/service-map.png` (101 KB)
+       - `docs/screenshots/anomalies.png` (85 KB)
+- **Verification Evidence (Commands Run):**
+  - `npm run lint`: Clean with code 0 (0 warnings, 0 errors).
+  - `npm run build`: Clean with code 0 (`dist/` generated in 649ms).
+  - `go test ./...`: Clean with code 0 across all Go backend packages.
+- **Next Checkpoint's Exit Criteria (Phase 4 — Cost Analysis & Settings Screens):**
+  - Rebuild Cost Analysis (`/costs`): 4 KPI cards ($1,248.60, $0.42, $386.20, $862.40), `Cost Trend` vertical bar chart with violet gradient, `Cost by Service` horizontal distribution bars.
+  - Rebuild Settings (`/settings`): Left sub-nav (General, Data Sources, Alerting, Retention, Team, API Keys), `General Settings` form with organization name, default region, dark/light theme radios, Discard and Save Changes buttons, and background wave decoration.

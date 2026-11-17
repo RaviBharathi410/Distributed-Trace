@@ -48,7 +48,20 @@ export const DEMO_LIVE_TRACES: TraceRow[] = [
   },
 ];
 
-export const DEMO_ANOMALIES: Anomaly[] = [
+export const DEMO_ANOMALIES_STATS = {
+  total: 24,
+  critical: 6,
+  high: 8,
+  medium: 10,
+};
+
+export interface AnomalyTableRow extends Anomaly {
+  issue_description?: string;
+  deviation_text?: string;
+  time_ago?: string;
+}
+
+export const DEMO_ANOMALIES: AnomalyTableRow[] = [
   {
     id: 'anom-9041',
     org_id: 'org-default',
@@ -58,42 +71,217 @@ export const DEMO_ANOMALIES: Anomaly[] = [
     severity: 'critical',
     z_score: 4.8,
     baseline_latency_ms: 45.0,
-    observed_latency_ms: 198.0,
+    observed_latency_ms: 495.0,
     error_rate_delta: 0.12,
     status: 'open',
-    detected_at: new Date(Date.now() - 3 * 60000).toISOString(),
+    detected_at: new Date(Date.now() - 2 * 60000).toISOString(),
     root_cause_path: ['frontend', 'checkout-api', 'payment-svc'],
+    issue_description: 'DB connection pool exhaustion',
+    deviation_text: '+450 ms',
+    time_ago: '2m ago',
   },
   {
     id: 'anom-9042',
     org_id: 'org-default',
     service_name: 'inventory-svc',
-    operation_name: 'batch_update',
+    operation_name: 'reserve_items',
     root_cause_service: 'inventory-svc',
     severity: 'high',
     z_score: 3.2,
-    baseline_latency_ms: 28.0,
-    observed_latency_ms: 84.0,
+    baseline_latency_ms: 30.0,
+    observed_latency_ms: 880.0,
     error_rate_delta: 0.18,
     status: 'open',
-    detected_at: new Date(Date.now() - 14 * 60000).toISOString(),
+    detected_at: new Date(Date.now() - 8 * 60000).toISOString(),
     root_cause_path: ['checkout-api', 'inventory-svc'],
+    issue_description: 'Redis cache eviction spike',
+    deviation_text: '+850 ms',
+    time_ago: '8m ago',
   },
   {
     id: 'anom-9043',
     org_id: 'org-default',
-    service_name: 'auth-api',
-    operation_name: 'validate_jwt',
-    root_cause_service: 'auth-api',
+    service_name: 'api-gateway',
+    operation_name: 'route_request',
+    root_cause_service: 'api-gateway',
     severity: 'medium',
     z_score: 2.4,
-    baseline_latency_ms: 8.0,
-    observed_latency_ms: 22.0,
+    baseline_latency_ms: 10.0,
+    observed_latency_ms: 130.0,
     error_rate_delta: 0.02,
-    status: 'open',
-    detected_at: new Date(Date.now() - 45 * 60000).toISOString(),
-    root_cause_path: ['api-gateway', 'auth-api'],
+    status: 'investigating',
+    detected_at: new Date(Date.now() - 15 * 60000).toISOString(),
+    root_cause_path: ['client', 'api-gateway'],
+    issue_description: 'DNS resolution latency',
+    deviation_text: '+120 ms',
+    time_ago: '15m ago',
   },
+  {
+    id: 'anom-9044',
+    org_id: 'org-default',
+    service_name: 'checkout-api',
+    operation_name: 'process_checkout',
+    root_cause_service: 'checkout-api',
+    severity: 'high',
+    z_score: 3.8,
+    baseline_latency_ms: 60.0,
+    observed_latency_ms: 380.0,
+    error_rate_delta: 0.052,
+    status: 'open',
+    detected_at: new Date(Date.now() - 22 * 60000).toISOString(),
+    root_cause_path: ['api-gateway', 'checkout-api'],
+    issue_description: 'Elevated error rate (5.2%)',
+    deviation_text: '+320 ms',
+    time_ago: '22m ago',
+  },
+];
+
+export interface TopologyNode {
+  id: string;
+  name: string;
+  type: 'client' | 'gateway' | 'service';
+  x: number;
+  y: number;
+  p99: number;
+  errorRate: number;
+  traces: number;
+  health: 'healthy' | 'degraded' | 'critical';
+  sparklines: {
+    latency: number[];
+    errorRate: number[];
+    traces: number[];
+  };
+}
+
+export interface TopologyEdge {
+  id: string;
+  source: string;
+  target: string;
+  rps: number;
+}
+
+export const DEMO_TOPOLOGY_NODES: TopologyNode[] = [
+  {
+    id: 'client',
+    name: 'Client',
+    type: 'client',
+    x: 80,
+    y: 240,
+    p99: 420,
+    errorRate: 0.1,
+    traces: 12438,
+    health: 'healthy',
+    sparklines: {
+      latency: [350, 370, 390, 410, 420, 400, 420],
+      errorRate: [0.1, 0.1, 0.2, 0.1, 0.1],
+      traces: [11000, 11500, 12000, 12438],
+    },
+  },
+  {
+    id: 'api-gateway',
+    name: 'api-gateway',
+    type: 'gateway',
+    x: 230,
+    y: 240,
+    p99: 210,
+    errorRate: 0.2,
+    traces: 8940,
+    health: 'healthy',
+    sparklines: {
+      latency: [180, 195, 200, 210, 205, 210],
+      errorRate: [0.1, 0.2, 0.2, 0.2],
+      traces: [8000, 8400, 8700, 8940],
+    },
+  },
+  {
+    id: 'user-service',
+    name: 'user-service',
+    type: 'service',
+    x: 390,
+    y: 130,
+    p99: 120,
+    errorRate: 0.1,
+    traces: 3420,
+    health: 'healthy',
+    sparklines: {
+      latency: [110, 115, 120, 118, 120],
+      errorRate: [0.1, 0.1, 0.1],
+      traces: [3000, 3200, 3420],
+    },
+  },
+  {
+    id: 'checkout-api',
+    name: 'checkout-api',
+    type: 'service',
+    x: 390,
+    y: 240,
+    p99: 380,
+    errorRate: 0.8,
+    traces: 2431,
+    health: 'degraded',
+    sparklines: {
+      latency: [240, 260, 290, 310, 340, 360, 350, 380],
+      errorRate: [0.2, 0.3, 0.4, 0.5, 0.4, 0.7, 0.8],
+      traces: [1800, 1950, 2100, 2250, 2300, 2431],
+    },
+  },
+  {
+    id: 'notifications-svc',
+    name: 'notifications-svc',
+    type: 'service',
+    x: 390,
+    y: 350,
+    p99: 65,
+    errorRate: 0.05,
+    traces: 1850,
+    health: 'healthy',
+    sparklines: {
+      latency: [55, 60, 62, 65, 63, 65],
+      errorRate: [0.05, 0.05],
+      traces: [1600, 1750, 1850],
+    },
+  },
+  {
+    id: 'payment-svc',
+    name: 'payment-svc',
+    type: 'service',
+    x: 580,
+    y: 160,
+    p99: 450,
+    errorRate: 3.2,
+    traces: 1620,
+    health: 'critical',
+    sparklines: {
+      latency: [180, 220, 280, 350, 410, 450],
+      errorRate: [0.5, 1.2, 2.0, 3.2],
+      traces: [1200, 1400, 1550, 1620],
+    },
+  },
+  {
+    id: 'inventory-svc',
+    name: 'inventory-svc',
+    type: 'service',
+    x: 580,
+    y: 320,
+    p99: 85,
+    errorRate: 0.4,
+    traces: 2190,
+    health: 'healthy',
+    sparklines: {
+      latency: [60, 70, 75, 80, 85],
+      errorRate: [0.2, 0.3, 0.4],
+      traces: [1900, 2050, 2190],
+    },
+  },
+];
+
+export const DEMO_TOPOLOGY_EDGES: TopologyEdge[] = [
+  { id: 'e1', source: 'client', target: 'api-gateway', rps: 142 },
+  { id: 'e2', source: 'api-gateway', target: 'user-service', rps: 38 },
+  { id: 'e3', source: 'api-gateway', target: 'checkout-api', rps: 84 },
+  { id: 'e4', source: 'api-gateway', target: 'notifications-svc', rps: 20 },
+  { id: 'e5', source: 'checkout-api', target: 'payment-svc', rps: 42 },
+  { id: 'e6', source: 'checkout-api', target: 'inventory-svc', rps: 65 },
 ];
 
 export const DEMO_WATERFALL_SPANS = [
